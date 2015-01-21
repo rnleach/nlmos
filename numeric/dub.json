@@ -1,0 +1,58 @@
+{
+  "name": "numeric",
+  "description": "A minimal D application.",
+  "copyright": "Copyright © 2014, Ryan",
+  "authors": ["Ryan"],
+  "version":"1.0.0",
+  "configurations": [
+    {
+      "name":"lib-release",
+      "targetType":"library",
+      "versions":["par"]
+    },
+    {
+      "name": "mallocFree",
+      "targetType": "library",
+      "versions": ["mallocFreeVer"]
+    },
+    {
+      "name": "GC",
+      "targetType": "library",
+      "versions": []
+    },
+    {
+      "name": "mallocFreeProfile",
+      "targetType": "executable",
+      "versions": ["mallocFreeVer","prof"],
+      "mainSourceFile":"source/numeric/matrix.d"
+    },
+    {
+      "name": "GCProfile",
+      "targetType": "executable",
+      "versions": ["prof"],
+      "mainSourceFile":"source/numeric/matrix.d"
+    },
+    {
+      "name": "mallocFreePar",
+      "targetType": "library",
+      "versions": ["mallocFreeVer","par"]
+    },
+    {
+      "name": "GCPar",
+      "targetType": "library",
+      "versions": ["par"]
+    },
+    {
+      "name": "mallocFreeParProfile",
+      "targetType": "executable",
+      "versions": ["mallocFreeVer","prof","par"],
+      "mainSourceFile":"source/numeric/matrix.d"
+    },
+    {
+      "name": "GCParProfile",
+      "targetType": "executable",
+      "versions": ["prof","par"],
+      "mainSourceFile":"source/numeric/matrix.d"
+    }
+  ]
+}

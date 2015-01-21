@@ -1,0 +1,23 @@
+{
+	"name": "dffann",
+	"description": "Feed-Forward Artifical Neural Networks (in D)",
+	"copyright": "Copyright © 2014, Ryan Leach",
+	"authors": ["Ryan"],
+  "version": "1.0.0",
+	"dependencies": 
+    {
+      "numeric": ">=1.0.0"
+    },
+  "configurations":
+    [
+      {
+        "name":"lib-release",
+        "targetType":"library"
+      },
+      {
+        "name":"appTest",
+        "targetType":"executable",
+        "mainSourceFile":"source/app.d"
+      }
+    ]
+}

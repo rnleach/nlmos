@@ -1,0 +1,90 @@
+{
+  "folders":
+  [
+    {
+      "path":"source"
+    },
+    {
+      "path":"."
+    }
+  ],
+  "build_systems":
+  [
+    {
+      "name":"dub release GDC",
+      "working_dir":"$project_path",
+      "cmd":["dub",
+             "--build=release",
+             "--config=lib-release",
+             "--compiler=gdc"]
+    },
+    {
+      "name":"dub release DMD",
+      "working_dir":"$project_path",
+      "cmd":["dub",
+             "--build=release",
+             "--config=lib-release",
+             "--compiler=dmd",
+             "--arch=x86_64"]
+    },
+    {
+      "name":"dub test MF GDC",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=mallocFree",
+             "--compiler=gdc"]
+    },
+    {
+      "name":"dub test MF DMD",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=mallocFree",
+             "--compiler=dmd",
+             "--arch=x86_64"]
+    },
+    {
+      "name":"dub test GC GDC",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=GC",
+             "--compiler=gdc"]
+    },
+    {
+      "name":"dub test GC DMD",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=GC",
+             "--compiler=dmd",
+             "--arch=x86_64"]
+    },
+    {
+      "name":"dub test GC Par GDC",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=GCPar"]
+    },
+    {
+      "name":"dub test GC Par DMD",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=GCPar",
+             "--compiler=dmd",
+             "--arch=x86_64"]
+    },
+    {
+      "name":"dub test MF Par GDC",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=mallocFreePar",
+             "--compiler=gdc"]
+    },
+    {
+      "name":"dub test MF Par DMD",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=mallocFreePar",
+             "--compiler=dmd",
+             "--arch=x86_64"]
+    }
+  ]
+}
