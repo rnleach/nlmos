@@ -16,7 +16,8 @@
       "cmd":["dub",
              "--build=release",
              "--config=lib-release",
-             "--compiler=gdc"]
+             "--compiler=gdc",
+             "--arch=x86_64"]
     },
     {
       "name":"dub release DMD",
@@ -28,61 +29,33 @@
              "--arch=x86_64"]
     },
     {
-      "name":"dub test MF GDC",
+      "name":"dub test GDC",
       "working_dir":"$project_path",
       "cmd":["dub","test",
-             "--config=mallocFree",
-             "--compiler=gdc"]
-    },
-    {
-      "name":"dub test MF DMD",
-      "working_dir":"$project_path",
-      "cmd":["dub","test",
-             "--config=mallocFree",
-             "--compiler=dmd",
+             "--compiler=gdc",
+             "--config=SerialProfile",
              "--arch=x86_64"]
     },
     {
-      "name":"dub test GC GDC",
+      "name":"dub test DMD",
       "working_dir":"$project_path",
       "cmd":["dub","test",
-             "--config=GC",
-             "--compiler=gdc"]
-    },
-    {
-      "name":"dub test GC DMD",
-      "working_dir":"$project_path",
-      "cmd":["dub","test",
-             "--config=GC",
              "--compiler=dmd",
+             "--config=SerialProfile",
              "--arch=x86_64"]
     },
     {
-      "name":"dub test GC Par GDC",
+      "name":"dub test Par GDC",
       "working_dir":"$project_path",
       "cmd":["dub","test",
-             "--config=GCPar"]
-    },
-    {
-      "name":"dub test GC Par DMD",
-      "working_dir":"$project_path",
-      "cmd":["dub","test",
-             "--config=GCPar",
-             "--compiler=dmd",
+             "--config=ParProfile",
              "--arch=x86_64"]
     },
     {
-      "name":"dub test MF Par GDC",
+      "name":"dub test Par DMD",
       "working_dir":"$project_path",
       "cmd":["dub","test",
-             "--config=mallocFreePar",
-             "--compiler=gdc"]
-    },
-    {
-      "name":"dub test MF Par DMD",
-      "working_dir":"$project_path",
-      "cmd":["dub","test",
-             "--config=mallocFreePar",
+             "--config=ParProfile",
              "--compiler=dmd",
              "--arch=x86_64"]
     }

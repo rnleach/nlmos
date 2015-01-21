@@ -1,38 +1,24 @@
 /**
  * Library for numerics in D.
  *
- * The goal of this library is to be fast at the risk of some safety checks,
- * such as bounds checking on arrays and garbage collection. So it is based on
- * structs, there are compile options for building the library with 
- * manual memory management v.s. using GC, and using parallel execution of many
- * methods v.s. regular serial execution.
+ * The goal of this library is to be fast. So it is based on structs. There is
+ * also a compile option for building the library with parallel execution of 
+ * many methods v.s. regular serial execution.
  *
  * It is not intended to be a complete library, or anything close. I will add
  * the features and functions that I need as I need them.
  *
- * There are two choices (other than compiler) that need to be made when
- * compiling: 
- *
- * 1.) mallocFreeVer - manual memory management or garbage collected (if no 
- *     version is specified).
- * 2.) par - parrallel exectution instead of serial execution of some methods.
- *     Serial execution is the default if no version is specified.
- *
- * The dub.json file associated with this package has configurations for each
- * of these, along with configurations that specifiy the prof version. This is
- * used to automatically run some profiling and save the results. To build the
- * actual library file, use one of the configurations that does not include
- * profile in the name.
+ * version par - parrallel exectution instead of serial execution of some 
+ *               methods. Serial execution is the default if no version is 
+ *               specified.
  *
  * The profile version is handy for comparing potential versions and compilers
  * on any specific system.
  *
+ * Author: Ryan Leach
+ * Version: 1.0.0
+ * Date: January 9, 2015
  */
- /**
-  * Author: Ryan Leach
-  * Version: 1.0.0
-  * Date: January 9, 2015
-  */
 module numeric.matrix;
 
 import std.algorithm: max, min;
@@ -52,11 +38,6 @@ version(unittest){
   }
 }
 
-version(mallocFreeVer){
-  import std.c.stdlib: free, malloc;
-  import std.c.string: memcmp, memcpy;
-}
-
 version(par){
   import std.parallelism: parallel;
 }
@@ -74,22 +55,13 @@ public struct Matrix{
    private size_t rows;
    private size_t cols;
    private size_t numVals;  // numVals = rows * cols is used a lot, so cache it!
-   
-   // Variables related to memory management strategies.
-   version(mallocFreeVer) private double * m; 
-   else private double[] m;
+   private double[] m;
 
   /*============================================================================
    *                Memory management, constructors, destructor, etc.
    *==========================================================================*/
   /**
    * Basic constructor, create uninitialized matrix.
-   *
-   * If manual memory management is used, then nothing is done to initialize
-   * the values of the matrix to double.nan or zero as would normally be done.
-   *
-   * If garbace collection is used, the memory is allocated as a double[], so
-   * each value will be initialized to double.nan.
    *
    * The single variable version creates a square Matrix, and the version that
    * takes an array copies the array values into a new Matix object.
@@ -100,10 +72,7 @@ public struct Matrix{
     cols = c;
     numVals = rows * cols;
 
-    version(mallocFreeVer){
-      m = cast(double *) malloc(numVals * double.sizeof );
-    }
-    else m = new double[numVals];
+    m = new double[numVals];
   }
 
   /**
@@ -129,11 +98,8 @@ public struct Matrix{
     cols = c;
     numVals = rows * cols;
 
-    // Allocate memory
-    version(mallocFreeVer){
-      m = cast(double *) malloc(numVals * double.sizeof );
-    }
-    else m = new double[numVals];
+    // Allocate memory on the GC heap
+    m = new double[numVals];
 
     // Copy in values
     foreach(i; 0 .. r)
@@ -181,18 +147,7 @@ public struct Matrix{
   this(this){
     // rows and cols was moved for us, now we have to allocate new memory and
     // copy all the values to them
-
-    version(mallocFreeVer){
-      // temporary variable to hold new memory
-      double * temp = cast(double *) malloc(numVals * double.sizeof );
-
-      // Now copy values over to the new array
-      temp = cast(double *) memcpy(temp, m, numVals * double.sizeof);
-
-      // Now keep the new array
-      m = temp;
-    }
-    else m = m.dup;
+    m = m.dup;
   }
   unittest{
     mixin(announceTest("Postblit constructor."));
@@ -207,14 +162,6 @@ public struct Matrix{
 
     assert( N !is M);    // Not the same address anymore
 
-    // the pointers must be different - depends on version?
-    /*
-     * This varies by version. Using GC it fails! They are pointing to the same
-     * memory. However, the tests below that demonstrate one does not affect
-     * the other do pass. So the compiler must be doing a lazy copy.
-     */
-    //assert( N.m != M.m); 
-
     // Now test each element in each is the same
     foreach(size_t i; 0 .. M.numVals) assert(N.m[i] == M.m[i]);
 
@@ -227,13 +174,6 @@ public struct Matrix{
       }
       else assert(N.m[i] == M.m[i]);
     }
-  }
-
-  /**
-   * Destructor, must free allocated memory.
-   */
-  ~this(){
-    version(mallocFreeVer) free(cast(void *)m);
   }
 
   /**
@@ -505,17 +445,9 @@ public struct Matrix{
     if(this is rhs) return true;
 
     // Now compare them
-    if(rows == rhs.rows && cols == rhs.cols){
-      version(mallocFreeVer) {
-        // Compare them element by element to be sure the values are the same.
-        if(memcmp(m, rhs.m, numVals * double.sizeof) != 0) return false;
-        return true;
-      }
-      else{
-        return m == rhs.m;
-      }
-      
-    }
+    if(rows == rhs.rows && cols == rhs.cols)
+      return m == rhs.m;
+    
     else return false;
   }
   unittest{
@@ -1541,21 +1473,10 @@ package struct TransposeView{
     if(this is rhs || src is rhs.src) return true;
 
     // Now compare them
-    if(src.rows == rhs.src.rows && src.cols == rhs.src.cols){
+    if(src.rows == rhs.src.rows && src.cols == rhs.src.cols)
       // Compare them element by element to be sure the values are the same.
+      return src.m == rhs.src.m;
 
-      version(mallocFreeVer){
-        if(memcmp(src.m, rhs.src.m, src.numVals * double.sizeof) != 0) 
-          return false;
-      
-        return true;
-      }
-
-      else{
-        return src.m == rhs.src.m;
-      }
-
-    }
     else return false;
   }
   
@@ -2073,8 +1994,6 @@ version(prof){
     string prefix = std.compiler.name ~ "_";
     version(par){prefix ~= "Parallel_";}
     else{prefix ~= "Serial_";}
-    version(mallocFreeVer){prefix ~= "Manual_";}
-    else{prefix ~= "GC_";}
 
     enum iter = 100;              // Number of times to do it while timeing.
     auto sizes = LogRange(1,1001);  // Matrix sizes to use

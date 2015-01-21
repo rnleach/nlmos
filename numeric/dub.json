@@ -11,45 +11,13 @@
       "versions":["par"]
     },
     {
-      "name": "mallocFree",
-      "targetType": "library",
-      "versions": ["mallocFreeVer"]
-    },
-    {
-      "name": "GC",
-      "targetType": "library",
-      "versions": []
-    },
-    {
-      "name": "mallocFreeProfile",
-      "targetType": "executable",
-      "versions": ["mallocFreeVer","prof"],
-      "mainSourceFile":"source/numeric/matrix.d"
-    },
-    {
-      "name": "GCProfile",
+      "name": "SerialProfile",
       "targetType": "executable",
       "versions": ["prof"],
       "mainSourceFile":"source/numeric/matrix.d"
     },
     {
-      "name": "mallocFreePar",
-      "targetType": "library",
-      "versions": ["mallocFreeVer","par"]
-    },
-    {
-      "name": "GCPar",
-      "targetType": "library",
-      "versions": ["par"]
-    },
-    {
-      "name": "mallocFreeParProfile",
-      "targetType": "executable",
-      "versions": ["mallocFreeVer","prof","par"],
-      "mainSourceFile":"source/numeric/matrix.d"
-    },
-    {
-      "name": "GCParProfile",
+      "name": "ParProfile",
       "targetType": "executable",
       "versions": ["prof","par"],
       "mainSourceFile":"source/numeric/matrix.d"
