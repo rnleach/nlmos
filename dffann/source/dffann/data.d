@@ -12,38 +12,9 @@ import std.regex;
 import std.stream;
 import std.string;
 
-/*------------------------------------------------------------------------------
- *                       Alias Types for Clarity
- *----------------------------------------------------------------------------*/
- /**
-  * Data is an alias to the mData class for immutable objects only. There is no 
-  * way to insantiate a mutable version of mData.
-  */
-alias immutable(mData) Data;
-/**
- * TrainingData is a more descriptive name for immutable(double[][]) where a 
- * pair of InputData and TargetData are expected.
- */
-alias immutable(double[][]) TrainingData;
-/**
- * InputData is a more descriptive name for immutable(double[]) in places where
- * network inputs are expected.
- */
-alias immutable(double[]) InputData;
-/**
- * TargetData is a more descriptive name for immutable(double[]) in places where
- * network targets (used for training) are expected.
- */
-alias immutable(double[]) TargetData;
-
-/**
- * Used to delineate what data type is desired in templates.
- */
-enum DataType {TRAINING_DATA, INPUT_DATA, TARGET_DATA};
-
 version(unittest){
 
-  // Set up some variables to be available for all unit tests.
+  // Set up some imports and utility functions for all unit tests.
   
   import std.stdio;
   import std.file;
@@ -53,19 +24,398 @@ version(unittest){
     return "
     write(format(\"Testing %s - %5d: %s...\",__FILE__,__LINE__,\"" ~ msg ~"\"));
     scope(exit)writeln(\"done.\");";
+  }  
+}
+
+/*------------------------------------------------------------------------------
+ *                             DataPoint struct
+ *----------------------------------------------------------------------------*/
+/**
+ * This struct is the most basic form of a data point, and is what
+ * most methods in this framework know how to work with.
+ * 
+ * Authors: Ryan Leach
+ * Date: January 21, 2015
+ * See_Also: Data
+ * 
+ * Params:
+ * numInputs  = The number of inputs stored in each DataPoint.
+ * numTargets = The number of targets stored in each DataPoint.
+ *
+ */
+ struct DataPoint(size_t numInputs, size_t numTargets){
+
+  enum numVals = numInputs + numTargets;
+  
+  private double[numVals] data;
+
+  /**
+   * Params:
+   * inpts = array of input values.
+   * trgts = array of target values.
+   */
+  this(in double[] inpts, in double[] trgts){
+    // Checks - debug releases only.
+    assert(inpts.length == numInputs, "Length mismatch on DataPoint inpts.");
+    assert(trgts.length == numTargets,"Length mismatch on DataPoint trgts.");
+
+    // Since the values are stored in static arrays, must copy them elementwise.
+    data[0 .. numInputs] = inpts[];
+    data[numInputs .. numVals] = trgts[];
+
   }
+
+  /**
+   * Params:
+   * vals = input and target values in single array with targets at the end of 
+   *        of the array.
+   */
+  this(in double[] vals){
+    // Checks - debug versions only
+    assert(vals.length == numVals, "Length mismatch on DataPoint vals.");
+
+    data[] = vals[];
+
+  }
+
+  /**
+   * Params:
+   * strRep = String representation of a DataPoint as produced by the stringRep
+   *          method below.
+   */
+  this(in string strRep){
+
+    // Regular expression for splitting the string on commas.
+    auto sepRegEx = ctRegex!r",";
+
+    // Split the string on commas
+    string[] tokens = split(strRep, sepRegEx);
+
+    // Check to make sure we have enough tokens.
+    assert(tokens.length == numVals, "Length mismatch on DataPoint strRep.");
+
+    // Copy in
+    foreach(i; 0 .. numVals) 
+      this.data[i] = to!double(tokens[i]);
+  }
+
+  // TODO add constructor that takes shift and scale already and applies it
+  //      to the given data. Also requires a new normalize method that
+  //      doesn't calculate the normalization parameters.
+
+  /**
+   * Returns: A string representation of the DataPoint.
+   */
+  @property string stringRep(){
+    string toRet = "";
+
+    foreach(val; this.data) 
+      toRet ~= format("%.*f,", double.dig, val);
+    
+    return toRet[0 .. ($ - 1)]; // -1 to trim final comma
+  }
+
+  /**
+   * Returns: A slice of just the inputs.
+   */
+  @property double[] inputs(){return this.data[0 .. numInputs];}
+
+  /**
+   * Returns: A slice of just the targets.
+   */
+  @property double[] targets(){return this.data[numInputs .. $];}
+
+ }
+ /*=============================================================================
+  *                   Unit tests for DataPoint
+  *===========================================================================*/
+version(unittest){
+  // Some values to keep around for testing DataPoint objects.
+  double[5] inpts = [1.0, 2.0, 3.0, 4.0, 5.0];
+  double[2] trgts = [6.0, 7.0];
+  double[7] vals  = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+}
+unittest{
+  mixin(announceTest("DataPoint this(double[], double[])"));
+
+  DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
+  assert(dp.data == vals);
+
+  // DataPoint objects with no targets are possible too.
+  DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
+  assert(dp2.data == inpts);
+}
+unittest{
+  mixin(announceTest("DataPoint this(double[])"));
+
+  DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
+  assert(dp.data == vals);
+
+  // DataPoint objects with no targets are possible too.
+  DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts);
+  assert(dp2.data == inpts);
+}
+unittest{
+  mixin(announceTest("DataPoint inputs and targets properties."));
+
+  DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
+  assert(dp.inputs == inpts);
+  assert(dp.targets == trgts);
+
+  // DataPoint objects with no targets are possible too.
+  DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
+  assert(dp2.inputs == inpts);
+  assert(dp2.targets == []);
+}
+unittest{
+  mixin(announceTest("DataPoint stringRep"));
+
+  DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
+
+  assert(dp.stringRep == "1.000000000000000,2.000000000000000," ~ 
+                         "3.000000000000000,4.000000000000000," ~ 
+                         "5.000000000000000,6.000000000000000," ~
+                         "7.000000000000000");
+}
+unittest{
+  mixin(announceTest("DataPoint this(string)"));
+
+  DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
+
+  DataPoint!(5,2) dp2 = DataPoint!(5,2)(dp.stringRep);
+
+  assert(dp == dp2);
+}
+
+/*******************************************************************************
+ * A collection of DataPoint objects with some other added functionality 
+ * related to creating various Ranges and Normalizations.
+ *
+ * Params:
+ * numInputs  = The number of inputs stored in each DataPoint.
+ * numTargets = The number of targets stored in each DataPoint.
+ * 
+ * Authors: Ryan Leach
+ * Date: January 21, 2015
+ * See_Also: DataPoint
+ * 
+*******************************************************************************/
+class Data(size_t numInputs, size_t numTargets){
+
+  // Compile time constant for convenience.
+  enum numVals = numInputs + numTargets;
+
+  // Shorthand for my datapoints
+  alias DataPoint!(numInputs, numTargets) DP;
+
+  private DP[] list;
+  private size_t numPoints;
+  private bool[] dataFilter;
+  private double[numVals] shift;
+  private double[numVals] scale;
+
+  /**
+   * Immutable constructor, only immutable instances of data should be used.
+   * 
+   * This constructor assumes the data is not normalized, and normalizes it.
+   *
+   * Params: 
+   * data    = A 2-d array with rows representing a data point and columns, e.g. 
+   *           1000 rows by 5 columns is 1000 5-dimensional data points. If
+   *           there are 3 inputs and 2 targets, then the targets are the last
+   *           two values in each point.
+   * filter  = Must be size inputs + targets. True values indicate that the 
+   *           corresponding column is a binary input (this is not checked) and 
+   *           has value 0 or 1. Thus it should not be normalized.
+   *
+   * See_Also: Normalizations
+   */
+  private immutable this(const double[][] data, const bool[] filter){
+    // Check lengths
+    enforce(data.length > 1, 
+      "Initialization Error, no points in supplied array.");
+    
+    enforce(numVals  == data[0].length,
+      "Initialization Error, sizes do not match.");
+    
+    enforce(filter.length == data[0].length,
+      "Initialization Error, filters do not match data.");
+  
+    this.numPoints = data.length;
+    this.dataFilter = filter.idup;
+
+    // Set up the local data storage and copy values
+    //
+    // list has scope only in this constructor, so when it exits there is no 
+    // other reference to the newly copied data, except the immutable ones!
+    DP[] temp = new DP[](numPoints);
+    
+    for(size_t i = 0; i < numPoints; ++i)
+      temp[i] = DP(data[i]);
+    
+    // Normalize list in place while calculating shifts and scales
+    double[numVals] shift_tmp;
+    double[numVals] scale_tmp;
+    normalize(temp, shift_tmp, scale_tmp, filter);
+
+    // Cast temp to the immutable data, temp never escapes constructor as 
+    // mutable data.
+    this.list = cast(immutable) temp;
+
+    this.shift = cast(immutable)shift_tmp;
+    this.scale = cast(immutable)scale_tmp;
+
+  }
+
+  /**
+   * Immutable constructor, only immutable instances of data should be used. 
+   *
+   * This constructor assumes the data IS already normalized, and does not 
+   * normalize it again. Intended to be used when loading normalizded data from
+   * a file.
+   * 
+   * Params: 
+   * data    = A 2-d array with rows representing a data point and columns,
+   *                e.g. 1000 rows by 5 columns is 1000 5-dimensional data 
+   *                points.
+   * filter  = Must be size inputs + targets. True values indicate that the 
+   *           corresponding column is a binary input (this is not checked) and 
+   *           has value 0 or 1. Thus it should not be normalized. This is used
+   *           for creating Normalizations, so it is still needed.
+   * shift   = The shift used in the normalization.
+   * scale   = The scale used in the normalization.
+   *
+   * See_Also: Normalizations.
+   */
+  private immutable this(const double[][] data, 
+                         const bool[] filter,
+                         const double[] shift,
+                         const double[] scale){
+    
+    // Check lengths
+    enforce(data.length > 1, 
+      "Initialization Error, no points in supplied array.");
+    
+    enforce(filter.length == numVals, 
+      "Initialization Error, filters do not match data.");
+    
+    enforce(shift.length == numVals, 
+      "Initialization Error, shifts do not match data.");
+    
+    enforce(scale.length == numVals, 
+      "Initialization Error, scales do not match data.");
+    
+    // Assign values
+    this.numPoints = data.length;
+    this.dataFilter = filter.idup;
+    this.scale = scale.idup;
+    this.shift = shift.idup;
+    
+    // tmp has scope only in this constructor, so when it exits there
+    // is no other reference to the newly copied data, except the immutable
+    // one!
+    DP[] tmp = new DP[](numPoints);
+    
+    // Copy data by value into tmp arrays
+    foreach(size_t i, const double[] d; data) 
+      tmp[i] = DP(d);
+    this.list = cast(immutable) tmp;
+  }
+
+  /**
+   * Normalizes the array dt in place, returning the shift and scale of the
+   * normalization in the so-named arrays. Filters are used to mark binary 
+   * inputs and automatically set their shift to 0 and scale to 1.
+   *
+   * TODO parallelize this section to speed it up if possible.
+   */
+  private final void normalize(DP[] dt, 
+                         ref double[numVals] shift, 
+                         ref double[numVals] scale,
+                         in bool[] filters) immutable {
+
+    double[numVals] sum;
+    double[numVals] sumsq;
+    
+    // Initialize
+    shift[] = 0.0;
+    scale[] = 1.0;
+    sum[] = 0.0;
+    sumsq[] = 0.0;
+    
+    // Calculate the sum and sumsq
+    foreach(d; dt){
+      for(size_t i = 0; i < numVals; ++i){
+        if(!filters[i]){
+          sum[i] += d.data[i];
+          sumsq[i] += d.data[i] * d.data[i];
+        }
+      }
+    }
+    
+    // Calculate the mean (shift) and standard deviation (scale)
+    size_t nPoints = dt.length;
+    for(size_t i = 0; i < numVals; ++i){
+      if(!filters[i]){
+        shift[i] = sum[i] / nPoints;
+        scale[i] = sqrt((sumsq[i] / nPoints - shift[i] * shift[i]) * 
+          nPoints / (nPoints - 1));
+      }
+    }
+    
+    // Now use these to normalize the data
+    foreach(ref d; dt){
+      for(size_t j = 0; j < numVals; ++j)
+        d.data[j] = (d.data[j] - shift[j]) / scale[j];
+    }
+    
+    // All done, now return.
+  }
+
+  /**
+   * Get information about the sizes of data associated with this Data object.
+   */
+  @property final size_t nPoints() const {return this.numPoints;}
+  /**
+   * ditto
+   */
+  @property final size_t nInputs() const {return numInputs;}
+  /**
+   * ditto
+   */
+  @property final size_t nTargets() const {return numTargets;}
+
+  /**
+   * Returns: a range that iterates over the points in this collection in
+   *          the same order everytime.
+   */
+  @property final DataRange!(numInputs, numTargets) simpleRange() const{
+    return DataRange!(numInputs, numTargets)(this);
+  }
+
+  /**
+   * Returns: The DataPoint object at the given position in this collection.
+   */
+  public final DP getPoint(size_t index) const {return this.list[index];}
+
+}
+/*==============================================================================
+ *                     Unit tests for data class
+ *============================================================================*/
+version(unittest){
   
   // Test Data
-  double[][] testData = [[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
-    [1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1],
-    [1.2, 2.2, 3.2, 4.2, 5.2, 6.2, 7.2],
-    [1.3, 2.3, 3.3, 4.3, 5.3, 6.3, 7.3],
-    [1.4, 2.4, 3.4, 4.4, 5.4, 6.4, 7.4],
-    [1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5],
-    [1.6, 2.6, 3.6, 4.6, 5.6, 6.6, 7.6],
-    [1.7, 2.7, 3.7, 4.7, 5.7, 6.7, 7.7],
-    [1.8, 2.8, 3.8, 4.8, 5.8, 6.8, 7.8],
-    [1.9, 2.9, 3.9, 4.9, 5.9, 6.9, 7.9]];
+  double[][] testData = 
+    [[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+     [1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1],
+     [1.2, 2.2, 3.2, 4.2, 5.2, 6.2, 7.2],
+     [1.3, 2.3, 3.3, 4.3, 5.3, 6.3, 7.3],
+     [1.4, 2.4, 3.4, 4.4, 5.4, 6.4, 7.4],
+     [1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5],
+     [1.6, 2.6, 3.6, 4.6, 5.6, 6.6, 7.6],
+     [1.7, 2.7, 3.7, 4.7, 5.7, 6.7, 7.7],
+     [1.8, 2.8, 3.8, 4.8, 5.8, 6.8, 7.8],
+     [1.9, 2.9, 3.9, 4.9, 5.9, 6.9, 7.9]];
   
   // Values for all normalized values in each row of the test data.
   double[] normalizedRowValues = 
@@ -79,444 +429,175 @@ version(unittest){
      0.825722823844772,
      1.156011953382680,
      1.486301082920590];
+
+  double scalePar = 0.302765035409750;
+  double[] shiftPar = [1.45, 2.45, 3.45, 4.45, 5.45, 6.45, 7.45];
   
-  // None of these values are binary
+  // None of these values are binary, so all flags are false
   bool[] flags = [false, false, false, false, false, false, false];
   
-  // Tolerance for calculations when comparing calculated values during tests.
-  enum TOL = 1.0e-12;
-}
-
-/*******************************************************************************
- * mData is mutable data, but that is really a misnomer, because the class is 
- * intended to only be used in immutable form, hence the alias above to Data.
- *
- * This class manages the data and keeps data inputs paired with targets for
- * training a network. It is also possible to use this to just hold input data
- * by setting the number of targets to zero and just calling methods to get
- * inputs only.
- * 
- * Authors: Ryan Leach
- * Date: October 15, 2014
- * See_Also:
- * 
-*******************************************************************************/
-class mData
-{
-  // Data values, inputs and targets should be parallel arrays.
-	private double[][] inputs;
-	private double[][] targets;
-	
-	// Information for creating normalizations.
-	private double[] inputShift;
-	private double[] inputScale;
-	private double[] targetShift;
-	private double[] targetScale;
-	
-	// false values mean they are 'real-valued', true means that input/target
-	// should not be filtered because it is binary (0,1) or (-1,1)
-	private bool[] inputFilter;
-	private bool[] targetFilter;
-	
-	// Number of points in the data set, number of input values and target values
-	// per point.
-	private size_t nPoints;
-	private size_t nInputs;
-	private size_t nTargets;
-	
-	/**
-	 * Immutable constructor, only immutable instances of data are allowed. This
-	 * constructor assumes the data is not normalized, and normalizes it.
-	 *
-	 * Params: 
-   * data    = A 2-d array with rows representing a data point and columns, e.g. 
-   *           1000 rows by 5 columns is 1000 5-dimensional data points. If
-   *           there are 3 inputs and 2 targets, then the targets are the last
-   *           two values in each point.
-	 * filter  = Must be size inputs + targets. True values indicate that the 
-   *           corresponding column is a binary input (this is not checked) and 
-   *           has value 0 or 1. Thus it should not be normalized.
-	 * inputs  = The number of columns which represent inputs.
-	 * targets = The number of columns which represent targets.
-	 *
-	 * See_Also: Normalizations
-	 */
-	private immutable this(const double[][] data,
-	                       const bool[] filter,
-	                       const size_t inputs, 
-	                       const size_t targets){
-	  // Check lengths
-    enforce(data.length > 1, 
-      "Initialization Error, no points in supplied array.");
-    
-    enforce(inputs + targets  == data[0].length,
-      "Initialization Error, sizes do not match.");
-	  
-    enforce(filter.length == data[0].length,
-      "Initialization Error, filters do not match data.");
-	
-	  this.nPoints = data.length;
-	  this.nInputs = inputs;
-	  this.nTargets = targets;
-	  this.inputFilter = filter[0 .. inputs].idup;
-    this.targetFilter = filter[inputs .. $].idup;
-	  size_t numVals = targets + inputs;
-
-    // Set up the local data storage and copy values
-    //
-    // inputData and targetData have scope only in this constructor, so when
-    // it exits there is no other reference to the newly copied data, except 
-    // the immutable ones!
-    double[][] inputData = new double[][](nPoints, nInputs);
-    double[][] targetData = new double[][](nPoints, nTargets);
-    for(size_t i = 0; i < nPoints; ++i){
-      for(size_t j = 0; j < numVals; ++j){
-        if(j < nInputs) inputData[i][j] = data[i][j];
-        else targetData[i][j - nInputs] = data[i][j];
-      }
-    }
-	  
-	  // Normalize inputData and TargetData in place while calculating 
-    // shifts and scales
-	  double[] inputShift_tmp = new double[](nInputs);
-    double[] inputScale_tmp = new double[](nInputs);
-    double[] targetShift_tmp = new double[](nTargets);
-    double[] targetScale_tmp = new double[](nTargets);
-    normalize(inputData, inputShift_tmp, inputScale_tmp, inputFilter);
-    normalize(targetData, targetShift_tmp, targetScale_tmp, targetFilter);
-
-    this.inputs = cast(immutable) inputData;
-    this.inputShift = cast(immutable)inputShift_tmp;
-    this.inputScale = cast(immutable)inputScale_tmp;
-
-    this.targets = cast(immutable) targetData;
-    this.targetShift = cast(immutable)targetShift_tmp;
-    this.targetScale = cast(immutable)targetScale_tmp;
-	  
-	}
-	
-	/**
-	 * Immutable constructor, only immutable instances of data are allowed. This
-	 * constructor assumes the data IS already normalized, and does not normalize
-	 * it again.
-	 * 
-	 * Params: 
-   * inputData    = A 2-d array with rows representing a data point and columns,
-   *                e.g. 1000 rows by 5 columns is 1000 5-dimensional data 
-   *                points.
-   * inputFilter  = Must be size inputs.  True values indicate that the 
-   *                corresponding column is a binary input (this is not checked)
-   *                and has value 0 or 1. This is also used in the 
-   *                normalization, so we need it again.
-   * inputShift   = The shift used in the input normalization.
-   * inputScale   = The scale used in the input normalization.
-   * targetData   = A 2-d array with rows representing a data point and columns,
-   *                e.g. 1000 rows by 5 columns is 1000 5-dimensional data 
-   *                points. There must be exactly as many points as in inputData
-   *                so they are matched.
-   * targetFilter = Must be size targets. True values indicate that the
-   *                corresponding column is a binary value (this is not checked)
-   *                and has value 0 or 1. This is also used in the 
-   *                normalization, so we need it again.
-   * targetShift  = The shift used in the normalization.
-	 * targetScale  = The scale used in the normalization.
-	 *
-	 * See_Also: Normalizations.
-	 */
-	private immutable this(const double[][] inputData, 
-                         const bool[] inputFilter,
-	                       const double[] inputShift,
-                         const double[] inputScale,
-                         const double[][] targetData,
-                         const bool[] targetFilter,
-                         const double[] targetShift,
-                         const double[] targetScale){
-    
-    // Check lengths
-    enforce(inputData.length > 1, 
-      "Initialization Error, no points in supplied array.");
-	  
-    enforce(inputData.length == targetData.length, 
-      "Initialization Error, sizes of input and target data arrays not equal.");
-	  
-    enforce(inputFilter.length == inputData[0].length, 
-      "Initialization Error, input filters do not match data.");
-	  
-    enforce(inputShift.length == inputData[0].length, 
-      "Initialization Error, input shifts do not match data.");
-    
-    enforce(inputScale.length == inputData[0].length, 
-      "Initialization Error, input scales do not match data.");
-    
-    enforce(targetFilter.length == targetData[0].length, 
-      "Initialization Error, target filters do not match data.");
-    
-    enforce(targetShift.length == targetData[0].length, 
-      "Initialization Error, target shifts do not match data.");
-    
-    enforce(targetScale.length == targetData[0].length, 
-      "Initialization Error, target scales do not match data.");
-	  
-    // Assign values
-    this.nPoints = inputData.length;
-    this.nInputs = inputData[0].length;
-    this.nTargets = targetData[0].length;
-    this.inputFilter = inputFilter.idup;
-    this.inputScale = inputScale.idup;
-    this.inputShift = inputShift.idup;
-    this.targetFilter = targetFilter.idup;
-    this.targetShift = targetShift.idup;
-    this.targetScale = targetScale.idup;
-	  size_t numVals = nInputs + nTargets;
-	  
-	  // tmp has scope only in this constructor, so when it exits there
-	  // is no other reference to the newly copied data, except the immutable
-	  // one!
-	  double[][] tmpInputs = new double[][](nPoints, nInputs);
-    double[][] tmpTargets = new double[][](nPoints,nTargets);
-	  
-	  // Copy data by value into tmp arrays
-	  foreach(size_t i,const double[] d; inputData) 
-	    foreach(size_t j, double dd; d) tmpInputs[i][j]= dd;
-    this.inputs = cast(immutable) tmpInputs;
-
-    foreach(size_t i,const double[] d; targetData) 
-      foreach(size_t j, double dd; d) tmpTargets[i][j]= dd;
-    this.targets = cast(immutable) tmpTargets;
-	}
-	
-	/**
-	 * Returns: The number of points in the Data set.
-	 */
-	@property public final size_t numPoints()const{return this.nPoints;}
-	
-	/**
-	 * Returns: The number of input values.
-	 */
-	@property public final size_t numInputs()const{return this.nInputs;}
-	
-	/**
-	 * Returns: The number of target values.
-	 */
-	@property public final size_t numTargets()const{return this.nTargets;}
-	
-	/**
-	 * Returns: DataRange for this object that iterates over the TrainingData.
-	 *
-	 * See_Also: TrainingData
-	 */
-	@property final DataRange!(DataType.TRAINING_DATA) trainingDataRange() immutable{
-	  return DataRange!(DataType.TRAINING_DATA)(this);
-	}
-	
-	/**
-	 * Returns: DataRange for this object that iterates over the InputData.
-	 *
-	 * See_Also: InputData
-	 */
-	@property final DataRange!(DataType.INPUT_DATA) inputDataRange()immutable{
-	  return DataRange!(DataType.INPUT_DATA)(this);
-	}
-	
-	/**
-	 * Returns: DataRange for this object that iterates over the TargetData.
-	 *
-	 * See_Also: TargetData
-	 */
-	@property final DataRange!(DataType.TARGET_DATA) targetDataRange()immutable{
-	  return DataRange!(DataType.TARGET_DATA)(this);
-	}
-	
-	/**
-	 * Get an (immutable) set of network inputs and targets, used in training
-	 * and verification of networks.
-	 *
-	 * Params: 
-   * i = the index of the data point you want, ranges from 0 to the property 
-   *     numPoints. This should always return the save valuefor the given data
-   *     set.
-	 */
-	public final TrainingData getTrainingData(size_t i)immutable{
-    assert(i < this.nPoints);
-
-	  return [this.inputs[i],this.targets[i]];
-	}
-	
-	/**
-	 * Get an (immutable) set of network inputs.
-	 *
-	 * Params: 
-   * i = the index of the data point you want, ranges from 0 to the property 
-   *     numPoints. This should always return the save valuefor the given data 
-   *     set.
-	 */
-	public final InputData getInputData(size_t i) immutable{
-    assert(i < this.nPoints);
-
-    return this.inputs[i];
-	}
-	
-	/**
-	 * Get an (immutable) set of network targets. Should not be used often, expect
-	 * to use getTrainingData during training/verification and getInputData when
-	 * there are no targets.
-	 *
-	 * Params: 
-   * i = the index of the data point you want, ranges from 0 to the property 
-   *     numPoints. This should always return the save value for the given data
-   *     set.
-	 */
-	public final TargetData getTargetData(size_t i)immutable{
-    assert(i < this.nPoints);
-
-    return this.targets[i];
-	}
-	
-	/**
-	 * Returns: Normalization for input data or training data.
-	 */
-	public final Normalization getNormalization(DataType dt)() immutable
-	if(dt == DataType.INPUT_DATA || dt == DataType.TARGET_DATA)
-	{
-	  static if(dt == DataType.INPUT_DATA){
-	    return Normalization(this.inputShift, this.inputScale);
-	  }
-	  else {
-	    return Normalization(this.targetShift, this.targetScale);
-	  }
-	}
-	 
-	/**
-	 * Normalizes the array dt in place, returning the shift and scale of the
-	 * normalization in the so-named arrays. Filters are used to mark binary 
-   * inputs and automatically set their shift to 0 and scale to 1.
-   *
-   * TODO parallelize this section to speed it up if possible.
-	 */
-	private final void normalize(double[][] dt, 
-	                       double[] shift, 
-	                       double[] scale,
-	                       const bool[] filters) immutable
-	{
-	  size_t numVals = shift.length;
-	  double[] sum = new double[](numVals);
-	  double[] sumsq = new double[](numVals);
-	  
-	  // Initialize
-	  shift[] = 0.0;
-	  scale[] = 1.0;
-	  sum[] = 0.0;
-	  sumsq[] = 0.0;
-	  
-	  // Calculate the sum and sumsq
-	  foreach(d; dt){
-	    for(size_t i = 0; i < numVals; ++i){
-	      if(!filters[i]){
-	        sum[i] += d[i];
-	        sumsq[i] += d[i] * d[i];
-	      }
-	    }
-	  }
-	  
-	  // Calculate the mean (shift) and standard deviation (scale)
-	  for(size_t i = 0; i < numVals; ++i){
-	    if(!filters[i]){
-	      shift[i] = sum[i] / nPoints;
-	      scale[i] = sqrt((sumsq[i] / nPoints - shift[i] * shift[i]) * nPoints / (nPoints - 1));
-	    }
-	  }
-	  
-	  // Now use these to normalize the data
-	  for(size_t i = 0; i < numPoints; ++i){
-	    for(size_t j = 0; j < numVals; ++j)
-	      dt[i][j] = (dt[i][j] - shift[j]) / scale[j];
-	  }
-	  
-	  // All done, now return.
-	}
 }
 unittest{
-  mixin(announceTest("Data Test."));
+  mixin(announceTest("Data this(double[][], bool[])"));
+
+  // Short-hand for dealing with immutable data
+  alias immutable(Data!(5,2)) iData;
   
-  Data d = new Data(testData, flags, 5, 2);
+  iData d = new iData(testData, flags);
   
-  // Test the newly loaded objects parameters
+  // Check the number of points
   assert(d.numPoints == 10);
-  assert(d.numInputs == 5);
-  assert(d.numTargets == 2);
+
+  // Check the shift and scale - to be used later to create Normalizations.
+  foreach(sc; d.scale) 
+    assert(approxEqual(sc, scalePar));
+
+  foreach(i; 0 .. d.numVals) 
+    assert(approxEqual(shiftPar[i], d.shift[i]));
 
   // Test normalization of data points
-  for(size_t i = 0; i < d.nPoints; ++i){
-    for(size_t j = 0; j < d.nInputs; ++j) 
-      assert(abs(d.inputs[i][j] - normalizedRowValues[i]) < TOL);
-    for(size_t j = 0; j < d.nTargets; ++j) 
-      assert(abs(d.targets[i][j] - normalizedRowValues[i]) < TOL);
+  for(size_t i = 0; i < d.numPoints; ++i){
+    for(size_t j = 0; j < d.numVals; ++j) 
+      assert(approxEqual(d.list[i].data[j], normalizedRowValues[i]));
   }
 }
-/*-----------------------------------------------------------------------------
- *                           Data Helper Functions
- *---------------------------------------------------------------------------*/
+unittest{
+  mixin(announceTest("Data this(double[][], bool[], double[], double[])"));
+
+  // Short-hand for dealing with immutable data
+  alias immutable(Data!(5,2)) iData;
+
+  double[][] normTestData = new double[][](10, 7);
+  foreach(i; 0 .. 10){
+      normTestData[i][] = normalizedRowValues[i];
+  }
+  double[7] scaleArr = scalePar;
+
+  iData d = new iData(normTestData, flags, shiftPar, scaleArr);
+
+  // Check the number of points
+  assert(d.numPoints == 10);
+
+  // Check the shift and scale - to be used later to create Normalizations.
+  foreach(sc; d.scale) 
+    assert(approxEqual(sc, scalePar));
+
+  foreach(i; 0 .. d.numVals) 
+    assert(approxEqual(shiftPar[i], d.shift[i]));
+
+  // Test normalization of data points
+  for(size_t i = 0; i < d.numPoints; ++i){
+    for(size_t j = 0; j < d.numVals; ++j) 
+      assert(approxEqual(d.list[i].data[j], normalizedRowValues[i]));
+  }
+}
+unittest{
+  mixin(announceTest("Data nPoints, nInputs, nTargets properties."));
+  
+  // Short-hand for dealing with immutable data
+  alias immutable(Data!(5,2)) iData;
+  
+  iData d = new iData(testData, flags);
+  
+  assert(d.nPoints == 10);
+  assert(d.nInputs == 5);
+  assert(d.nTargets == 2);
+
+}
+unittest{
+  mixin(announceTest("Data getPoint(size_t)."));
+  
+  // Short-hand for dealing with immutable data
+  alias immutable(Data!(5,2)) iData;
+  alias immutable(DataPoint!(5,2)) iDataPoint;
+  
+  iData d = new iData(testData, flags);
+
+  foreach(i; 0 .. d.nPoints){
+    iDataPoint dp = d.getPoint(i);
+    foreach(j; 0 .. dp.data.length){
+      assert(approxEqual(dp.data[j], normalizedRowValues[i]));
+    }
+  }
+}
+
+/*==============================================================================
+ *                     Helper Functions for Data
+ *============================================================================*/
 /**
  * Get a Data object from the provided array.
  *
  * Params: 
- * d       = The array to manage as Data. Each row is considered point
- *           or a sample.
  * numIn   = The number of values in a sample that are inputs. These 
  *           are assumed to be the first numIn values in each row.
  * numTarg = The number of values in a sample that are targets. These
  *           are assumed to be the last numTarg values in each row.
  *           numIn + numTarg must equal the length of each row.
+ * d       = The array to manage as Data. Each row is considered point
+ *           or a sample.
  * filters = Sometimes inputs/targets are binary, and  you don't want 
  *           them to be normalized. For each input/target column that 
  *           is binary the corresponding value in the filters array
  *           is true. The length of the filters array must be numIn + numTarg. 
  */
-Data LoadDataFromArray(const double[][] d, 
-                       const size_t numIn, 
-                       const size_t numTarg, 
-                       const bool[] filters){
-  return new Data(d, filters, numIn, numTarg);
+auto LoadDataFromArray(size_t numInputs, size_t numTargets)
+                      (const double[][] d, const bool[] filters){
+  return new immutable(Data!(numInputs, numTargets))(d, filters);
 }
-
 unittest{
-  mixin(announceTest("LoadDataFromArray Test."));
+  mixin(announceTest("LoadDataFromArray(double[][], bool[])"));
 
-  Data d = LoadDataFromArray(testData, 5, 2, flags);
+  // Short-hand for dealing with immutable data
+  alias immutable(Data!(5,2)) iData;
   
-  assert(abs(d.getTrainingData(3)[0][2] - normalizedRowValues[3]) < TOL);
-  assert(abs(d.getTrainingData(4)[1][1] - normalizedRowValues[4]) < TOL);
-  assert(abs(d.getInputData(0)[0] - normalizedRowValues[0]) < TOL);
-  assert(abs(d.getTargetData(1)[0] - normalizedRowValues[1]) < TOL);
+  iData d = LoadDataFromArray!(5,2)(testData, flags);
+  
+  // Check the number of points
+  assert(d.numPoints == 10);
+
+  // Check the shift and scale - to be used later to create Normalizations.
+  foreach(sc; d.scale) 
+    assert(approxEqual(sc, scalePar));
+
+  foreach(i; 0 .. d.numVals) 
+    assert(approxEqual(shiftPar[i], d.shift[i]));
+
+  // Test normalization of data points
+  for(size_t i = 0; i < d.numPoints; ++i){
+    for(size_t j = 0; j < d.numVals; ++j) 
+      assert(approxEqual(d.list[i].data[j], normalizedRowValues[i]));
+  }
 }
 
 /**
  * Load data from a file and create a Data object.
  *
- * Params: 
- * filename   = Path to the data to load
- * filters    = Sometimes inputs/targets are binary, and  you don't want 
- *              them to be normalized. For each input/target column that 
- *              is binary the corresponding value in the filters array is true.
- *              The length of the filters array must be numIn + numTarg. 
+ * Params:  
  * numInputs  = The number of values in a sample that are inputs. These 
  *              are assumed to be the first numIn values in each row.
  * numTargets = The number of values in a sample that are targets. These
  *              are assumed to be the last numTarg values in each row.
  *              numInputs + numTargets must equal the length of each row.
+ * filename   = Path to the data to load
+ * filters    = Sometimes inputs/targets are binary, and  you don't want 
+ *              them to be normalized. For each input/target column that 
+ *              is binary the corresponding value in the filters array is true.
+ *              The length of the filters array must be numInputs + numTargets.
  */
-Data LoadDataFromCSVFile(const string filename, bool[] filters, 
-                         const size_t numInputs, const size_t numTargets){
+auto LoadDataFromCSVFile(size_t numInputs, size_t numTargets)
+                        (const string filename, bool[] filters){
+
+  // Compile time value, convenient to keep around.
+  enum numVals = numInputs + numTargets;
   
   // Open the file
   Stream f = new BufferedFile(filename);
   scope(exit) f.close();
 
   // Read the file line by line
-  size_t numVals = numTargets + numInputs;
   auto app = appender!(double[][])();
   auto sepRegEx = ctRegex!r",";
-  foreach(ulong lm, char[] line; f){
+  foreach(size_t lm, char[] line; f){
     
     // Split the line on commas
     char[][] tokens = split(line,sepRegEx);
@@ -537,8 +618,112 @@ Data LoadDataFromCSVFile(const string filename, bool[] filters,
   }
   
   // Return the new Data instance
-  return new Data(app.data, filters, numInputs, numTargets);
+  return new immutable(Data!(numInputs, numTargets))(app.data, filters);
 }
+unittest{
+  mixin(announceTest("LoadDataFromCSVFile(string, bool[])"));
+
+  // Not a good unittest, it relies on an external file.
+  bool[] filters2 = [false,false,false,false,false,false,false,
+                     false,false,false,false,false,false,false,
+                     false,false,false,false,false,false,false,
+                     false];
+
+  auto d = LoadDataFromCSVFile!(21,1)("MissoulaTempAllData.csv", filters2);
+
+  // If no exceptions are thrown, this unit test passes for now. More tests
+  // will be done in later unit tests.
+}
+
+// TODO saveProcessedData
+// TODO loadProcessedData
+// TODO isProcessedData
+// TODO split - given a Data object, split it into two without re-normalizing
+
+/*==============================================================================
+ *                                   DataRange
+ *============================================================================*/
+/**
+ * InputRange for iterating Data objects.
+ */
+public struct DataRange(size_t numInputs, size_t numTargets){
+
+  alias const(Data!(numInputs, numTargets)) iData;
+
+  private immutable(size_t) length;
+  private size_t next;
+  private iData data;
+  
+  /**
+   * Params: 
+   * d = The Data object you wish to iterate over.
+   */
+  this(iData d){
+    this.length = d.nPoints;
+    this.next = 0;
+    this.data = d;
+  }
+  
+  // Properties/methods to make this an InputRange
+  @property bool empty(){return next == length;}
+
+  @property auto front(){return this.data.getPoint(next);}
+
+   void popFront(){++next;}
+}
+static assert(isInputRange!(DataRange!(5,2)));
+
+unittest{
+  mixin(announceTest("DataRange"));
+
+  alias immutable(Data!(5, 2)) iData;
+
+  iData d = LoadDataFromArray!(5,2)(testData, flags);
+
+  auto r = DataRange!(5,2)(d);
+  size_t i = 0;
+  foreach(t; r) assert(t == d.getPoint(i++));
+}
+unittest{
+  mixin(announceTest("Data simpleRange property"));
+
+  alias immutable(Data!(5, 2)) iData;
+
+  iData d = LoadDataFromArray!(5,2)(testData, flags);
+
+  auto r = d.simpleRange;
+  size_t i = 0;
+  foreach(t; r) assert(t == d.getPoint(i++));
+
+}
+
+// TODO Random Data Range - data range that randomizes iteration.
+
+/+ Old section 
+
+
+class mData
+{
+	
+	/**
+	 * Returns: Normalization for input data or training data.
+	 */
+	public final Normalization getNormalization(DataType dt)() immutable
+	if(dt == DataType.INPUT_DATA || dt == DataType.TARGET_DATA)
+	{
+	  static if(dt == DataType.INPUT_DATA){
+	    return Normalization(this.inputShift, this.inputScale);
+	  }
+	  else {
+	    return Normalization(this.targetShift, this.targetScale);
+	  }
+	}
+	 
+}
+
+/*-----------------------------------------------------------------------------
+ *                           Data Helper Functions
+ *---------------------------------------------------------------------------*/
 
 /** 
  * Save normalized data in a pre-determined format so that it 
@@ -758,65 +943,7 @@ unittest{
           d3.getInputData(k)[kk], double.dig, d2.getInputData(k)[kk], k, kk));
     
 }
-/*------------------------------------------------------------------------------
- *                                   DataRange
- *----------------------------------------------------------------------------*/
-/**
- * InputRange for training Data objects.
- */
-public struct DataRange(DataType dt){
 
-	private immutable(size_t) length;
-	private size_t next;
-	private Data data;
-	
-	/**
-   * Params: 
-   * d = The Data object you wish to iterate over.
-   */
-	this(Data d){
-	  this.length = d.numPoints;
-	  this.next = 0;
-	  this.data = d;
-  }
-	
-  // Properties/methods to make this an InputRange
-	@property bool empty(){return next == length;}
-
-  @property auto front(){
-    static if(dt == DataType.TRAINING_DATA)
-      return this.data.getTrainingData(next);
-    else static if(dt == DataType.INPUT_DATA)
-      return this.data.getInputData(next);
-    else return this.data.getTargetData(next);
-  }
-
-	 void popFront(){++next;}
-}
-static assert(isInputRange!(DataRange!(DataType.TRAINING_DATA)));
-static assert(isInputRange!(DataRange!(DataType.INPUT_DATA)));
-static assert(isInputRange!(DataRange!(DataType.TARGET_DATA)));
-
-unittest{
-  mixin(announceTest("DataRange Test."));
-
-  Data d = LoadDataFromArray(testData,5 ,2, flags);
-
-  auto r = DataRange!(DataType.TRAINING_DATA)(d);
-  size_t i = 0;
-  foreach(t; r) assert(t == d.getTrainingData(i++));
-  auto rr = d.trainingDataRange;
-  i = 0;
-  foreach(t; rr) assert(t == d.getTrainingData(i++));
-  
-  auto rI = DataRange!(DataType.INPUT_DATA)(d);
-  i = 0;
-  foreach(t; rI) assert(t == d.getInputData(i++));
-  
-  auto rT = DataRange!(DataType.TARGET_DATA)(d);
-  i = 0;
-  foreach(t; rT) assert(t == d.getTargetData(i++));
-}
 /*------------------------------------------------------------------------------
  *                                Normalizations
  *----------------------------------------------------------------------------*/
@@ -1022,3 +1149,4 @@ unittest{
   
 }
 
++/
