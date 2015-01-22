@@ -580,30 +580,33 @@ void SaveProcessedData(const mData pData, const string filename){
   // Nested function for mixin - compile time evaluated to write code
   // Params: vname  - the variable name to use in this code
   //         format - A format specifier for writing array elements, e.g. "%d"
-  string insertWriteArray(string vname, string format){
+  //         prcis - A precision specifier, use blank "" if a string
+  string insertWriteArray(string vname, string format, string precis = ""){
     return "
       fl.writef(\"" ~ vname ~ " = \");
       for(int i = 0; i < pData." ~ vname ~ ".length - 1; ++i)
-        fl.writef(\"" ~ format ~ ",\", pData." ~ vname ~ "[i]);
-      fl.writef(\"" ~ format ~ "\n\", pData." ~ vname ~ "[$ - 1]);
+        fl.writef(\"" ~ format ~ ",\"" ~ precis ~ ", pData." ~ vname ~ "[i]);
+      fl.writef(\"" ~ format ~ "\n\"" ~ precis ~ ", pData." ~ vname ~ "[$ - 1]);
     ";
   }
 
   // Save the filters and normalizations 
   mixin(insertWriteArray("inputFilter","%s"));
-  mixin(insertWriteArray("inputShift","%a"));
-  mixin(insertWriteArray("inputScale","%a"));
+  mixin(insertWriteArray("inputShift","%.*f",",double.dig"));
+  mixin(insertWriteArray("inputScale","%.*f",",double.dig"));
 
   mixin(insertWriteArray("targetFilter","%s"));
-  mixin(insertWriteArray("targetShift","%a"));
-  mixin(insertWriteArray("targetScale","%a"));
+  mixin(insertWriteArray("targetShift","%.*f",",double.dig"));
+  mixin(insertWriteArray("targetScale","%.*f",",double.dig"));
 
   // Now write the output
   fl.writefln("data = ");
   for(size_t i = 0; i < pData.nPoints; ++i){
-    for(size_t j = 0; j < pData.nInputs; ++j) fl.writef("%a,",pData.inputs[i][j]);
-    for(size_t j = 0; j < pData.nTargets - 1; ++j) fl.writef("%a,",pData.targets[i][j]);
-    fl.writef("%f\n",pData.targets[i][$ - 1]);
+    for(size_t j = 0; j < pData.nInputs; ++j) 
+      fl.writef("%.*f,", double.dig, pData.inputs[i][j]);
+    for(size_t j = 0; j < pData.nTargets - 1; ++j) 
+      fl.writef("%.*f,", double.dig, pData.targets[i][j]);
+    fl.writef("%.*f\n", double.dig, pData.targets[i][$ - 1]);
   }
 
 }
@@ -737,6 +740,7 @@ unittest{
                      false,false,false,false,false,false,false,
                      false];
   
+  assert(exists("MissoulaTempAllData.csv"));
   auto d2 = LoadDataFromCSVFile("MissoulaTempAllData.csv", filters2, 21, 1);
   
   SaveProcessedData(d2,"MissoulaTempAllDataNrm.csv");
@@ -749,7 +753,9 @@ unittest{
   
   for(size_t k = 0; k < d3.numPoints; ++k)
     for(size_t kk = 0; kk < d3.numInputs; ++kk)
-      assert(d3.getInputData(k)[kk] == d2.getInputData(k)[kk]);
+      assert(approxEqual(d3.getInputData(k)[kk], d2.getInputData(k)[kk]),
+        format("%.*f != %.*f at k = %d and kk = %d", double.dig,
+          d3.getInputData(k)[kk], double.dig, d2.getInputData(k)[kk], k, kk));
     
 }
 /*------------------------------------------------------------------------------
@@ -945,13 +951,13 @@ void SaveNormalization( Normalization norm, const string path){
   // Save the arrays shift and scale
   fl.writef("shift = ");
   for(int i = 0; i < nVals - 1; ++i)
-    fl.writef("%a,", norm.shift[i]);
-  fl.writef("%a\n", norm.shift[$ - 1]);
+    fl.writef("%.*f,", double.dig, norm.shift[i]);
+  fl.writef("%.*f\n", double.dig, norm.shift[$ - 1]);
 
   fl.writef("scale = ");
   for(int i = 0; i < nVals - 1; ++i)
-    fl.writef("%a,", norm.scale[i]);
-  fl.writef("%a\n", norm.scale[$ - 1]);
+    fl.writef("%.*f,", double.dig, norm.scale[i]);
+  fl.writef("%.*f\n", double.dig, norm.scale[$ - 1]);
 }
 
 /**
@@ -1011,7 +1017,8 @@ unittest{
   auto loadedInNorm = LoadNormalization("inNorm.csv");
   auto loadedOutNorm = LoadNormalization("outNorm.csv");
   
-  assert(inNorm == loadedInNorm);
+  assert(approxEqual(inNorm.shift,loadedInNorm.shift));
+  assert(approxEqual(inNorm.scale,loadedInNorm.scale));
   
 }
 
