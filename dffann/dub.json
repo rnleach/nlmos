@@ -13,11 +13,6 @@
       {
         "name":"lib-release",
         "targetType":"library"
-      },
-      {
-        "name":"appTest",
-        "targetType":"executable",
-        "mainSourceFile":"source/app.d"
       }
     ]
 }
