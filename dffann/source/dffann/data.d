@@ -3,6 +3,7 @@
  */
 module dffann.data;
 
+import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
@@ -106,7 +107,7 @@ version(unittest){
   /**
    * Returns: A string representation of the DataPoint.
    */
-  @property string stringRep(){
+  @property string stringRep() const{
     string toRet = "";
 
     foreach(val; this.data) 
@@ -215,8 +216,6 @@ class Data(size_t numInputs, size_t numTargets){
   private double[numVals] scale;
 
   /**
-   * Immutable constructor, only immutable instances of data should be used.
-   * 
    * This constructor assumes the data is not normalized, and normalizes it.
    *
    * Params: 
@@ -230,7 +229,7 @@ class Data(size_t numInputs, size_t numTargets){
    *
    * See_Also: Normalizations
    */
-  private immutable this(const double[][] data, const bool[] filter){
+  private this(const double[][] data, const bool[] filter){
     // Check lengths
     enforce(data.length > 1, 
       "Initialization Error, no points in supplied array.");
@@ -242,7 +241,7 @@ class Data(size_t numInputs, size_t numTargets){
       "Initialization Error, filters do not match data.");
   
     this.numPoints = data.length;
-    this.dataFilter = filter.idup;
+    this.dataFilter = filter.dup;
 
     // Set up the local data storage and copy values
     //
@@ -260,16 +259,14 @@ class Data(size_t numInputs, size_t numTargets){
 
     // Cast temp to the immutable data, temp never escapes constructor as 
     // mutable data.
-    this.list = cast(immutable) temp;
+    this.list = temp;
 
-    this.shift = cast(immutable)shift_tmp;
-    this.scale = cast(immutable)scale_tmp;
+    this.shift = shift_tmp;
+    this.scale = scale_tmp;
 
   }
 
   /**
-   * Immutable constructor, only immutable instances of data should be used. 
-   *
    * This constructor assumes the data IS already normalized, and does not 
    * normalize it again. Intended to be used when loading normalizded data from
    * a file.
@@ -287,10 +284,10 @@ class Data(size_t numInputs, size_t numTargets){
    *
    * See_Also: Normalizations.
    */
-  private immutable this(const double[][] data, 
-                         const bool[] filter,
-                         const double[] shift,
-                         const double[] scale){
+  public this(const double[][] data, 
+               const bool[] filter,
+               const double[] shift,
+               const double[] scale){
     
     // Check lengths
     enforce(data.length > 1, 
@@ -307,7 +304,7 @@ class Data(size_t numInputs, size_t numTargets){
     
     // Assign values
     this.numPoints = data.length;
-    this.dataFilter = filter.idup;
+    this.dataFilter = filter.dup;
     this.scale = scale.idup;
     this.shift = shift.idup;
     
@@ -319,7 +316,7 @@ class Data(size_t numInputs, size_t numTargets){
     // Copy data by value into tmp arrays
     foreach(size_t i, const double[] d; data) 
       tmp[i] = DP(d);
-    this.list = cast(immutable) tmp;
+    this.list = tmp;
   }
 
   /**
@@ -332,7 +329,7 @@ class Data(size_t numInputs, size_t numTargets){
   private final void normalize(DP[] dt, 
                          ref double[numVals] shift, 
                          ref double[numVals] scale,
-                         in bool[] filters) immutable {
+                         in bool[] filters) const {
 
     double[numVals] sum;
     double[numVals] sumsq;
@@ -394,10 +391,262 @@ class Data(size_t numInputs, size_t numTargets){
   }
 
   /**
+   *  Returns: a normalization for this data set.
+   */
+  @property final Normalization normalization() const {
+    return Normalization(this.shift, this.scale);
+  }
+
+  /**
    * Returns: The DataPoint object at the given position in this collection.
    */
   public final DP getPoint(size_t index) const {return this.list[index];}
 
+  /**
+   * Load data from a file and create a Data object.
+   *
+   * Params:  
+   * filename   = Path to the data to load
+   * filters    = Sometimes inputs/targets are binary, and  you don't want 
+   *              them to be normalized. For each input/target column that 
+   *              is binary the corresponding value in the filters array is true.
+   *              The length of the filters array must be numInputs + numTargets.
+   */
+  public static final Data!(numInputs, numTargets) LoadDataFromCSVFile
+                                      (const string filename, bool[] filters){
+
+    // Compile time value, convenient to keep around.
+    enum numVals = numInputs + numTargets;
+    
+    // Open the file
+    Stream f = new BufferedFile(filename);
+    scope(exit) f.close();
+
+    // Read the file line by line
+    auto app = appender!(double[][])();
+    auto sepRegEx = ctRegex!r",";
+    foreach(size_t lm, char[] line; f){
+      
+      // Split the line on commas
+      char[][] tokens = split(line,sepRegEx);
+      
+      // Ensure we have enough tokens to do the job, and that the line is
+      // numeric. This should skip any kind of 'comment' line or column headers
+      // that start with non-numeric strings.
+      if(tokens.length != numVals || !isNumeric(tokens[0])) continue;
+      
+      // Parse the doubles from the strings
+      double[] lineValues = new double[](numVals);
+      for(size_t i = 0; i < numVals; ++i){
+        lineValues[i] = to!double(tokens[i]);
+      }
+      
+      // Add them to my array
+      app.put(lineValues);
+    }
+    
+    // Return the new Data instance
+    return new Data!(numInputs, numTargets)(app.data, filters);
+  }
+
+  /** 
+   * Save normalized data in a pre-determined format so that it 
+   * can be loaded quickly without the need to re-calculate the normalization.
+   * 
+   * Params: 
+   * pData    = The data object to save.
+   * filename = The path to save the data.
+   */
+  public static final void SaveProcessedData
+             (const Data!(numInputs,numTargets) pData, const string filename){
+    /*
+     * File format:
+     * NormalizedData
+     * nPoints = val
+     * nInputs = val
+     * nTargets = val
+     * inputFilter = bool,bool,bool,bool,...
+     * inputShift = val,val,val,val,val,...
+     * inputScale = val,val,val,val,val,...
+     * targetFilter = bool,bool,...
+     * targetShift = val,val,...
+     * targetScale = val,val,...
+     * data =
+     * inputVal,inputVal,inputVal,inputVal,.....targetVal,targetVal,...
+     */
+
+    // Open the file
+    Stream fl = new BufferedFile(filename, FileMode.OutNew);
+    scope(exit) fl.close();
+
+    // Put a header to identify it as NormalizedData
+    fl.writefln("NormalizedData");
+
+    // Save the variables
+    fl.writefln("nPoints = %d",pData.nPoints);
+    fl.writefln("nInputs = %d",pData.nInputs);
+    fl.writefln("nTargets = %d",pData.nTargets);
+
+    // Nested function for mixin - compile time evaluated to write code
+    // Params: vname  - the variable name to use in this code
+    //         format - A format specifier for writing array elements, e.g. "%d"
+    //         prcis - A precision specifier, use blank "" if a string
+    string insertWriteArray(string vname, string format, string precis = ""){
+      return "
+        fl.writef(\"" ~ vname ~ " = \");
+        for(int i = 0; i < pData." ~ vname ~ ".length - 1; ++i)
+          fl.writef(\"" ~ format ~ ",\"" ~ precis ~ ", pData." ~ vname ~ "[i]);
+        fl.writef(\"" ~ format ~ "\n\"" ~ precis ~ ", pData." ~ vname ~ "[$ - 1]);
+      ";
+    }
+
+    // Save the filters and normalizations 
+    mixin(insertWriteArray("dataFilter","%s"));
+    mixin(insertWriteArray("shift","%.*f",",double.dig"));
+    mixin(insertWriteArray("scale","%.*f",",double.dig"));
+
+    // Now write the data points
+    fl.writefln("data = ");
+    foreach(dp; pData.list){
+      fl.writefln(dp.stringRep);
+    }
+
+  }
+
+  /** 
+   * Load data that has been pre-processed and normalized into a
+   * data array quickly.
+   * 
+   * Params: 
+   * filename = The path to the file to load.
+   * 
+   * Returns: An immutable Data object.
+   */
+  public static final Data LoadProcessedData(const string filename){
+
+    // See comments in SaveProcessedData for file and header formats.
+
+    // Open the file, read in the contents
+    Stream fl = new BufferedFile(filename, FileMode.In);
+    string text = fl.toString();
+    fl.close();
+
+    // Split into lines as header and data sections
+    string[] lines = split(text, regex("\n"));
+    string[] header = lines[0 .. 8];
+    string[] dataLines = lines[8 .. $];
+
+    // clean up the header lines
+    foreach(ref line; header) line = strip(line);
+
+    // Parse some variables out of the header section
+    size_t numPoints = to!size_t(header[1][10 .. $]);
+    size_t nmInputs = to!size_t(header[2][10 .. $]);
+    size_t nmTargets = to!size_t(header[3][11 .. $]);
+    size_t totalVals = numInputs + numTargets;
+
+    // Check that this file matches the kind of Data object we are loading.
+    enforce(header[0] == "NormalizedData");
+    enforce(nmInputs == numInputs, "File number of inputs does not match.");
+    enforce(nmTargets == numTargets, "File number of targets does not match.");
+
+    // set up some variables, define nested function for mixin to
+    // parse arrays.
+    string tokens[];
+    // Parms: vname  - e.g. "dataFilter"
+    //        elType - e.g. "bool", "double"
+    //        row    - e.g. "4", row number of header array to parse.
+    string insertParseArray(string vname, string elType, string row){
+      string startCol = to!string(vname.length + 2);
+
+      return "tokens = split(header["~row~"]["~startCol~" .. $],regex(\",\"));
+        "~vname~" = new "~elType~"[](numVals);
+        for(int i = 0; i < numVals; ++i) 
+          "~vname~"[i] = to!"~elType~"(strip(tokens[i]));";
+    }
+
+    bool[] dataFilter;
+    mixin(insertParseArray("dataFilter","bool","4"));
+
+    double[] shift;
+    mixin(insertParseArray("shift","double","5"));
+
+    double[] scale;
+    mixin(insertParseArray("scale","double","6"));
+
+    // Now parse each row
+    enforce(dataLines.length >= numPoints,
+      "Malformed data file, not enough input points.");
+
+    double[][] tmp = new double[][](numPoints,numVals);
+    
+    foreach(i; 0 ..numPoints){
+
+      tokens = split(dataLines[i], regex(","));
+
+      enforce(tokens.length >= totalVals,
+        "Malformed data file, not enought points on line.");
+
+      foreach(j; 0 .. numVals){
+        tmp[i][j] = to!double(strip(tokens[j]));
+      }
+
+    }
+
+    return new Data(tmp,  dataFilter,  shift, scale);
+
+  }
+
+  /**
+   * Check if the supplied path is to a data file that has been pre-processed or
+   * not.
+   * 
+   * Params: 
+   * filename = The path to the file to check.
+   * 
+   * Returns: true if the file is laid out as expected for something that has
+   * been saved with SaveProcessedData.
+   * 
+   */
+  public static final bool isProcessedDataFile(const string filename){
+
+    // See comments in SaveProcessedData for file and header formats.
+
+    // Open the file, read in the contents
+    try{
+      Stream fl = new BufferedFile(filename, FileMode.In);
+      string text = fl.toString();
+      fl.close();
+
+      // Split into lines as header and data sections
+      string[] lines = split(text, regex("\n"));
+      string[] header = lines[0 .. 8];
+      string[] dataLines = lines[8 .. $];
+
+      // clean up the header lines
+      foreach(ref line; header) line = strip(line);
+
+      // Parse some variables out of the header section
+      size_t numPoints = to!size_t(header[1][10 .. $]);
+      size_t nmInputs = to!size_t(header[2][10 .. $]);
+      size_t nmTargets = to!size_t(header[3][11 .. $]);
+      size_t totalVals = numInputs + numTargets;
+
+      // Check that this file matches the kind of Data object we are loading.
+      if(header[0] != "NormalizedData") return false;
+      if(nmInputs != numInputs) return false;
+      if(nmTargets != numTargets) return false;
+      if(dataLines.length < numPoints) return false;
+
+    }
+    catch(Exception e){
+      return false;
+    }
+
+    return true;
+  }
+
+  // TODO split - given a Data object, split it into two without re-normalizing
 }
 /*==============================================================================
  *                     Unit tests for data class
@@ -520,108 +769,10 @@ unittest{
     }
   }
 }
-
-/*==============================================================================
- *                     Helper Functions for Data
- *============================================================================*/
-/**
- * Get a Data object from the provided array.
- *
- * Params: 
- * numIn   = The number of values in a sample that are inputs. These 
- *           are assumed to be the first numIn values in each row.
- * numTarg = The number of values in a sample that are targets. These
- *           are assumed to be the last numTarg values in each row.
- *           numIn + numTarg must equal the length of each row.
- * d       = The array to manage as Data. Each row is considered point
- *           or a sample.
- * filters = Sometimes inputs/targets are binary, and  you don't want 
- *           them to be normalized. For each input/target column that 
- *           is binary the corresponding value in the filters array
- *           is true. The length of the filters array must be numIn + numTarg. 
- */
-auto LoadDataFromArray(size_t numInputs, size_t numTargets)
-                      (const double[][] d, const bool[] filters){
-  return new immutable(Data!(numInputs, numTargets))(d, filters);
-}
 unittest{
-  mixin(announceTest("LoadDataFromArray(double[][], bool[])"));
+  mixin(announceTest("Data LoadDataFromCSVFile(string, bool[])"));
 
-  // Short-hand for dealing with immutable data
-  alias immutable(Data!(5,2)) iData;
-  
-  iData d = LoadDataFromArray!(5,2)(testData, flags);
-  
-  // Check the number of points
-  assert(d.numPoints == 10);
-
-  // Check the shift and scale - to be used later to create Normalizations.
-  foreach(sc; d.scale) 
-    assert(approxEqual(sc, scalePar));
-
-  foreach(i; 0 .. d.numVals) 
-    assert(approxEqual(shiftPar[i], d.shift[i]));
-
-  // Test normalization of data points
-  for(size_t i = 0; i < d.numPoints; ++i){
-    for(size_t j = 0; j < d.numVals; ++j) 
-      assert(approxEqual(d.list[i].data[j], normalizedRowValues[i]));
-  }
-}
-
-/**
- * Load data from a file and create a Data object.
- *
- * Params:  
- * numInputs  = The number of values in a sample that are inputs. These 
- *              are assumed to be the first numIn values in each row.
- * numTargets = The number of values in a sample that are targets. These
- *              are assumed to be the last numTarg values in each row.
- *              numInputs + numTargets must equal the length of each row.
- * filename   = Path to the data to load
- * filters    = Sometimes inputs/targets are binary, and  you don't want 
- *              them to be normalized. For each input/target column that 
- *              is binary the corresponding value in the filters array is true.
- *              The length of the filters array must be numInputs + numTargets.
- */
-auto LoadDataFromCSVFile(size_t numInputs, size_t numTargets)
-                        (const string filename, bool[] filters){
-
-  // Compile time value, convenient to keep around.
-  enum numVals = numInputs + numTargets;
-  
-  // Open the file
-  Stream f = new BufferedFile(filename);
-  scope(exit) f.close();
-
-  // Read the file line by line
-  auto app = appender!(double[][])();
-  auto sepRegEx = ctRegex!r",";
-  foreach(size_t lm, char[] line; f){
-    
-    // Split the line on commas
-    char[][] tokens = split(line,sepRegEx);
-    
-    // Ensure we have enough tokens to do the job, and that the line is
-    // numeric. This should skip any kind of 'comment' line or column headers
-    // that start with non-numeric strings.
-    if(tokens.length != numVals || !isNumeric(tokens[0])) continue;
-    
-    // Parse the doubles from the strings
-    double[] lineValues = new double[](numVals);
-    for(size_t i = 0; i < numVals; ++i){
-      lineValues[i] = to!double(tokens[i]);
-    }
-    
-    // Add them to my array
-    app.put(lineValues);
-  }
-  
-  // Return the new Data instance
-  return new immutable(Data!(numInputs, numTargets))(app.data, filters);
-}
-unittest{
-  mixin(announceTest("LoadDataFromCSVFile(string, bool[])"));
+  alias immutable(Data!(21,1)) iData;
 
   // Not a good unittest, it relies on an external file.
   bool[] filters2 = [false,false,false,false,false,false,false,
@@ -629,16 +780,39 @@ unittest{
                      false,false,false,false,false,false,false,
                      false];
 
-  auto d = LoadDataFromCSVFile!(21,1)("MissoulaTempAllData.csv", filters2);
+  iData d = cast(immutable) Data!(21,1).
+                      LoadDataFromCSVFile("MissoulaTempAllData.csv", filters2);
 
   // If no exceptions are thrown, this unit test passes for now. More tests
   // will be done in later unit tests.
 }
+unittest{
+  mixin(announceTest("Data SaveProcessedData and LoadProcessedData"));
 
-// TODO saveProcessedData
-// TODO loadProcessedData
-// TODO isProcessedData
-// TODO split - given a Data object, split it into two without re-normalizing
+  alias Data!(21,1) Data21;
+
+  // Not a good unittest, it relies on an external file.
+  bool[] filters2 = [false,false,false,false,false,false,false,
+                     false,false,false,false,false,false,false,
+                     false,false,false,false,false,false,false,
+                     false];
+  
+  assert(exists("MissoulaTempAllData.csv"));
+  assert(!Data21.isProcessedDataFile("MissoulaTempAllData.csv"));
+
+  Data21 d2 = Data21.LoadDataFromCSVFile("MissoulaTempAllData.csv", filters2);
+  
+  Data21.SaveProcessedData(d2,"MissoulaTempAllDataNrm.csv");
+  scope(exit) std.file.remove("MissoulaTempAllDataNrm.csv");
+  assert(Data21.isProcessedDataFile("MissoulaTempAllDataNrm.csv"));
+  
+  auto d3 = Data21.LoadProcessedData("MissoulaTempAllDataNrm.csv");
+  assert(d2.nPoints == d3.nPoints);
+  assert(d2.nInputs == d3.nInputs);
+  
+  foreach(k; 0 .. d3.nPoints)
+    assert(approxEqual(d2.getPoint(k).data[],d3.getPoint(k).data[]));
+}
 
 /*==============================================================================
  *                                   DataRange
@@ -678,7 +852,7 @@ unittest{
 
   alias immutable(Data!(5, 2)) iData;
 
-  iData d = LoadDataFromArray!(5,2)(testData, flags);
+  iData d = new iData(testData, flags);
 
   auto r = DataRange!(5,2)(d);
   size_t i = 0;
@@ -689,7 +863,7 @@ unittest{
 
   alias immutable(Data!(5, 2)) iData;
 
-  iData d = LoadDataFromArray!(5,2)(testData, flags);
+  iData d = new iData(testData, flags);
 
   auto r = d.simpleRange;
   size_t i = 0;
@@ -699,263 +873,14 @@ unittest{
 
 // TODO Random Data Range - data range that randomizes iteration.
 
-/+ Old section 
-
-
-class mData
-{
-	
-	/**
-	 * Returns: Normalization for input data or training data.
-	 */
-	public final Normalization getNormalization(DataType dt)() immutable
-	if(dt == DataType.INPUT_DATA || dt == DataType.TARGET_DATA)
-	{
-	  static if(dt == DataType.INPUT_DATA){
-	    return Normalization(this.inputShift, this.inputScale);
-	  }
-	  else {
-	    return Normalization(this.targetShift, this.targetScale);
-	  }
-	}
-	 
-}
-
-/*-----------------------------------------------------------------------------
- *                           Data Helper Functions
- *---------------------------------------------------------------------------*/
-
-/** 
- * Save normalized data in a pre-determined format so that it 
- * can be loaded quickly without the need to re-calculate the normalization.
- * 
- * Params: 
- * pData    = The data object to save.
- * filename = The path to save the data.
- */
-void SaveProcessedData(const mData pData, const string filename){
-	/*
-	 * File format:
-	 * NormalizedData
-	 * nPoints = val
-	 * nInputs = val
-	 * nTargets = val
-	 * inputFilter = bool,bool,bool,bool,...
-	 * inputShift = val,val,val,val,val,...
-	 * inputScale = val,val,val,val,val,...
-	 * targetFilter = bool,bool,...
-	 * targetShift = val,val,...
-	 * targetScale = val,val,...
-	 * data =
-	 * inputVal,inputVal,inputVal,inputVal,.....targetVal,targetVal,...
-	 */
-
-	// Open the file
-	Stream fl = new BufferedFile(filename, FileMode.OutNew);
-	scope(exit) fl.close();
-
-  // Put a header to identify it as NormalizedData
-  fl.writefln("NormalizedData");
-
-  // Save the variables
-  fl.writefln("nPoints = %d",pData.nPoints);
-  fl.writefln("nInputs = %d",pData.nInputs);
-  fl.writefln("nTargets = %d",pData.nTargets);
-
-  // Nested function for mixin - compile time evaluated to write code
-  // Params: vname  - the variable name to use in this code
-  //         format - A format specifier for writing array elements, e.g. "%d"
-  //         prcis - A precision specifier, use blank "" if a string
-  string insertWriteArray(string vname, string format, string precis = ""){
-    return "
-      fl.writef(\"" ~ vname ~ " = \");
-      for(int i = 0; i < pData." ~ vname ~ ".length - 1; ++i)
-        fl.writef(\"" ~ format ~ ",\"" ~ precis ~ ", pData." ~ vname ~ "[i]);
-      fl.writef(\"" ~ format ~ "\n\"" ~ precis ~ ", pData." ~ vname ~ "[$ - 1]);
-    ";
-  }
-
-  // Save the filters and normalizations 
-  mixin(insertWriteArray("inputFilter","%s"));
-  mixin(insertWriteArray("inputShift","%.*f",",double.dig"));
-  mixin(insertWriteArray("inputScale","%.*f",",double.dig"));
-
-  mixin(insertWriteArray("targetFilter","%s"));
-  mixin(insertWriteArray("targetShift","%.*f",",double.dig"));
-  mixin(insertWriteArray("targetScale","%.*f",",double.dig"));
-
-  // Now write the output
-  fl.writefln("data = ");
-  for(size_t i = 0; i < pData.nPoints; ++i){
-    for(size_t j = 0; j < pData.nInputs; ++j) 
-      fl.writef("%.*f,", double.dig, pData.inputs[i][j]);
-    for(size_t j = 0; j < pData.nTargets - 1; ++j) 
-      fl.writef("%.*f,", double.dig, pData.targets[i][j]);
-    fl.writef("%.*f\n", double.dig, pData.targets[i][$ - 1]);
-  }
-
-}
-
-/** 
- * Load data that has been pre-processed and normalized into a
- * data array quickly.
- * 
- * Params: 
- * filename = The path to the file to load.
- * 
- * Returns: An immutable Data object.
- */
-Data LoadProcessedData(const string filename){
-
-  // See comments in SaveProcessedData for file and header formats.
-
-  // Open the file, read in the contents
-  Stream fl = new BufferedFile(filename, FileMode.In);
-  string text = fl.toString();
-  fl.close();
-
-  // Split into lines as header and data sections
-  string[] lines = split(text, regex("\n"));
-  string[] header = lines[0 .. 11];
-  string[] dataLines = lines[11 .. $];
-
-  // clean up the header lines
-  foreach(ref line; header) line = strip(line);
-
-  // Parse some variables out of the header section
-  enforce(header[0] == "NormalizedData");
-  size_t numPoints = to!size_t(header[1][10 .. $]);
-  size_t numInputs = to!size_t(header[2][10 .. $]);
-  size_t numTargets = to!size_t(header[3][11 .. $]);
-  size_t totalVals = numInputs + numTargets;
-
-  // set up some variables, define nested function for mixin to
-  // parse arrays.
-  string tokens[];
-  // Parms: vname  - e.g. "inputFilter"
-  //        elType - e.g. "bool", "double"
-  //        row    - e.g. "4", row number of header array to parse.
-  string insertParseArray(string vname, string elType, string row){
-    string numVals;
-    if(indexOf(vname,"input") > -1) numVals = "numInputs";
-    else numVals = "numTargets";
-    string startCol = to!string(vname.length + 3);
-
-    return "tokens = split(header["~row~"]["~startCol~" .. $],regex(\",\"));
-      "~vname~" = new "~elType~"[]("~numVals~");
-      for(int i = 0; i < "~numVals~"; ++i) 
-        "~vname~"[i] = to!"~elType~"(strip(tokens[i]));";
-  }
-
-  bool[] inputFilter;
-  mixin(insertParseArray("inputFilter","bool","4"));
-
-  double[] inputShift;
-  mixin(insertParseArray("inputShift","double","5"));
-
-  double[] inputScale;
-  mixin(insertParseArray("inputScale","double","6"));
-
-  bool[] targetFilter;
-  mixin(insertParseArray("targetFilter","bool","7"));
-
-  double[] targetShift;
-  mixin(insertParseArray("targetShift","double","8"));
-
-  double[] targetScale;
-  mixin(insertParseArray("targetScale","double","9"));
-
-  // Now parse each row
-  enforce(dataLines.length >= numPoints,
-    "Malformed data file, not enough input points.");
-
-  double[][] tmpInputs = new double[][](numPoints,numInputs);
-  double[][] tmpTargets = new double[][](numPoints,numTargets);
-  for(int i = 0; i < numPoints; ++i){
-
-    tokens = split(dataLines[i],regex(","));
-
-    enforce(tokens.length >= totalVals,
-      "Malformed data file, not enought points on line.");
-
-    for(int j = 0; j < numInputs; ++j){
-      tmpInputs[i][j] = to!double(tokens[j]);
-    }
-
-    for(int j = 0; j < numTargets; ++j){
-      tmpTargets[i][j] = to!double(tokens[j + numInputs]);
-    }
-  }
-
-  return new Data(tmpInputs,  inputFilter,  inputShift, inputScale,
-              tmpTargets, targetFilter, targetShift, targetScale);
-
-}
-
-/**
- * Check if the supplied path is to a data file that has been pre-processed or
- * not.
- * 
- * Params: 
- * filename = The path to the file to check.
- * 
- * Returns: true if the file is laid out as expected for something that has been
- * saved with SaveProcessedData.
- * 
- */
-bool isProcessedDataFile(const string filename){
-
-  // Open the file
-  Stream fl = new BufferedFile(filename, FileMode.In);
-  scope(exit) fl.close();
-
-  // Read the first line.
-  string firstLine = cast(string)fl.readLine();
-
-  // Test it
-  return firstLine == "NormalizedData";
-}
-
-unittest{
-  mixin(announceTest("File handling for data tests."));
-
-  // Not a good unittest, it relies on an external file.
-  bool[] filters2 = [false,false,false,false,false,false,false,
-                     false,false,false,false,false,false,false,
-                     false,false,false,false,false,false,false,
-                     false];
-  
-  assert(exists("MissoulaTempAllData.csv"));
-  auto d2 = LoadDataFromCSVFile("MissoulaTempAllData.csv", filters2, 21, 1);
-  
-  SaveProcessedData(d2,"MissoulaTempAllDataNrm.csv");
-  scope(exit) std.file.remove("MissoulaTempAllDataNrm.csv");
-  assert(isProcessedDataFile("MissoulaTempAllDataNrm.csv"));
-  
-  auto d3 = LoadProcessedData("MissoulaTempAllDataNrm.csv");
-  assert(d2.numPoints == d3.numPoints);
-  assert(d2.numInputs == d3.numInputs);
-  
-  for(size_t k = 0; k < d3.numPoints; ++k)
-    for(size_t kk = 0; kk < d3.numInputs; ++kk)
-      assert(approxEqual(d3.getInputData(k)[kk], d2.getInputData(k)[kk]),
-        format("%.*f != %.*f at k = %d and kk = %d", double.dig,
-          d3.getInputData(k)[kk], double.dig, d2.getInputData(k)[kk], k, kk));
-    
-}
-
-/*------------------------------------------------------------------------------
+/*==============================================================================
  *                                Normalizations
- *----------------------------------------------------------------------------*/
+ *============================================================================*/
 /* Will use a struct for this, but considered using closures. I foresee 
 * situations where this is called a lot, so a closure might be pretty 
 * inefficient considering a struct can be allocated on the stack, whereas a
 * closure would necessarily be allocated on the heap.
 */
-/**
- * Shorthand for immutable normalization. Expect it to only be used this way.
- */
-alias immutable(mNormalization) Normalization;
 
 /**
  * A normalization is used to force data to have certain statistical properties,
@@ -966,7 +891,7 @@ alias immutable(mNormalization) Normalization;
  * with non-binary data. This is handled at the constructor level when loading
  * the data with the use of filters to determine if a column is binary.
  */
-struct mNormalization{
+struct Normalization{
 
   private double[] shift;
   private double[] scale;
@@ -976,70 +901,97 @@ struct mNormalization{
   * shift = array of shifts to subtract from each point to be normalized.
   * scale = array of scales to divide each point by.
   */
-  private immutable this(const double[] shift, const double[] scale)
+  private this(const double[] shift, const double[] scale)
   {
     enforce(shift.length == scale.length, 
       "Shift and scale array lengths differ.");
 
-    this.shift = shift.idup;
-    this.scale = scale.idup;
+    this.shift = shift.dup;
+    this.scale = scale.dup;
   }
 
   /**
-   * Given a normalized input/output set of values, unnormalize them.
+   * Given a normalized input/target set of values, unnormalize them.
    */
-  void unnormalize(double[] d) inout {
-    assert(d.length == shift.length && d.length == scale.length);
+  void unnormalize(T)(ref T d) if(T.stringof.find("DataPoint")){
+    assert(d.data.length <= shift.length && d.data.length <= scale.length);
 
-    d[] = d[] * scale[] + shift[];
+    d.data[] = d.data[] * scale[0 .. d.data.length] + shift[0 .. d.data.length];
+  }
+
+  /**
+   * Given a normalized output (from a network) unnormalize the outputs. Assume
+   * these are outputs, so unnormalize against the end of the shift and scale
+   * arrays, since arrays are packed [inputs, targets]. So this if for 
+   * unnormalizing the outputs of a network.
+   */
+  void unnormalize(double[] d){
+    d[] = d[] * scale[($ - d.length) .. $] + shift[($ - d.length) .. $];
   }
   
   /**
    * Given an unormalized input/output set of values, normalize them.
    */
-  void normalize(double[] d) inout {
-    assert(d.length == shift.length && d.length == scale.length);
+  void normalize(T)(ref T d) if(T.stringof.find("DataPoint")) {
+    assert(d.data.length <= shift.length && d.data.length <= scale.length);
 
-    d[] = (d[] - shift[]) / scale[];
+    d.data[] = 
+            (d.data[] - shift[0 .. d.data.length]) / scale[0 .. d.data.length];
   }
 }
 unittest{
-  mixin(announceTest("Normalizations Test."));
+  mixin(announceTest("Normalization"));
 
-  Data d = LoadDataFromArray(testData,5 ,2, flags);
+  Data!(5, 2) d = new Data!(5,2)(testData, flags);
 
-  auto inNorm = d.getNormalization!(DataType.INPUT_DATA);
-  auto outNorm = d.getNormalization!(DataType.TARGET_DATA);
-  
-  // Test normalizing data
-  for( int i = 0; i < d.nPoints; ++i){
-    double[] rawIn = testData[i][0 .. d.nInputs].dup;
-    inNorm.normalize(rawIn);
-    for(size_t j = 0; j < d.nInputs; ++j){
-      assert(rawIn[j] == d.inputs[i][j]);
-    }
-    double[] rawOut = testData[i][d.nInputs .. $].dup;
-    outNorm.normalize(rawOut);
-    for(int j = 0; j < d.nTargets; ++j){
-      assert(rawOut[j] == d.targets[i][j]);
-    }
+  Normalization norm = Normalization(d.shift, d.scale);
+
+  foreach(i; 0 .. d.nPoints){
+    DataPoint!(5,2) tmp = d.getPoint(i);
+    norm.unnormalize(tmp);
+    assert(approxEqual(tmp.data[], testData[i]));
+    norm.normalize(tmp);
+    assert(approxEqual(tmp.data[], d.getPoint(i).data[]));
   }
-  
-  // Test unnormalizing Data
-  for( int i = 0; i < d.nPoints; ++i){
-    double[] rawIn = d.inputs[i].dup;
-    inNorm.unnormalize(rawIn);
-    for(size_t j = 0; j < d.nInputs; ++j){
-      assert(rawIn[j] == testData[i][j]);
-    }
-    double[] rawOut = d.targets[i].dup;
-    outNorm.unnormalize(rawOut);
-    for(int j = 0; j < d.nTargets; ++j){
-      assert(rawOut[j] == testData[i][j + d.nInputs]);
-    }
+
+  // Test unnormalizing targets only
+  foreach(i; 0 .. d.nPoints){
+    double[] tmp = d.getPoint(i).data[($ - 2) .. $];
+    norm.unnormalize(tmp);
+    assert(approxEqual(tmp, testData[i][($ - 2) .. $]),
+      format("\n%s\n%s",tmp,testData[i]));
+  }
+
+  // Test again, but this time with an inputs only data set.
+  Data!(7, 0) d2 = new Data!(7,0)(testData, flags);
+  // Add a few points on the end (that would be for targets, 
+  // but they're not in this data set.)
+  Normalization norm2 = 
+              Normalization(d2.shift[] ~ [1.0, 2.0], d2.scale[] ~ [1.0, 2.0]);
+
+  foreach(i; 0 .. d2.nPoints){
+    DataPoint!(7,0) tmp = d2.getPoint(i);
+    norm2.unnormalize(tmp);
+    assert(approxEqual(tmp.data[], testData[i]));
+    norm2.normalize(tmp);
+    assert(approxEqual(tmp.data[], d.getPoint(i).data[]));
   }
 }
+unittest{
+  mixin(announceTest("Data normalization property"));
 
+  Data!(5, 2) d = new Data!(5,2)(testData, flags);
+
+  Normalization norm = d.normalization;
+
+  foreach(i; 0 .. d.nPoints){
+    DataPoint!(5,2) tmp = d.getPoint(i);
+    norm.unnormalize(tmp);
+    assert(approxEqual(tmp.data[], testData[i]));
+    norm.normalize(tmp);
+    assert(approxEqual(tmp.data[], d.getPoint(i).data[]));
+  }
+}
 /**
  * Save a normalization to a file so it can be loaded back in later.
  * Useful for associating with a trained network, send the normalizations
@@ -1051,7 +1003,7 @@ unittest{
  * 
  * TODO - When phobos library settles down, save these as XML instead.
  */
-void SaveNormalization( Normalization norm, const string path){
+void SaveNormalization(const Normalization norm, const string path){
   /*
    * File format:
    * Normalization
@@ -1070,7 +1022,7 @@ void SaveNormalization( Normalization norm, const string path){
   fl.writefln("Normalization");
 
   // The number of elements in the arrays
-  ulong nVals = norm.scale.length;
+  size_t nVals = norm.scale.length;
   
   // Save the size
   fl.writefln("nVals = %d",nVals);
@@ -1127,26 +1079,49 @@ Normalization LoadNormalization(const string fileName){
 
   return Normalization(tmpShift, tmpScale);
 }
-
 unittest{
   mixin(announceTest("SaveNormalization and LoadNormalization Test."));
 
-  Data d = LoadDataFromArray(testData, 5, 2, flags);
+  Data!(5, 2) d = new Data!(5,2)(testData, flags);
+
+  Normalization norm = d.normalization;
+
+  SaveNormalization(norm, "norm.csv");
+  scope(exit) std.file.remove("norm.csv");
   
-  auto inNorm = d.getNormalization!(DataType.INPUT_DATA);
-  auto outNorm = d.getNormalization!(DataType.INPUT_DATA);
+  auto loadedNorm = LoadNormalization("norm.csv");
   
-  SaveNormalization(inNorm, "inNorm.csv");
-  scope(exit) std.file.remove("inNorm.csv");
-  SaveNormalization(outNorm, "outNorm.csv");
-  scope(exit) std.file.remove("outNorm.csv");
-  
-  auto loadedInNorm = LoadNormalization("inNorm.csv");
-  auto loadedOutNorm = LoadNormalization("outNorm.csv");
-  
-  assert(approxEqual(inNorm.shift,loadedInNorm.shift));
-  assert(approxEqual(inNorm.scale,loadedInNorm.scale));
+  assert(approxEqual(norm.shift,loadedNorm.shift));
+  assert(approxEqual(norm.scale,loadedNorm.scale));
   
 }
+/+ Old section 
 
+/*-----------------------------------------------------------------------------
+ *                           Data Helper Functions
+ *---------------------------------------------------------------------------*/
+
+/**
+ * Check if the supplied path is to a data file that has been pre-processed or
+ * not.
+ * 
+ * Params: 
+ * filename = The path to the file to check.
+ * 
+ * Returns: true if the file is laid out as expected for something that has been
+ * saved with SaveProcessedData.
+ * 
+ */
+bool isProcessedDataFile(const string filename){
+
+  // Open the file
+  Stream fl = new BufferedFile(filename, FileMode.In);
+  scope(exit) fl.close();
+
+  // Read the first line.
+  string firstLine = cast(string)fl.readLine();
+
+  // Test it
+  return firstLine == "NormalizedData";
+}
 +/
