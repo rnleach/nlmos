@@ -13,21 +13,11 @@ import std.regex;
 import std.stream;
 import std.string;
 
+public import dffann.dffann;
+
 version(unittest){
-
-  // Set up some imports and utility functions for all unit tests.
-  
-  import std.stdio;
   import std.file;
-
-  // Generate string for mixin that announces this test.
-  string announceTest(in string msg){
-    return "
-    write(format(\"Testing %s - %5d: %s...\",__FILE__,__LINE__,\"" ~ msg ~"\"));
-    scope(exit)writeln(\"done.\");";
-  }  
 }
-
 /*------------------------------------------------------------------------------
  *                             DataPoint struct
  *----------------------------------------------------------------------------*/
@@ -1095,33 +1085,3 @@ unittest{
   assert(approxEqual(norm.scale,loadedNorm.scale));
   
 }
-/+ Old section 
-
-/*-----------------------------------------------------------------------------
- *                           Data Helper Functions
- *---------------------------------------------------------------------------*/
-
-/**
- * Check if the supplied path is to a data file that has been pre-processed or
- * not.
- * 
- * Params: 
- * filename = The path to the file to check.
- * 
- * Returns: true if the file is laid out as expected for something that has been
- * saved with SaveProcessedData.
- * 
- */
-bool isProcessedDataFile(const string filename){
-
-  // Open the file
-  Stream fl = new BufferedFile(filename, FileMode.In);
-  scope(exit) fl.close();
-
-  // Read the first line.
-  string firstLine = cast(string)fl.readLine();
-
-  // Test it
-  return firstLine == "NormalizedData";
-}
-+/
