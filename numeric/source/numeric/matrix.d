@@ -1,23 +1,7 @@
 /**
- * Library for numerics in D.
- *
- * The goal of this library is to be fast. So it is based on structs. There is
- * also a compile option for building the library with parallel execution of 
- * many methods v.s. regular serial execution.
- *
- * It is not intended to be a complete library, or anything close. I will add
- * the features and functions that I need as I need them.
- *
- * version par - parrallel exectution instead of serial execution of some 
- *               methods. Serial execution is the default if no version is 
- *               specified.
- *
- * The profile version is handy for comparing potential versions and compilers
- * on any specific system.
- *
  * Author: Ryan Leach
  * Version: 1.0.0
- * Date: January 9, 2015
+ * Date: January 15, 2015
  */
 module numeric.matrix;
 
@@ -27,16 +11,7 @@ import std.math;
 import std.random;
 import std.string: format;
 
-version(unittest){
-  import std.stdio;
-
-  // Generate string for mixin that announces this test.
-  string announceTest(in string msg){
-    return "
-    write(format(\"Testing %s - %5d: %s...\",__FILE__,__LINE__,\"" ~ msg ~"\"));
-    scope(exit)writeln(\"done.\");";
-  }
-}
+public import numeric.numeric;
 
 version(par){
   import std.parallelism: parallel;
