@@ -30,7 +30,7 @@ public struct Matrix{
    private size_t rows;
    private size_t cols;
    private size_t numVals;  // numVals = rows * cols is used a lot, so cache it!
-   private double[] m;
+   package double[] m;
 
   /*============================================================================
    *                Memory management, constructors, destructor, etc.
