@@ -29,7 +29,7 @@
              "--arch=x86_64"]
     },
     {
-      "name":"dub test GDC",
+      "name":"dub Profile GDC",
       "working_dir":"$project_path",
       "cmd":["dub","test",
              "--compiler=gdc",
@@ -37,7 +37,7 @@
              "--arch=x86_64"]
     },
     {
-      "name":"dub test DMD",
+      "name":"dub Profile DMD",
       "working_dir":"$project_path",
       "cmd":["dub","test",
              "--compiler=dmd",
@@ -45,17 +45,48 @@
              "--arch=x86_64"]
     },
     {
-      "name":"dub test Par GDC",
+      "name":"dub Profile Par GDC",
       "working_dir":"$project_path",
       "cmd":["dub","test",
              "--config=ParProfile",
              "--arch=x86_64"]
     },
     {
-      "name":"dub test Par DMD",
+      "name":"dub Profile Par DMD",
       "working_dir":"$project_path",
       "cmd":["dub","test",
              "--config=ParProfile",
+             "--compiler=dmd",
+             "--arch=x86_64"]
+    },
+    {
+      "name":"dub test GDC",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--compiler=gdc",
+             "--config=lib-release-serial",
+             "--arch=x86_64"]
+    },
+    {
+      "name":"dub test DMD",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--compiler=dmd",
+             "--config=lib-release-serial",
+             "--arch=x86_64"]
+    },
+    {
+      "name":"dub test Par GDC",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=lib-release",
+             "--arch=x86_64"]
+    },
+    {
+      "name":"dub test Par DMD",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--config=lib-release",
              "--compiler=dmd",
              "--arch=x86_64"]
     }
