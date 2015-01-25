@@ -11,6 +11,11 @@
       "versions":["par"]
     },
     {
+      "name":"lib-release-serial",
+      "targetType":"library",
+      "versions":[]
+    },
+    {
       "name": "SerialProfile",
       "targetType": "executable",
       "versions": ["prof"],
