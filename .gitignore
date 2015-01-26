@@ -1,3 +1,6 @@
 numeric/.dub/*
 *dub.selections.json
 dffann/.dub/
+__test__*
+dffann.sublime-workspace
+*.a
