@@ -34,7 +34,7 @@ version(unittest){
  * numTargets = The number of targets stored in each DataPoint.
  *
  */
- struct DataPoint(size_t numInputs, size_t numTargets){
+public struct DataPoint(size_t numInputs, size_t numTargets){
 
   enum numVals = numInputs + numTargets;
   
@@ -191,7 +191,7 @@ unittest{
  * See_Also: DataPoint
  * 
 *******************************************************************************/
-class Data(size_t numInputs, size_t numTargets){
+public class Data(size_t numInputs, size_t numTargets){
 
   // Compile time constant for convenience.
   enum numVals = numInputs + numTargets;
@@ -216,10 +216,11 @@ class Data(size_t numInputs, size_t numTargets){
    * filter  = Must be size inputs + targets. True values indicate that the 
    *           corresponding column is a binary input (this is not checked) and 
    *           has value 0 or 1. Thus it should not be normalized.
+   * doNorm  = true if you want the data to be normalized.
    *
    * See_Also: Normalizations
    */
-  private this(const double[][] data, const bool[] filter){
+  public this(in double[][] data, in bool[] filter, in bool doNorm = true){
     // Check lengths
     enforce(data.length > 1, 
       "Initialization Error, no points in supplied array.");
@@ -245,7 +246,11 @@ class Data(size_t numInputs, size_t numTargets){
     // Normalize list in place while calculating shifts and scales
     double[numVals] shift_tmp;
     double[numVals] scale_tmp;
-    normalize(temp, shift_tmp, scale_tmp, filter);
+    if(doNorm) normalize(temp, shift_tmp, scale_tmp, filter);
+    else{
+      shift_tmp[] = 0.0;
+      scale_tmp[] = 1.0;
+    }
 
     // Cast temp to the immutable data, temp never escapes constructor as 
     // mutable data.
@@ -274,7 +279,7 @@ class Data(size_t numInputs, size_t numTargets){
    *
    * See_Also: Normalizations.
    */
-  public this(const double[][] data, 
+  private this(const double[][] data, 
                const bool[] filter,
                const double[] shift,
                const double[] scale){
@@ -698,6 +703,30 @@ unittest{
   for(size_t i = 0; i < d.numPoints; ++i){
     for(size_t j = 0; j < d.numVals; ++j) 
       assert(approxEqual(d.list[i].data[j], normalizedRowValues[i]));
+  }
+}
+unittest{
+  mixin(announceTest("Data this(double[][], bool[], false)"));
+
+  // Short-hand for dealing with immutable data
+  alias immutable(Data!(5,2)) iData;
+  
+  iData d = new iData(testData, flags, false);
+  
+  // Check the number of points
+  assert(d.numPoints == 10);
+
+  // Check the shift and scale - to be used later to create Normalizations.
+  foreach(sc; d.scale) 
+    assert(sc == 1.0);
+
+  foreach(sh; d.shift) 
+    assert(sh == 0.0);
+
+  // Test normalization of data points
+  for(size_t i = 0; i < d.numPoints; ++i){
+    for(size_t j = 0; j < d.numVals; ++j) 
+      assert(d.list[i].data[j] == testData[i][j]);
   }
 }
 unittest{
