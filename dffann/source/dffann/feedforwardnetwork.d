@@ -54,12 +54,12 @@ interface feedforwardnetwork{
 	/**
 	 * The number of inputs for the network.
 	 */
-	@property int numInputs();
+	@property uint numInputs();
 	
 	/**
 	 * The number of outputs for the network.
 	 */
-	@property int numOutputs();
+	@property uint numOutputs();
 	
 	/**
 	 * Returns: the weights of the network organized as a 1-d array.
@@ -86,5 +86,16 @@ interface feedforwardnetwork{
 	 * Initialize the network weights to random values.
 	 */
 	void setRandom();
+
+	/**
+	 * Returns: The weights, biases, and configuration of the network as
+	 *          a string that can be saved to a file.
+	 */
+	@property string stringForm();
+
+	/**
+	 * Returns: A copy of this network.
+	 */
+	@property feedforwardnetwork dup();
 	
 }
