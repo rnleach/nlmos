@@ -3,17 +3,6 @@
  *
  * This module contains routines for minimizing functions as defined in func.d.
  *
- * It is not intended to be a complete library, or anything close. I will add
- * the features and functions that I need as I need them.
- *
- * version par - parrallel exectution instead of serial execution of some 
- *               methods. Serial execution is the default if no version is 
- *               specified.
- *
- * The profile version is handy for comparing potential versions and compilers
- * on any specific system.
- *
- * Author: Ryan Leach
  * Version: 1.0.0
  * Date: January 23, 2015
  */
