@@ -420,7 +420,7 @@ public class Data(size_t numInputs, size_t numTargets){
     // Read the file line by line
     auto app = appender!(double[][])();
     auto sepRegEx = ctRegex!r",";
-    foreach(size_t lm, char[] line; f){
+    foreach(char[] line; f){
       
       // Split the line on commas
       char[][] tokens = split(line,sepRegEx);
