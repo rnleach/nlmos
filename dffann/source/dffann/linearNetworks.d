@@ -52,7 +52,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     }
     else
     {
-      enforce(nOutputs > 0,"Number of output nodes must be greater thatn 1!");
+      enforce(nOutputs > 0,"Number of output nodes must be greater than 1!");
     }
     
     this.nInputs = nInputs;
@@ -162,6 +162,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     static if(is(OAF == linearAF)) alias outputNodes = outputActivationNodes;
     
     double[] toRet = new double[numParameters];
+    toRet[] = 0.0;
     
     size_t j = 0;
     foreach(o; 0 .. nOutputs)
@@ -235,7 +236,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     double[] toRet = new double[numParameters];
 
     // It seems there would be a better way to do this using slices, that may 
-    // be more efficient, but is surely easier to code. I did it this we in
+    // be more efficient, but is surely easier to code. I did it this way in
     // order to keep the packing in a certain format so that I could use an 
     // SVD to train the linear network via least squares. The way I would prefer
     // to do it is...
@@ -348,16 +349,16 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
      * 
      * parameters are as returned by the parameters property
      */
-     // Add headers
-     string toRet = "FeedForwardNetwork\n";
-     toRet ~= "LinearNetwork!" ~ OAF.stringof ~ "\n";
-     toRet ~= format("nInputs = %d\nnOutputs = %d\n", nInputs, nOutputs);
-     // Save parameters
-     toRet ~= "parameters = ";
-     foreach(parm; parameters) toRet ~= format("%.*e,", double.dig, parm);
-     toRet = toRet[0 .. $ - 1] ~ "\n"; // Replace last comma with new-line
+    // Add headers
+    string toRet = "FeedForwardNetwork\n";
+    toRet ~= "LinearNetwork!" ~ OAF.stringof ~ "\n";
+    toRet ~= format("nInputs = %d\nnOutputs = %d\n", nInputs, nOutputs);
+    // Save parameters
+    toRet ~= "parameters = ";
+    foreach(parm; parameters) toRet ~= format("%.*e,", double.dig, parm);
+    toRet = toRet[0 .. $ - 1] ~ "\n"; // Replace last comma with new-line
 
-     return toRet;
+    return toRet;
   }
 }
 
@@ -399,7 +400,8 @@ unittest
   enum numIn = 4;
   enum numOut = 2;
   
-  // Normalize the data set (NO!, the predetermined weights for this data set don't allow it.)
+  // Normalize the data set (NO!, the predetermined weights for this data set 
+  // don't allow it.)
   enum normalize = false;
 
   // short hand for dealing with data
@@ -468,7 +470,8 @@ unittest{
   enum numIn = 2;
   enum numOut = 1;
   
-  // Normalize the data set (NO!, the predetermined weights for this data set don't allow it.)
+  // Normalize the data set (NO!, the predetermined weights for this data set
+  // don't allow it.)
   enum normalize = false;
 
   // short hand for dealing with data
