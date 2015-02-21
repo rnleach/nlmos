@@ -71,8 +71,8 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
 
   private this(uint nIn, uint nOut, double[] weights, double[] biases)
   {
-    this.nInputs = nInputs;
-    this.nOutputs = nOutputs;
+    this.nInputs = nIn;
+    this.nOutputs = nOut;
     this.numParameters = this.nOutputs * ( 1 + this.nInputs);
 
     this.inputNodes = new double[](nInputs);
