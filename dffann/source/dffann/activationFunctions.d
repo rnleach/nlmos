@@ -1,5 +1,5 @@
 /**
- * Activation functions definitions.
+ * Activation function definitions.
  *
  * Activation functions should be structs with only static members and no 
  * internal state. The required methods are:

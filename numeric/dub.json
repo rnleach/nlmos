@@ -1,6 +1,6 @@
 {
   "name": "numeric",
-  "description": "A minimal D application.",
+  "description": "Numerical routines in D.",
   "copyright": "Copyright © 2014, Ryan",
   "authors": ["Ryan"],
   "version":"1.0.0",

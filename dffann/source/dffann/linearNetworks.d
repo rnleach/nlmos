@@ -21,7 +21,6 @@ import std.string;
 
 version(unittest) import dffann.data;
 
-
 public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
 {
 
