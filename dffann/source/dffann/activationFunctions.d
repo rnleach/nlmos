@@ -28,7 +28,8 @@ alias isOutputActivationFunction isOAF;
 /**
  * Assure a struct meets the requirements to be used as an activation function.
  */
-template isActivationFunction(A){
+template isActivationFunction(A)
+{
 
   // Check that you can actually use it!
   enum bool canUse = is(typeof(
@@ -71,7 +72,8 @@ template isActivationFunction(A){
  * Assure an activation function is allowed to be on the output layer of a
  * network.
  */
-template isOutputActivationFunction(A){
+template isOutputActivationFunction(A)
+{
 
   // Check that it is an activation function first!
   enum bool validAF = isAF!A;
