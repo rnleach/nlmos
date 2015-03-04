@@ -49,7 +49,7 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
 
   private feedforwardnetwork net;
   private Regulizer reg;
-  private size_t numParms = 0;
+  private immutable(size_t) numParms;
   private iData data;
   private double error = double.max;
   private double[] grad;
@@ -66,31 +66,49 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
 
   public override void evaluate(double[] inputs, bool evalGrad = true)
   {
-   
-    static if(par)
-    {
-       // TODO - make parallel version
-    }
+
+    // Copy in the parameters to the network
+    net.parameters = inputs.dup;
     
-    else
+    // Keep track of the count so you can average the error later
+    size_t count = 0;
+
+    // Initialize values
+    error = 0.0;
+    grad[] = 0.0;
+
+    /*==========================================================================
+      Nested structure to hold the results of an error calculation over a range.
+    ==========================================================================*/
+    struct results {
+      public size_t r_count;
+      public double r_error;
+      public double[] r_grad;
+
+      public this(const size_t cnt, const double err, const double[] grd)
+      {
+        this.r_count = cnt;
+        this.r_error = err;
+        this.r_grad = grd.dup;
+      }
+    }
+
+    /*==========================================================================
+      Nested function to calculate the error over a range.
+    ==========================================================================*/
+    results doErrorChunk(DR)(DR dr, feedforwardnetwork nt)
+    if(isDataRangeType!DR)
     {
-      // Copy in the parameters to the network
-      net.parameters = inputs.dup;
-      
-      // Keep track of the count so you can average the error later
-      size_t count = 0;
-
-      // Initialize values
-      error = 0.0;
-      grad[] = 0.0;
-
-      // Get a data range for iterating the data points
-      auto dr = data.simpleRange;
+      // Set up return variables
+      size_t d_count = 0;
+      double d_error = 0.0;
+      double[] d_grad = new double[numParms];
+      d_grad[] = 0.0;
 
       foreach(dp; dr)
       {
         // Evaluate the network at the given points
-        double[] y = net.eval(dp.inputs);
+        double[] y = nt.eval(dp.inputs);
 
         // Calculate the error for the given point.
         static if(errFuncType == EFType.ChiSquare)
@@ -101,20 +119,20 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
             double val = (y[i] - dp.targets[i]);
             err += val * val;
           }
-          error += 0.5 * err;
+          d_error += 0.5 * err;
         }
 
         else static if(errFuncType == EFType.CrossEntropy2C)
         {
           foreach(i; 0 .. y.length)
-            error -= dp.targets[i] * log(y[i]) + 
-                                          (1.0 - dp.targets[i]) * log(1.0 - y[i]);
+            d_error -= dp.targets[i] * log(y[i]) + 
+                                        (1.0 - dp.targets[i]) * log(1.0 - y[i]);
         }
 
         else static if(errFuncType == EFType.CrossEntropy)
         {
           foreach(i; 0 .. y.length)
-            error -= dp.targets[i] * log(y[i]);
+            d_error -= dp.targets[i] * log(y[i]);
         }
 
         else
@@ -125,16 +143,55 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
         
         // Do the back-propagation, assuming output activation function and
         // error functions are properly matched.
-        grad[] += net.backProp(dp.targets)[];
+        d_grad[] += nt.backProp(dp.targets)[];
 
         // Increment the count
-        ++count;
+        ++d_count;
       }
+
+      return results(d_count, d_error, d_grad);
+    }
+
+    static if(par) // Parallel Code
+    {
+      import std.parallelism;
+
+      // How many threads to use?
+      size_t numThreads = totalCPUs - 1;
+      if(numThreads < 1) numThreads = 1;
+
+      alias typeof(data.simpleRange) RngType;
+      results[] reses = new results[numThreads];
+
+      foreach(i, ref res; parallel(reses))
+      {
+        res = doErrorChunk!RngType(data.batchRange(i + 1, numThreads), net.dup);
+      }
+
+      foreach(i, res; reses)
+      {
+        count += res.r_count;
+        error += res.r_error;
+        grad[] += res.r_grad[];
+      }
+    }
+    
+    else // Serial Code
+    {
+      // Get a data range for iterating the data points
+      auto dr = data.simpleRange;
+
+      results res = doErrorChunk!(typeof(dr))(dr, net);
+
+      count = res.r_count;
+      error = res.r_error;
+      grad[] = res.r_grad[];
     }
 
     // Average the error and the gradient.
     error /= count;
     grad[] /= count;
+
 
     // Add in the regularization error
     if(reg)
@@ -181,9 +238,16 @@ unittest
 
   LinRegNet slprn = new LinRegNet(5,2);
 
-  alias ErrorFunction!(EFType.ChiSquare, iData, false) ChiSquareEF;
+  alias ErrorFunction!(EFType.ChiSquare, iData, false) ChiSquareEF_S;
+  alias ErrorFunction!(EFType.ChiSquare, iData) ChiSquareEF_P;
 
-  ChiSquareEF ef = new ChiSquareEF(slprn, myData);
+  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, myData);
+  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, myData);
 
-  ef.evaluate(slprn.parameters);
+  ef_S.evaluate(slprn.parameters);
+  ef_P.evaluate(slprn.parameters);
+
+  assert(approxEqual(ef_S.value, ef_P.value),
+    format("\n\nSerial=%f != Parallel=%f\n\n", ef_S.value, ef_P.value));
+  assert(approxEqual(ef_S.grad, ef_P.grad));
 }
