@@ -116,8 +116,18 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
    * Returns: A slice of just the targets.
    */
   @property double[] targets(){return this.data[numInputs .. $];}
+}
 
- }
+/**
+ * Template to test if a type is an instantiation of the parameterized DataPoint
+ * class.
+ */
+template isDataPointType(T)
+{
+  enum bool isDataPointType = indexOf(T.stringof, "DataPoint!") > -1;
+}
+static assert(!isDataPointType!(immutable(Data!(5,2))));
+static assert(isDataPointType!(immutable(DataPoint!(5,2))));
  /*=============================================================================
   *                   Unit tests for DataPoint
   *===========================================================================*/
@@ -401,6 +411,15 @@ public class Data(size_t numInputs, size_t numTargets)
     return DataRange!(numInputs, numTargets)(this);
   }
 
+   /**
+   * Returns: a range that iterates over a subset of the points in this 
+   *          collection in the same order everytime. 
+   */
+  final DataRange!(numInputs, numTargets) batchRange(size_t batch, size_t numBatches) const
+  {
+    return DataRange!(numInputs, numTargets)(this, batch, numBatches);
+  }
+
   /**
    *  Returns: a normalization for this data set.
    */
@@ -663,6 +682,18 @@ public class Data(size_t numInputs, size_t numTargets)
 
   // TODO split - given a Data object, split it into two without re-normalizing
 }
+
+/**
+ * Template to test if a type is an instantiation of the parameterized Data 
+ * class.
+ */
+template isDataType(T)
+{
+  enum bool isDataType = indexOf(T.stringof, "Data!") > -1;
+}
+static assert(isDataType!(immutable(Data!(5,2))));
+static assert(!isDataType!(immutable(DataPoint!(5,2))));
+
 /*==============================================================================
  *                     Unit tests for data class
  *============================================================================*/
@@ -865,8 +896,19 @@ unittest
 /*==============================================================================
  *                                   DataRange
  *============================================================================*/
+
 /**
- * InputRange for iterating Data objects.
+ * Template to test if a type is an instantiation of the parameterized DataRange
+ * struct.
+ */
+template isDataRangeType(T)
+{
+  enum bool isDataRangeType = indexOf(T.stringof, "DataRange!") > -1;
+}
+
+/**
+ * InputRange for iterating a subset of the data in a Data object.
+ *
  */
 public struct DataRange(size_t numInputs, size_t numTargets)
 {
@@ -876,26 +918,33 @@ public struct DataRange(size_t numInputs, size_t numTargets)
   private immutable(size_t) length;
   private size_t next;
   private iData data;
+  private size_t numBatches;
   
   /**
    * Params: 
    * d = The Data object you wish to iterate over.
+   * batch = The batch number, 1 to numBatches
+   * numBatches = the number of batches created in total.
    */
-  this(iData d)
+  this(iData d, size_t batch = 1, size_t numBatches = 1)
   {
-    this.length = d.nPoints;
-    this.next = 0;
+    size_t numPoints = d.nPoints / numBatches;
+    if(batch <= d.nPoints % numBatches) numPoints += 1;
+    this.length = numPoints;
+    this.next = batch - 1;
     this.data = d;
+    this.numBatches = numBatches;
   }
   
   // Properties/methods to make this an InputRange
-  @property bool empty(){return next == length;}
+  @property bool empty(){return next >= data.nPoints;}
 
   @property auto front(){return this.data.getPoint(next);}
 
-  void popFront(){++next;}
+  void popFront(){next += numBatches;}
 }
 static assert(isInputRange!(DataRange!(5,2)));
+static assert(isDataRangeType!(DataRange!(5,2)));
 
 unittest
 {
