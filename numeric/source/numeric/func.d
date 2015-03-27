@@ -24,7 +24,7 @@ interface func{
    * Params:
    * inputs = postition to evaluate at, e.g. inputs = [x,y] for f(x,y).
    */
-  public void evaluate(double[] inputs, bool grad = false);
+  public void evaluate(in double[] inputs, bool grad = false);
   
   /**
    * Returns: the value that resulted from the last call to 
@@ -48,7 +48,7 @@ version(unittest){
     double result;
     double[] lgradient = null;
 
-    override final void evaluate(double[] inputs, bool grad = false){
+    override final void evaluate(in double[] inputs, bool grad = false){
       this.result = reduce!"a + b * b"(0.0,inputs);
 
       if(grad){
@@ -69,7 +69,7 @@ version(unittest){
     double result;
     double[3] lgradient = double.nan;
 
-    override final void evaluate(double[] inputs, bool grad = false){
+    override final void evaluate(in double[] inputs, bool grad = false){
       assert(inputs.length == 3);
 
       this.result = pow(inputs[0] - 1.0,2) + 
@@ -99,7 +99,7 @@ version(unittest){
     double result;
     double[3] lgradient = double.nan;
 
-    override final void evaluate(double[] inputs, bool grad = false){
+    override final void evaluate(in double[] inputs, bool grad = false){
       assert(inputs.length == 3);
 
       this.result = -(pow(inputs[0] - 1.0,2) + 
