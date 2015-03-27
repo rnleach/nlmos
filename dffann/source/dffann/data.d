@@ -585,7 +585,7 @@ public class Data(size_t numInputs, size_t numTargets)
 
     // set up some variables, define nested function for mixin to
     // parse arrays.
-    string tokens[];
+    string[] tokens;
     // Parms: vname  - e.g. "dataFilter"
     //        elType - e.g. "bool", "double"
     //        row    - e.g. "4", row number of header array to parse.

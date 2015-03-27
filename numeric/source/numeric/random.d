@@ -78,7 +78,7 @@ import std.math;
   int j;
   long k;
   static long iy = 0;
-  static long iv[NTAB];
+  static long[NTAB] iv;
   double temp;
 
   if( idum <= 0 || !iy){ // Initialize
