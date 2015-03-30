@@ -100,11 +100,13 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
 
     // Initialize values
     error = 0.0;
-    if(evalGrad)
+    if(evalGrad && !grad)
     {
       grad = uninitializedArray!(double[])(numParms);
       grad[] = 0.0;
     }
+    else if(evalGrad) grad[] = 0.0;
+    else grad = null;
 
     /*==========================================================================
       Nested structure to hold the results of an error calculation over a range.
@@ -132,7 +134,7 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
       // Set up return variables
       size_t d_count = 0;
       double d_error = 0.0;
-      double[] d_grad;
+      double[] d_grad = null;
       if(evalGrad)
       {
         d_grad = uninitializedArray!(double[])(numParms);
