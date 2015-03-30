@@ -334,22 +334,6 @@ abstract class Regulizer: func
   public abstract @property void hyperParameters(in double[] hParms);
 
   /**
-   * Calculate the gradient of the error with respect to the Regularizations
-   * hyper-parameters.
-   * 
-   * Params:
-   * inputs = The network weights, the same values you would pass to the error
-   *          function for evaluation. Note that often in regularizations you
-   *          want to ignore the bias parameters, so ensure they are set to 
-   *          zero by using the nonBiasParms method of the network to fetch
-   *          them.
-   *
-   * Returns: The gradient of the error function with respect to the hyper-
-   *          parameters.
-   */
-  public abstract double[] hyperGradient(in double[] inputs);
-
-  /**
    * Returns: The value of the error as calculated by the last call to evaluate,
    *          which is required by the func interface.
    */
@@ -426,21 +410,6 @@ class WeightDecayRegulizer: Regulizer
     assert(hParms.length == 1,"Invalid number of parameters.");
     this.nu = hParms[0];
   }
-
-  public override double[] hyperGradient(in double[] inputs)
-  {
-    double[] hyperGrad = uninitializedArray!(double[])(1);
-    hyperGrad[0] = 0.0;
-
-    foreach(i; 0 .. inputs.length)
-    {
-      hyperGrad[0] += inputs[i] * inputs[i];
-    }
-
-    hyperGrad[0] /= 2.0 * sgn(nu) * inputs.length;
-
-    return hyperGrad;
-  }
 }
 unittest
 {
@@ -461,7 +430,6 @@ unittest
 
   // Test the hyper-parameters
   assert(wdr.hyperParameters == [0.1]);
-  assert(approxEqual(wdr.hyperGradient(slprn.parameters)[0], 5.5));
 }
 
 /**
@@ -526,25 +494,6 @@ class WeightEliminationRegulizer: Regulizer
     this.nu = hParms[0];
     this.nuRef = hParms[1];
   }
-
-   public override double[] hyperGradient(in double[] inputs)
-  {
-    double[] hyperGrad = uninitializedArray!(double[])(2);
-    hyperGrad[] = 0.0;
-
-    foreach(i; 0 .. inputs.length)
-    {
-      double w2 = inputs[i] * inputs[i];
-      double denom = w2 + nuRef * nuRef;
-      hyperGrad[0] += w2 / denom;
-      hyperGrad[1] += w2 / (denom * denom);
-    }
-
-    hyperGrad[0] *= sgn(nu) / 2.0 / inputs.length;
-    hyperGrad[1] *= -fabs(nu) * nuRef / inputs.length;
-
-    return hyperGrad;
-  }
 }
 unittest
 {
@@ -567,9 +516,6 @@ unittest
 
   // Test the hyper-parameters
   assert(wer.hyperParameters == [0.1, 1.0]);
-  assert(approxEqual(wer.hyperGradient(slprn.parameters), 
-                     [0.410271, -0.0118469]),
-         format("%s",wer.hyperGradient(slprn.parameters)));
 }
 
 unittest
