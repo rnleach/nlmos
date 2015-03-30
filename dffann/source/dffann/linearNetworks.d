@@ -230,7 +230,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
    *
    * Returns: the weights of the network organized as a 1-d array.
    */
-  override @property double[] parameters()
+  public override @property double[] parameters()
   {
     double[] toRet = new double[numParameters];
 
@@ -260,7 +260,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
   /**
    * ditto
    */
-  override @property double[] parameters(double[] parms)
+  public override @property double[] parameters(double[] parms)
   {
     assert(parms.length == numParameters, 
       "Supplied array different size than number of parameters in network.");
@@ -284,7 +284,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
    * Returns: the weights of the network with those corresponding to biases set 
    *          to zero.
    */
-  override @property double[] nonBiasParameters()
+  public override @property double[] nonBiasParameters()
   {
     double[] toRet = new double[this.numParameters];
     
@@ -303,7 +303,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
   /**
    * Initialize the network weights to random values.
    */
-  override void setRandom()
+  public override void setRandom()
   {
     // Initalize weights with small random values
     long seed = -Clock.currStdTime;
@@ -318,7 +318,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
   /**
    * The number of inputs for the network.
    */
-  @property uint numInputs()
+  public @property uint numInputs()
   {
     return nInputs;
   }
@@ -326,7 +326,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
   /**
    * The number of outputs for the network.
    */
-  @property uint numOutputs()
+  public @property uint numOutputs()
   {
     return nOutputs;
   }
@@ -335,7 +335,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
    * Returns: The weights, biases, and configuration of the network as
    *          a string that can be saved to a file.
    */
-  @property string stringForm(){
+  public @property string stringForm(){
     /*
      * File format:
      * FeedForwardNetwork
