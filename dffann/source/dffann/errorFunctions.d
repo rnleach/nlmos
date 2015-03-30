@@ -251,74 +251,65 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
 
 version(unittest)
 {
-
-  alias immutable(Data!(5,2)) iData;
-
-  // Test Data
-  double[][] testData = 
-    [[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
-     [1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1],
-     [1.2, 2.2, 3.2, 4.2, 5.2, 6.2, 7.2],
-     [1.3, 2.3, 3.3, 4.3, 5.3, 6.3, 7.3],
-     [1.4, 2.4, 3.4, 4.4, 5.4, 6.4, 7.4],
-     [1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5],
-     [1.6, 2.6, 3.6, 4.6, 5.6, 6.6, 7.6],
-     [1.7, 2.7, 3.7, 4.7, 5.7, 6.7, 7.7],
-     [1.8, 2.8, 3.8, 4.8, 5.8, 6.8, 7.8],
-     [1.9, 2.9, 3.9, 4.9, 5.9, 6.9, 7.9]];
-
-  bool[] flags = [false, false, false, false, false, false, false]; 
-}
-unittest
-{
-  // TODO - make known values to test
-  mixin(dffann.dffann.announceTest("ChiSquareEF"));
-
   import dffann.linearNetworks;
 
-  iData myData = new iData(testData, flags);
+  // Test Data
+  double[][] fakeData = 
+                        [[  1.0,   2.0,   3.0,   4.0,  35.0,  31.0],
+                         [  1.0,   3.0,   5.0,   7.0,  55.0,  47.0],
+                         [  1.0,   1.0,   1.0,   1.0,  15.0,  15.0],
+                         [ -1.0,   4.0,   2.0,  -2.0,  10.0,  14.0]];
 
-  LinRegNet slprn = new LinRegNet(5,2);
+  // All binary flags are false, because none of the data is binary!
+  bool[] binaryFlags = [false, false, false, false, false, false];
+
+  // Number of inputs and outputs
+  enum numIn = 4;
+  enum numOut = 2;
+  
+  // Normalize the data set (NO!, the predetermined weights for this data set 
+  // don't allow it.)
+  enum normalize = false; 
+
+  // short hand for dealing with data
+  alias immutable(Data!(numIn, numOut)) iData;
+
+}
+
+unittest
+{
+  mixin(dffann.dffann.announceTest("ChiSquareEF"));
+
+  // Make a data set
+  iData d1 = new iData(fakeData, binaryFlags, normalize);
+
+  // Now, build a network.
+  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  LinRegNet slprn = new LinRegNet(numIn,numOut);
+  slprn.parameters = wts;
 
   alias ErrorFunction!(EFType.ChiSquare, iData, false) ChiSquareEF_S;
   alias ErrorFunction!(EFType.ChiSquare, iData) ChiSquareEF_P;
 
-  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, myData);
-  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, myData);
+  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1);
+  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1);
 
-  // Test without regularization
+  // Test without regularization - evaluate the gradient
   ef_S.evaluate(slprn.parameters);
   ef_P.evaluate(slprn.parameters);
 
-  assert(approxEqual(ef_S.value, ef_P.value),
-    format("\n\nSerial=%f != Parallel=%f\n\n", ef_S.value, ef_P.value));
+  assert(approxEqual(ef_S.value, ef_P.value));
   assert(approxEqual(ef_S.grad, ef_P.grad));
+  assert(ef_S.grad !is null);
+  assert(ef_P.grad !is null);
 
+  // Test without regularization - do not evaluate the gradient
   ef_S.evaluate(slprn.parameters, false);
   ef_P.evaluate(slprn.parameters, false);
 
-  assert(approxEqual(ef_S.value, ef_P.value),
-    format("\n\nSerial=%f != Parallel=%f\n\n", ef_S.value, ef_P.value));
-  assert(approxEqual(ef_S.grad, ef_P.grad));
-
-  // Test with regularization
-  auto wdr = new WeightDecayRegulizer(0.01);
-  ef_S = new ChiSquareEF_S(slprn, myData, wdr);
-  ef_P = new ChiSquareEF_P(slprn, myData, wdr);
-
-  ef_S.evaluate(slprn.parameters);
-  ef_P.evaluate(slprn.parameters);
-
-  assert(approxEqual(ef_S.value, ef_P.value),
-    format("\n\nSerial=%f != Parallel=%f\n\n", ef_S.value, ef_P.value));
-  assert(approxEqual(ef_S.grad, ef_P.grad));
-
-  ef_S.evaluate(slprn.parameters, false);
-  ef_P.evaluate(slprn.parameters, false);
-
-  assert(approxEqual(ef_S.value, ef_P.value),
-    format("\n\nSerial=%f != Parallel=%f\n\n", ef_S.value, ef_P.value));
-  assert(approxEqual(ef_S.grad, ef_P.grad));
+  assert(approxEqual(ef_S.value, ef_P.value));
+  assert(ef_S.grad is null, format("%s",ef_S.grad));
+  assert(ef_P.grad is null, format("%s",ef_P.grad));
 }
 
 /**
@@ -379,9 +370,10 @@ abstract class Regulizer: func
    */
   public abstract void evaluate(in double[] inputs, bool grad=true);
 }
+
 /**
- * Penalizes large weights by add a term proportional to the sum-of-squares of 
- * the weights.
+ * Penalizes large weights by adding a term proportional to the sum-of-squares 
+ * of the weights.
  */
 class WeightDecayRegulizer: Regulizer
 {
@@ -447,6 +439,27 @@ class WeightDecayRegulizer: Regulizer
 
     return hyperGrad;
   }
+}
+unittest
+{
+  mixin(dffann.dffann.announceTest("WeightDecayRegularizer"));
+
+  // Build a network.
+  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  LinRegNet slprn = new LinRegNet(numIn,numOut);
+  slprn.parameters = wts;
+
+  // Create a regulizer and evaluate it.
+  WeightDecayRegulizer wdr = new WeightDecayRegulizer(0.1);
+  wdr.evaluate(slprn.parameters, true);
+
+  assert(approxEqual(wdr.value, 0.55));
+  assert(approxEqual(wdr.gradient,
+   [0.01, 0.02, 0.03, 0.04, 0.05, 0.05, 0.04, 0.03, 0.02, 0.01]));
+
+  // Test the hyper-parameters
+  assert(wdr.hyperParameters == [0.1]);
+  assert(approxEqual(wdr.hyperGradient(slprn.parameters)[0], 5.5));
 }
 
 /**
@@ -531,4 +544,63 @@ class WeightEliminationRegulizer: Regulizer
     return hyperGrad;
   }
 }
+unittest
+{
+  mixin(dffann.dffann.announceTest("WeightEliminationRegularizer"));
 
+  // Build a network.
+  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  LinRegNet slprn = new LinRegNet(numIn,numOut);
+  slprn.parameters = wts;
+
+  // Create a regulizer and evaluate it.
+  WeightEliminationRegulizer wer = new WeightEliminationRegulizer(0.1, 1.0);
+  wer.evaluate(slprn.parameters, true);
+
+  assert(approxEqual(wer.value, 0.0410271), format("%s",wer.value));
+  assert(approxEqual(wer.gradient,
+                     [0.0025, 0.0008, 0.0003, 0.000138408, 7.39645e-05, 
+                      7.39645e-05, 0.000138408, 0.0003, 0.0008, 0.0025]),
+         format("%s",wer.gradient));
+
+  // Test the hyper-parameters
+  assert(wer.hyperParameters == [0.1, 1.0]);
+  assert(approxEqual(wer.hyperGradient(slprn.parameters), 
+                     [0.410271, -0.0118469]),
+         format("%s",wer.hyperGradient(slprn.parameters)));
+}
+
+unittest
+{
+  mixin(dffann.dffann.announceTest("ErrorFunction with Regulizer"));
+
+  // Make a data set
+  iData d1 = new iData(fakeData, binaryFlags, normalize);
+
+  // Now, build a network.
+  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  LinRegNet slprn = new LinRegNet(numIn,numOut);
+  slprn.parameters = wts;
+
+  alias ErrorFunction!(EFType.ChiSquare, iData, false) ChiSquareEF_S;
+  alias ErrorFunction!(EFType.ChiSquare, iData) ChiSquareEF_P;
+
+  auto wdr = new WeightDecayRegulizer(0.01);
+  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1, wdr);
+  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1, wdr);
+
+  ef_S.evaluate(slprn.parameters);
+  ef_P.evaluate(slprn.parameters);
+
+  assert(approxEqual(ef_S.value, ef_P.value));
+  assert(approxEqual(ef_S.grad, ef_P.grad));
+  assert(ef_S.grad !is null);
+  assert(ef_P.grad !is null);
+
+  ef_S.evaluate(slprn.parameters, false);
+  ef_P.evaluate(slprn.parameters, false);
+
+  assert(approxEqual(ef_S.value, ef_P.value));
+  assert(ef_S.grad is null, format("%s",ef_S.grad));
+  assert(ef_P.grad is null, format("%s",ef_P.grad));
+}
