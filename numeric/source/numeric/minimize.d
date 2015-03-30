@@ -27,7 +27,8 @@ import std.string;
  * 
  * Returns: start + scale * dir
  */
-private double[] delta(double[] start, double[] dir, double scale){
+private double[] delta(double[] start, double[] dir, double scale)
+{
   assert(start.length == dir.length);
 
   double[] toRet = start.dup;
@@ -36,7 +37,8 @@ private double[] delta(double[] start, double[] dir, double scale){
   
   return toRet;
 }
-unittest{
+unittest
+{
   mixin(announceTest("delta"));
 
   double[] x = [1.0, 2.0, 3.0, 4.0];
@@ -50,7 +52,8 @@ unittest{
  * Convenient and more expressive way to represent results of a bracketing 
  * operation compared to an array.
  */
-public struct bracketResults{
+public struct bracketResults
+{
   public double ax, bx, cx;
   public double fa, fb, fc;
 
@@ -77,7 +80,7 @@ public struct bracketResults{
     return format("bracketResults[found=%s, ax=%f, bx=%f, cx=%f, fa=%f, fb=%f, fc=%f]",
                   this.bracketFound, ax, bx, cx, fa, fb, fc);
   }
- }
+}
 
 /**
  * Bracket a minimum along a given direction.
@@ -100,7 +103,8 @@ public struct bracketResults{
  *          unable to bracket a minimum, all the valuse of the return will be
  *          double.nan and this can be checked for with the bracketFound method.
  */
-public bracketResults bracketMinimum(double[] startingPoint, double[] direction, func f){
+public bracketResults bracketMinimum(double[] startingPoint, double[] direction, func f)
+{
 
   assert(startingPoint.length == direction.length);
   
@@ -195,7 +199,8 @@ public bracketResults bracketMinimum(double[] startingPoint, double[] direction,
   
   return bracketResults(ax, bx, cx, fa, fb, fc);
 }
-unittest{
+unittest
+{
   mixin(announceTest("bracketMinimum"));
 
   /*
@@ -270,7 +275,6 @@ unittest{
   ANegativeFunction nf = new ANegativeFunction;
   results = bracketMinimum(startPoint, [0.0,1.0,0.0], nf);
   assert(!results.bracketFound);
-  
 }
 
 /**
@@ -283,7 +287,8 @@ unittest{
  * the value member, and the gradient is the gradient member. The gradient
  * member may be null if the gradient was not requested during minimization.
  */
-public struct LineMinimizationResults{
+public struct LineMinimizationResults
+{
   /**
    * Assuming the line minimization was done with a starting point sp and
    * direction dr, alpah is the distance along that direction to get to the 
@@ -343,7 +348,8 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
                                             double[] direction, 
                                             bracketResults brackets, 
                                             func f,
-                                            bool getGrad = true){
+                                            bool getGrad = true)
+{
 
   assert(brackets.bracketFound);
   
@@ -454,7 +460,8 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
   gmin = gx; 
   return LineMinimizationResults(xmin, fxmin, gmin, startingPoint, direction);
 }
-unittest{
+unittest
+{
   mixin(announceTest("lineMinimize"));
 
   /*
@@ -521,7 +528,8 @@ unittest{
  *             last several iterations is smaller than this, stop!
  *
  */
-public void BFGSMinimize(func f, ref double[] startPos, size_t maxIt, double minDeltaV){
+public void BFGSMinimize(func f, ref double[] startPos, size_t maxIt, double minDeltaV)
+{
   
   // These variables used to remember last XX iterations and average error to 
   // test stopping conditions.
@@ -549,7 +557,7 @@ public void BFGSMinimize(func f, ref double[] startPos, size_t maxIt, double min
     
     // NOT A PART OF INTERFACE YET, MAYBE FOR ERROR FUNCTIONS IN DFFANN
     // Select a mini-batch of data
-//    f.nextBatch(batchSize);
+    //f.nextBatch(batchSize);
     
     // Copy variables so new ones can be calculated.
     Matrix oldg = g;
@@ -623,7 +631,8 @@ public void BFGSMinimize(func f, ref double[] startPos, size_t maxIt, double min
 
   startPos = wA;
 }
-unittest{
+unittest
+{
   mixin(announceTest("BFGSMinimize"));
 
   /*
@@ -660,5 +669,4 @@ unittest{
   func nf = new ANegativeFunction;
   startPoint = [-0.01, 0.01, 0.02];
   assertThrown!FailureToConverge(BFGSMinimize(nf, startPoint, 1000, 1.0e-12));
-
 }
