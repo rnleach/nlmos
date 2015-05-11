@@ -50,22 +50,27 @@ template isActivationFunction(A)
 
   // If it can't be called, return short fused so we don't get compiler errors
   // on the sections beow, which would be mis-leading.
-  static if(!canUse) enum bool isActivationFunction = canUse;
+  static if(!canUse)
+  {
+    enum bool isActivationFunction = canUse;
+  }
+  else
+  {
+    // Now check the parameters
+    alias STC = ParameterStorageClass;
+    alias pstcEval = ParameterStorageClassTuple!(A.eval);
+    alias pstcDeriv = ParameterStorageClassTuple!(A.deriv);
 
-  // Now check the parameters
-  alias STC = ParameterStorageClass;
-  alias pstcEval = ParameterStorageClassTuple!(A.eval);
-  alias pstcDeriv = ParameterStorageClassTuple!(A.deriv);
+    // Check which arguments should be input arguments
+    enum bool argsIn = (pstcEval[0] == STC.none && 
+                        pstcDeriv[0] == STC.none && 
+                        pstcDeriv[1] == STC.none);
 
-  // Check which arguments should be input arguments
-  enum bool argsIn = (pstcEval[0] == STC.none && 
-                      pstcDeriv[0] == STC.none && 
-                      pstcDeriv[1] == STC.none);
+    // Check that y is a ref argument
+    enum bool argsRef = (pstcEval[1] == STC.ref_);
 
-  // Check that y is a ref argument
-  enum bool argsRef = (pstcEval[1] == STC.ref_);
-
-  enum bool isActivationFunction = argsIn && argsRef && canUse;
+    enum bool isActivationFunction = argsIn && argsRef && canUse;
+  }
 }
 
 /**
@@ -78,14 +83,19 @@ template isOutputActivationFunction(A)
   // Check that it is an activation function first!
   enum bool validAF = isAF!A;
 
-  static if(!validAF) enum bool isOutputActivationFunction = false;
+  static if(!validAF)
+  {
+    enum bool isOutputActivationFunction = false;
+  }
+  else
+  {
+    // Check if it is one of the allowed types.
+    enum bool allowedOutputAF = is(A == linearAF) ||
+                                is(A == sigmoidAF) ||
+                                is(A == softmaxAF);
 
-  // Check if it is one of the allowed types.
-  enum bool allowedOutputAF = is(A == linearAF) ||
-                              is(A == sigmoidAF) ||
-                              is(A == softmaxAF);
-
-  enum bool isOutputActivationFunction = allowedOutputAF;
+    enum bool isOutputActivationFunction = allowedOutputAF;
+  }
 }
 
 /**
