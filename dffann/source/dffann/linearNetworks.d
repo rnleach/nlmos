@@ -235,10 +235,9 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     double[] toRet = new double[numParameters];
 
     // It seems there would be a better way to do this using slices, that may 
-    // be more efficient, but is surely easier to code. I did it this way in
-    // order to keep the packing in a certain format so that I could use an 
-    // SVD to train the linear network via least squares. The way I would prefer
-    // to do it is...
+    // be more efficient and is easier to code. I did it this way in order to 
+    // keep the packing in a certain format so that I could use an SVD to train
+    // the linear network via least squares. The way I would prefer to do it is:
     //
     // toRet[0 .. (nInputs * nOutputs)] = weights.dup;
     // toRet[(nInputs * nOutputs) .. $] = biases.dup;
