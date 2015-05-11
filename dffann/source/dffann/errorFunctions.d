@@ -316,7 +316,7 @@ unittest
 
 /**
  * An abstract class for Regulizers. It includes methods for manipulating the
- * hyper-parameters to the training process itself can be optimized.
+ * hyper-parameters so the training process itself can be optimized.
  */
 abstract class Regulizer: func
 {
