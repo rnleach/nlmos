@@ -144,7 +144,7 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
       foreach(dp; dr)
       {
         // Evaluate the network at the given points
-        double[] y = nt.eval(dp.inputs);
+        const(double[]) y = nt.eval(dp.inputs);
 
         // Calculate the error for the given point.
         static if(errFuncType == EFType.ChiSquare)

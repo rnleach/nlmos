@@ -23,7 +23,7 @@ interface feedforwardnetwork{
 	 *
 	 * Returns: the network outputs.
 	 */
-	double[] eval(in double[] input);
+	ref const(double[]) eval(in double[] input);
   
   /**
    * Get the error derivative with respect to the weights via backpropagation.
@@ -49,7 +49,7 @@ interface feedforwardnetwork{
 	 *          or weights. This array is parallel to the array returned by
 	 *          the parameters property.
 	 */
-	double[] backProp(in double[] targets);
+	ref const(double[]) backProp(in double[] targets);
 	
 	/**
 	 * The number of inputs for the network.
@@ -64,7 +64,7 @@ interface feedforwardnetwork{
 	/**
 	 * Returns: the weights of the network organized as a 1-d array.
 	 */
-	@property double[] parameters();
+	@property ref const(double[]) parameters();
   
   /**
    * Params:
@@ -80,7 +80,7 @@ interface feedforwardnetwork{
 	 * Returns: the weights of the network with those corresponding to biases set 
 	 *          to zero.
 	 */
-	@property double[] nonBiasParameters();
+	@property ref const(double[]) nonBiasParameters();
 
 	/**
 	 * Initialize the network weights to random values.

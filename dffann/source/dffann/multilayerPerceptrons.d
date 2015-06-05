@@ -27,6 +27,10 @@ public class MultiLayerPerceptronNetwork(HAF, OAF) : feedforwardnetwork
 if(isAF!HAF && isOAF!OAF)
 {
   /*
+   * Consider rewriting this class to use a flat, single array layout for the
+   * weights and biases, then they could be passed around as ranges instead of
+   * constantly copied around.
+   *
    * Indicies:
    * l - layers. l=0 is the input layer for nodes, and the weights/biases
    *     coming FROM that layer
@@ -48,6 +52,20 @@ if(isAF!HAF && isOAF!OAF)
   private immutable uint nLayers;
   private immutable uint numParameters;
   private immutable uint[] nNodes;
+
+  // Only initialize these if training
+  /* These are kept around so the memory for these arrays need not be 
+     reallocated with every call to methods that use them, e.g. backProp.
+
+     This can be a time saver in the case of methods called frequently during
+     training, like backProp.
+   */
+  private double[] backPropResults = null;
+  private double[] flatParms = null;
+  private double[] nonBiasParms = null;
+  private double[][][] deltaW = null;   // Used in backProp
+  private double[][] deltaB = null;     // Used in backProp
+  private double[][] deltaNodes = null; // Used in backProp
 
   public this(in uint[] numNodes)
   {
@@ -276,30 +294,43 @@ if(isAF!HAF && isOAF!OAF)
    *          or weights. This array is parallel to the array returned by
    *          the parameters property.
    */
-  override double[] backProp(in double[] targets)
+  override ref const(double[]) backProp(in double[] targets)
   {
     assert(targets.length == nOutputs, 
       "targets.length doesn't equal the number of network outputs.");
 
-    // Set up variables for calculating gradient
-    double[][][] deltaW = new double[][][nLayers - 1];
-    double[][] deltaB = new double[][nLayers - 1];
-    double[][] deltaNodes = new double[][nLayers];
+    // Set up variables for calculating gradient, allocate arrays if needed.
+    if(deltaW is null)
+    {
+      deltaW = new double[][][nLayers - 1];
+      deltaB = new double[][nLayers - 1];
+      deltaNodes = new double[][nLayers];
 
-    // Initialize temporary arrays to zeros
+      foreach(l; 0 .. nLayers)
+      {
+        deltaNodes[l] = uninitializedArray!(double[])(nNodes[l]);
+      }
+
+      foreach(l; 0 .. (nLayers - 1))
+      {
+        deltaW[l] = uninitializedArray!(double[][])(nNodes[l + 1], nNodes[l]);
+        deltaB[l] = uninitializedArray!(double[])(nNodes[l + 1]);
+      }
+    }
+
+    // Initialize arrays to zeros
     foreach(l; 0 .. nLayers)
     {
-      deltaNodes[l] = uninitializedArray!(double[])(nNodes[l]);
       deltaNodes[l][] = 0.0;
     }
 
     foreach(l; 0 .. (nLayers - 1))
     {
-      deltaW[l] = uninitializedArray!(double[][])(nNodes[l + 1], nNodes[l]);
-      foreach(o; 0 .. nNodes[l + 1]) 
+      foreach(o; 0 .. nNodes[l + 1])
+      {
         deltaW[l][o][] = 0.0;
-
-      deltaB[l] = uninitializedArray!(double[])(nNodes[l + 1]);
+      } 
+        
       deltaB[l][] = 0.0;
     }
     
@@ -333,7 +364,9 @@ if(isAF!HAF && isOAF!OAF)
       }
     }
 
-    return flattenParameters(deltaW, deltaB);
+    flattenParms(deltaW, deltaB, backPropResults);
+
+    return backPropResults;
   }
 
   /**
@@ -347,10 +380,33 @@ if(isAF!HAF && isOAF!OAF)
    *
    * Returns: the network outputs.
    */
-  override double[] eval(in double[] inputs) {
+  override ref const(double[]) eval(in double[] inputs)
+  {
     assert(inputs.length == this.nodes[0].length);
 
     // Copy inputs into the nodes
+    /* Do I really need to copy, I could just use these as input ranges to 
+       speed things up. For example...
+
+       nodes[0] = inputs
+
+       This method should be called a lot, so not saving a copy might be worth 
+       the efficiency increase. Espiecially when dealing with very large 
+       networks.
+
+       The downside of this is that the inputs array may be modified after
+       the call to eval, and the network won't accurately remember its state.
+
+       Of course, one should not assume the accuracy of the state anyway unless
+       the last call on the network was eval, as other calls may update the
+       weights, putting the network in an inconsistent internal state.
+
+       ANSWER: Yes, I need to copy. Because I "cannot implicitly convert 
+       expression (inputs) of type const(double[]) to double[]" according to the
+       compiler. The only other options would be to force some sort of 
+       const-ness on nodes, but then I couldn't change them in the hidden 
+       layers.
+    */
     nodes[0][] = inputs[];
 
     // Fill the hidden layers
@@ -360,7 +416,9 @@ if(isAF!HAF && isOAF!OAF)
       {
         activations[l + 1][o] = 0.0;
         foreach(i; 0 .. nNodes[l])
+        {
           activations[l + 1][o] += nodes[l][i] * W[l][o][i];
+        }
         
         activations[l + 1][o] += B[l][o]; // For the bias!
       }
@@ -373,13 +431,15 @@ if(isAF!HAF && isOAF!OAF)
     {
       activations[idx][o] = 0.0;
       foreach(i; 0 .. nNodes[idx - 1])
+      {
         activations[idx][o] += W[idx - 1][o][i] * nodes[idx - 1][i];
+      }
 
       activations[idx][o] += B[idx - 1][o];
     }
     OAF.eval(activations[idx], nodes[idx]);
     
-    return nodes[idx].dup;
+    return nodes[idx];
     
   }
 
@@ -388,6 +448,7 @@ if(isAF!HAF && isOAF!OAF)
    */
   override MultiLayerPerceptronNetwork!(HAF, OAF) dup()
   {
+    // Check constructor code to ensure it is a copying constructor.
     return new 
       MultiLayerPerceptronNetwork!(HAF, OAF)(this.nNodes, this.W, this.B);
   }
@@ -397,9 +458,13 @@ if(isAF!HAF && isOAF!OAF)
    * Make a private version of this to use for flattening the gradients
    * to return for the backProp method.
    */
-  private double[] flattenParameters(double[][][] wgts, double[][] biases)
+  private void flattenParms(double[][][] wgts, double[][] biases, ref double[] storage)
   {
-    double[] toRet = new double[numParameters];
+    // Initialize if necessary
+    if(storage is null)
+    {
+      storage = new double[numParameters];
+    }
 
     size_t p = 0;
     foreach(l; 0 .. (nLayers - 1))
@@ -408,13 +473,11 @@ if(isAF!HAF && isOAF!OAF)
       {
         foreach(i; 0 .. nNodes[l])
         {
-          toRet[p++] = wgts[l][o][i];
+          storage[p++] = wgts[l][o][i];
         }
-        toRet[p++] = biases[l][o]; // For the bias!
+        storage[p++] = biases[l][o]; // For the bias!
       }
     }
-
-    return toRet;
   }
 
   /**
@@ -424,9 +487,10 @@ if(isAF!HAF && isOAF!OAF)
    *
    * Returns: the weights of the network organized as a 1-d array.
    */
-  override @property double[] parameters()
+  override @property ref const(double[]) parameters()
   {
-    return flattenParameters(W, B);
+    flattenParms(W, B, flatParms);
+    return flatParms;
   }
 
   /**
@@ -460,9 +524,13 @@ if(isAF!HAF && isOAF!OAF)
    * Returns: the weights of the network with those corresponding to biases set 
    *          to zero.
    */
-  override @property double[] nonBiasParameters()
+  override @property ref const(double[]) nonBiasParameters()
   {
-    double[] toRet = new double[numParameters];
+    // Initialize arrays if needed
+    if(nonBiasParms is null)
+    {
+      nonBiasParms = new double[numParameters];
+    }
 
     size_t p = 0;
     foreach(l; 0 .. (nLayers - 1))
@@ -471,13 +539,13 @@ if(isAF!HAF && isOAF!OAF)
       {
         foreach(i; 0 .. nNodes[l])
         {
-          toRet[p++] = W[l][o][i];
+          nonBiasParms[p++] = W[l][o][i];
         }
-        toRet[p++] = 0.0; // For the bias!
+        nonBiasParms[p++] = 0.0; // For the bias!
       }
     }
 
-    return toRet;
+    return nonBiasParms;
   }
 
   /**
@@ -485,6 +553,12 @@ if(isAF!HAF && isOAF!OAF)
    */
   override void setRandom()
   {
+    /* Should not be reseting the seed to every call to random number generator.
+       Instead use library random number functions for random initialization.
+
+       TODO
+
+     */
     // Initalize weights with small random values
     long seed = -Clock.currStdTime;
 
@@ -525,7 +599,8 @@ if(isAF!HAF && isOAF!OAF)
    * Returns: The weights, biases, and configuration of the network as
    *          a string that can be saved to a file.
    */
-  @property string stringForm(){
+  @property string stringForm()
+  {
     /*
      * File format:
      * FeedForwardNetwork
@@ -551,7 +626,7 @@ if(isAF!HAF && isOAF!OAF)
     toRet = toRet[0 .. $ - 1] ~ "\n";  // Trim off trailing comma
     // Save parameters
     toRet ~= "parameters = ";
-    foreach(parm; parameters) toRet ~= format("%.*e,", double.dig, parm);
+    foreach(parm; this.parameters) toRet ~= format("%.*e,", double.dig, parm);
     toRet = toRet[0 .. $ - 1] ~ "\n"; // Replace last comma with new-line
 
     return toRet;
@@ -562,7 +637,7 @@ if(isAF!HAF && isOAF!OAF)
 /**
  * MLP tanh Regression Network.
  */
-alias MultiLayerPerceptronNetwork!(tanhAF,linearAF) MLPRegNet;
+alias MLPRegNet = MultiLayerPerceptronNetwork!(tanhAF,linearAF);
 
 /**
  * MLP tanh Classification Network. 
@@ -570,15 +645,15 @@ alias MultiLayerPerceptronNetwork!(tanhAF,linearAF) MLPRegNet;
  * 2 classes only, 1 output only, 0-1 coding to tell the difference between
  * classes.
  */
-alias MultiLayerPerceptronNetwork!(tanhAF,sigmoidAF) MLP2ClsNet;
+alias MLP2ClsNet = MultiLayerPerceptronNetwork!(tanhAF,sigmoidAF);
 
 /**
-* MLP tanh Classification Network.
-* 
-* Any number of classes, but must have at least 2 outputs. Uses 1 of N coding
-* on ouput nodes.
-*/
-alias MultiLayerPerceptronNetwork!(tanhAF,softmaxAF) MLPClsNet;
+ * MLP tanh Classification Network.
+ * 
+ * Any number of classes, but must have at least 2 outputs. Uses 1 of N coding
+ * on ouput nodes.
+ */
+alias MLPClsNet = MultiLayerPerceptronNetwork!(tanhAF,softmaxAF);
 
 
 unittest
@@ -624,7 +699,6 @@ unittest
       format("eval(%s) = %s != targets = %s", 
         dp.inputs, slprn.eval(dp.inputs), dp.targets));
 }
-
 
 unittest{
   mixin(announceTest("MLPRegNet stringForm and this(string)"));
