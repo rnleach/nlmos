@@ -102,12 +102,15 @@ template isOutputActivationFunction(A)
  * Linear activation function, just returns its activation with no-nonlinear
  * transformation applied.
  */
-public struct linearAF{
-  public static void eval(in double[] act, ref double[] outpt){
+public struct linearAF
+{
+  public static void eval(in double[] act, ref double[] outpt)
+  {
     outpt[] = act[];
   }
 
-  public static double[] deriv(in double[] act, in double[] outpt){
+  public static double[] deriv(in double[] act, in double[] outpt)
+  {
     assert(act.length == outpt.length);
 
     double[] toRet = new double[act.length];
@@ -125,13 +128,16 @@ static assert(isOAF!linearAF);
  * this activation function only depends on the y vector, and is calculated as
  * deriv[i] = y[i] * (1.0 - y[i]).
  */
-public struct sigmoidAF{
-  public static void eval(in double[] act, ref double[] outpt){
+public struct sigmoidAF
+{
+  public static void eval(in double[] act, ref double[] outpt)
+  {
     foreach(i; 0 .. outpt.length)
       outpt[i] = 1.0 / (1.0 + exp(-act[i]));
   }
 
-  public static double[] deriv(in double[] act, in double[] outpt){
+  public static double[] deriv(in double[] act, in double[] outpt)
+  {
     double[] derivative = new double[act.length];
 
     derivative[] = outpt[] * (1.0 - outpt[]);
@@ -145,13 +151,16 @@ static assert(isOAF!sigmoidAF);
 /**
  * Tanh activation function.
  */
-public struct tanhAF{
-  public static void eval(in double[] act, ref double[] outpt){
+public struct tanhAF
+{
+  public static void eval(in double[] act, ref double[] outpt)
+  {
     foreach(i; 0 .. outpt.length)
       outpt[i] = tanh(act[i]);
   }
 
-  public static double[] deriv(in double[] act, in double[] outpt){
+  public static double[] deriv(in double[] act, in double[] outpt)
+  {
     double[] derivative = new double[act.length];
 
     derivative[] = 1.0 - outpt[] * outpt[];
@@ -165,12 +174,14 @@ static assert(isAF!tanhAF);
  * arctan activation function.
  */
 public struct arctanAF{
-  public static void eval(in double[] act, ref double[] outpt){
+  public static void eval(in double[] act, ref double[] outpt)
+  {
     foreach(i; 0 .. outpt.length)
       outpt[i] = atan(act[i]);
   }
 
-  public static double[] deriv(in double[] act, in double[] outpt){
+  public static double[] deriv(in double[] act, in double[] outpt)
+  {
     double[] derivative = new double[act.length];
 
     derivative[] = 1.0 / (1.0 + outpt[] * outpt[]);
@@ -186,16 +197,20 @@ static assert(isAF!arctanAF);
  * as quickly.
  *
  */
-public struct softPlusAF{
-  public static void eval(in double[] act, ref double[] outpt){
+public struct softPlusAF
+{
+  public static void eval(in double[] act, ref double[] outpt)
+  {
     foreach(i; 0 .. outpt.length)
       outpt[i] = act[i] / (1.0 + abs(act[i]));
   }
 
-  public static double[] deriv(in double[] act, in double[] outpt){
+  public static double[] deriv(in double[] act, in double[] outpt)
+  {
     double[] derivative = new double[act.length];
 
-    foreach(i; 0 .. outpt.length){
+    foreach(i; 0 .. outpt.length)
+    {
       double absV = abs(act[i]);
       double k = 1.0 / (1.0 + absV);
       derivative[i] = k * (1.0 - k * absV);
@@ -219,9 +234,11 @@ static assert(isAF!softPlusAF);
  *   otherwise it will always be 1.0!
  *
  */
-public struct softmaxAF{
+public struct softmaxAF
+{
 
-  public static void eval(in double[] x, ref double[] y) {
+  public static void eval(in double[] x, ref double[] y)
+  {
     
     // Softmax is unaltered under a shift to all elements of the list, so
     //  shift left to avoid overflow.
@@ -235,11 +252,13 @@ public struct softmaxAF{
     
     // If nothing has a high probability...what to do?
     // Add a constant to each denom to prevent overflow/underflow
-    if(denom < 1.0e-6){ 
+    if(denom < 1.0e-6)
+    { 
       denom = 0.0;
         foreach(val; x)
           denom += exp(val - shift) + 1.0;
-        foreach(i; 0 .. x.length){
+        foreach(i; 0 .. x.length)
+        {
           y[i] = (exp(x[i] - shift) + 1.0)/denom;
         }
     }
@@ -250,7 +269,8 @@ public struct softmaxAF{
     
   }
 
-  public static double[] deriv(in double[] x, in double[] y) {
+  public static double[] deriv(in double[] x, in double[] y)
+  {
     double[] s = new double[y.length];
 
     s[] = y[] * (1.0 - y[]);
@@ -270,14 +290,17 @@ static assert(isOAF!softmaxAF);
  * it takes a lot of neurons, a lot more than you would typically need with
  * other activation function types.
  */
-public struct rectifiedLinearAF{
-  public static void eval(in double[] x, ref double[] y) {
+public struct rectifiedLinearAF
+{
+  public static void eval(in double[] x, ref double[] y)
+  {
 
     foreach(i; 0 .. x.length)
       y[i] = x[i] < 0.0 ? 0.0 : x[i];
   }
 
-  public static double[] deriv( in double[] x, in double[] y) {
+  public static double[] deriv( in double[] x, in double[] y)
+  {
     double[] s = new double[y.length];
 
     foreach(i; 0 .. x.length)
