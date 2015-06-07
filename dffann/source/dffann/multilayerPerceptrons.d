@@ -553,14 +553,6 @@ if(isAF!HAF && isOAF!OAF)
    */
   override void setRandom()
   {
-    /* Should not be reseting the seed to every call to random number generator.
-       Instead use library random number functions for random initialization.
-
-       TODO
-
-     */
-    // Initalize weights with small random values
-    long seed = -Clock.currStdTime;
 
     // Iterate through the layers
     foreach(l; 0 .. (nLayers - 1))
@@ -572,9 +564,9 @@ if(isAF!HAF && isOAF!OAF)
       foreach(o; 0 .. nNodes[l + 1])
       {
         foreach(i; 0 .. nNodes[l])
-          W[l][o][i] = gasdev(seed) * scaleFactor;
+          W[l][o][i] = gasdev() * scaleFactor;
         
-        B[l][o] = gasdev(seed) * scaleFactor; // For the bias!
+        B[l][o] = gasdev() * scaleFactor; // For the bias!
       }
     }
   }

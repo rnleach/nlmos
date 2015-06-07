@@ -350,18 +350,13 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
    */
   public override void setRandom()
   {
-    /* This needs work to use a more robust random number generator.
-       
-       TODO
-
-     */
+    
     // Initalize weights with small random values
-    long seed = -Clock.currStdTime;
     double scaleFactor = sqrt(1.0 / nInputs);
     foreach(j; 0 .. (numInputs * numOutputs))
     {
-      weights[j] = gasdev(seed) * scaleFactor;
-      if(j < nOutputs) biases[j] = gasdev(seed) * scaleFactor;
+      weights[j] = gasdev() * scaleFactor;
+      if(j < nOutputs) biases[j] = gasdev() * scaleFactor;
     }
   }
 
