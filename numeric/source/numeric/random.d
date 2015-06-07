@@ -23,6 +23,7 @@ module numeric.random;
 public import numeric.numeric;
 
 import std.math;
+import std.random;
 
 /**
  * Routine ran0 ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
@@ -136,4 +137,40 @@ import std.math;
     return gset;
   }
  }
+
+  /**
+ * Routine gasdev ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
+ * page 289. This override relies on the D phobos standard library random
+ * number generator to generate the uniform random deviates.
+ *
+ * Params: a negative integer seed that must not be altered between succesive 
+ *         calls.
+ *
+ * Returns: a gaussian random deviate of zero mean and unit standard deviation.
+ */
+ double gasdev()
+ {
+  static bool iset = false;
+  static double gset;
+  double fac, rsq, v1, v2;
+
+  // Shorthand for a new uniform random deviate in an open range
+  alias ranNum = uniform!("()",double,double);
+  
+  if(!iset){
+    do {
+      v1 = 2.0 * ranNum(0.0, 1.0) - 1.0;
+      v2 = 2.0 * ranNum(0.0, 1.0) - 1.0;
+      rsq = v1 * v1 + v2 * v2;
+    } while(rsq >= 1.0 || rsq == 0.0);
+    fac = sqrt(-2.0 * log(rsq) / rsq);
+    gset = v1 * fac;
+    iset = true;
+    return v2 * fac;
+  }
+  else{
+    iset = false;
+    return gset;
+  }
+}
  
