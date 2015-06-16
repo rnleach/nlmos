@@ -16,6 +16,9 @@ import std.string;
 public import dffann.dffann;
 
 version(unittest){
+  
+  import dffann.testUtilities.testData;
+
   import std.file;
 }
 /*------------------------------------------------------------------------------
@@ -47,7 +50,7 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
    * trgts = array of target values.
    */
   this(in double[] inpts, in double[] trgts){
-    // Checks - debug releases only.
+    // Checks - debug builds only.
     assert(inpts.length == numInputs, "Length mismatch on DataPoint inpts.");
     assert(trgts.length == numTargets,"Length mismatch on DataPoint trgts.");
 
@@ -128,6 +131,9 @@ template isDataPointType(T)
 }
 static assert(!isDataPointType!(immutable(Data!(5,2))));
 static assert(isDataPointType!(immutable(DataPoint!(5,2))));
+static assert(isDataPointType!(DataPoint!(5,2)));
+static assert(isDataPointType!(const(DataPoint!(6,6))));
+
  /*=============================================================================
   *                   Unit tests for DataPoint
   *===========================================================================*/
@@ -215,7 +221,7 @@ public class Data(size_t numInputs, size_t numTargets)
   enum numVals = numInputs + numTargets;
 
   // Shorthand for my datapoints
-  alias DataPoint!(numInputs, numTargets) DP;
+  alias DP = DataPoint!(numInputs, numTargets);
 
   private DP[] list;
   private size_t numPoints;
@@ -224,7 +230,8 @@ public class Data(size_t numInputs, size_t numTargets)
   private double[numVals] scale;
 
   /**
-   * This constructor assumes the data is not normalized, and normalizes it.
+   * This constructor assumes the data is not normalized, and normalizes it
+   * unless otherwise specified.
    *
    * Params: 
    * data    = A 2-d array with rows representing a data point and columns, e.g. 
@@ -238,7 +245,7 @@ public class Data(size_t numInputs, size_t numTargets)
    *
    * See_Also: Normalizations
    */
-  public this(in double[][] data, in bool[] filter, in bool doNorm = true)
+  public this(in double[][] data, in bool[] filter, in bool doNorm = true) pure
   {
     // Check lengths
     enforce(data.length > 1, 
@@ -443,7 +450,7 @@ public class Data(size_t numInputs, size_t numTargets)
    *              is binary the corresponding value in the filters array is true.
    *              The length of the filters array must be numInputs + numTargets.
    */
-  public static final Data!(numInputs, numTargets) LoadDataFromCSVFile
+  public static final Data LoadDataFromCSVFile
                                       (const string filename, bool[] filters)
   {
 
@@ -478,7 +485,7 @@ public class Data(size_t numInputs, size_t numTargets)
     }
     
     // Return the new Data instance
-    return new Data!(numInputs, numTargets)(app.data, filters);
+    return new Data(app.data, filters);
   }
 
   /** 
@@ -490,7 +497,7 @@ public class Data(size_t numInputs, size_t numTargets)
    * filename = The path to save the data.
    */
   public static final void SaveProcessedData
-             (const Data!(numInputs,numTargets) pData, const string filename)
+             (const Data pData, const string filename)
   {
     /*
      * File format:
@@ -850,16 +857,18 @@ unittest
 {
   mixin(announceTest("Data LoadDataFromCSVFile(string, bool[])"));
 
-  alias immutable(Data!(21,1)) iData;
+  alias iData = immutable(Data!(21,1));
 
-  // Not a good unittest, it relies on an external file.
   bool[] filters2 = [false,false,false,false,false,false,false,
                      false,false,false,false,false,false,false,
                      false,false,false,false,false,false,false,
                      false];
 
+  makeRandomCSVFile(222, filters2,"TestData.csv");
+  scope(exit) std.file.remove("TestData.csv");
+
   iData d = cast(immutable) Data!(21,1).
-                      LoadDataFromCSVFile("MissoulaTempAllData.csv", filters2);
+                      LoadDataFromCSVFile("TestData.csv", filters2);
 
   // If no exceptions are thrown, this unit test passes for now. More tests
   // will be done in later unit tests.
