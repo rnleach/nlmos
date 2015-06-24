@@ -95,7 +95,7 @@ public double[][] makeLinearRegressionData(in size_t numPoints,
   // Make a shift and a scale to apply to random numbers for each input column
   // This is to give each column a different distribution
   double[] inShift = new double[numInputs];
-  double[] inScale = new double[numOutputs];
+  double[] inScale = new double[numInputs];
 
   foreach(i; 0 .. numInputs)
   {

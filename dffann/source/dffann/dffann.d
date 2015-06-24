@@ -15,7 +15,6 @@
  version(unittest){
 
   // Set up some imports and utility functions for all unit tests.
-  
   public import std.stdio;
 
   // Generate string for mixin that announces this test.
