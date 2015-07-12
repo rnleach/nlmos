@@ -418,7 +418,7 @@ public class Data(size_t numInputs, size_t numTargets)
     return DataRange!(numInputs, numTargets)(this);
   }
 
-   /**
+  /**
    * Returns: a range that iterates over a subset of the points in this 
    *          collection in the same order everytime. 
    */
@@ -877,24 +877,30 @@ unittest
 {
   mixin(announceTest("Data SaveProcessedData and LoadProcessedData"));
 
-  alias Data!(21,1) Data21;
+  alias Data21 = Data!(21,1);
+
+  enum string testFileName = "TestData.csv";
+  enum string testFileNameForNormalizedData = "TestDataNrm.csv";
 
   // Not a good unittest, it relies on an external file.
   bool[] filters2 = [false,false,false,false,false,false,false,
                      false,false,false,false,false,false,false,
                      false,false,false,false,false,false,false,
                      false];
-  
-  assert(exists("MissoulaTempAllData.csv"));
-  assert(!Data21.isProcessedDataFile("MissoulaTempAllData.csv"));
 
-  Data21 d2 = Data21.LoadDataFromCSVFile("MissoulaTempAllData.csv", filters2);
+  makeRandomCSVFile(222, filters2, testFileName);
+  scope(exit) std.file.remove(testFileName);
   
-  Data21.SaveProcessedData(d2,"MissoulaTempAllDataNrm.csv");
-  scope(exit) std.file.remove("MissoulaTempAllDataNrm.csv");
-  assert(Data21.isProcessedDataFile("MissoulaTempAllDataNrm.csv"));
+  assert(exists(testFileName));
+  assert(!Data21.isProcessedDataFile(testFileName));
+
+  Data21 d2 = Data21.LoadDataFromCSVFile(testFileName, filters2);
   
-  auto d3 = Data21.LoadProcessedData("MissoulaTempAllDataNrm.csv");
+  Data21.SaveProcessedData(d2, testFileNameForNormalizedData);
+  scope(exit) std.file.remove(testFileNameForNormalizedData);
+  assert(Data21.isProcessedDataFile(testFileNameForNormalizedData));
+  
+  auto d3 = Data21.LoadProcessedData(testFileNameForNormalizedData);
   assert(d2.nPoints == d3.nPoints);
   assert(d2.nInputs == d3.nInputs);
   
