@@ -184,6 +184,7 @@ unittest
   enum numOut = 2;
 
   // short hand for dealing with data
+  alias Data!(numIn, numOut) DataType;
   alias iData = immutable(Data!(numIn, numOut));
   alias DP = immutable(DataPoint!(numIn, numOut));
 
@@ -193,7 +194,8 @@ unittest
   foreach(i; 1 .. (numIn + numOut)){ binFlags ~= false; }
   
   // Make a data set
-  iData d1 = new iData(testData, binFlags);
+  iData d1 = DataType.createImmutableData(testData, binFlags);
+
 
   // Make a trainer, and supply it with a network to train.
   LinearTrainer!(numIn, numOut) lt = 
@@ -206,7 +208,6 @@ unittest
   // Since we supplied data with no noise added, it should be a perfect fit,
   // so the error should be zero!
   assert(approxEqual(lt.error,0.0));
-  
   // The network should perfectly map the inputs to the targets.
   foreach(dp; d1.simpleRange)
   {

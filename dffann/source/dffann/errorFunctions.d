@@ -275,6 +275,7 @@ version(unittest)
 
   // short hand for dealing with data
   alias immutable(Data!(numIn, numOut)) iData;
+  alias Data!(numIn, numOut) DataType;
 
 }
 
@@ -283,7 +284,7 @@ unittest
   mixin(dffann.dffann.announceTest("ChiSquareEF"));
 
   // Make a data set
-  iData d1 = new iData(fakeData, binaryFlags, normalize);
+  iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
 
   // Now, build a network.
   double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
@@ -523,7 +524,7 @@ unittest
   mixin(dffann.dffann.announceTest("ErrorFunction with Regulizer"));
 
   // Make a data set
-  iData d1 = new iData(fakeData, binaryFlags, normalize);
+  iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
 
   // Now, build a network.
   double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];

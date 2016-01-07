@@ -9,6 +9,7 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.math;
+import std.parallelism;
 import std.random;
 import std.range;
 import std.regex;
@@ -140,9 +141,9 @@ static assert(isDataPointType!(immutable(DataPoint!(5,2))));
 static assert(isDataPointType!(DataPoint!(5,2)));
 static assert(isDataPointType!(const(DataPoint!(6,6))));
 
- /*=============================================================================
-  *                   Unit tests for DataPoint
-  *===========================================================================*/
+/*==============================================================================
+ *                   Unit tests for DataPoint
+ *============================================================================*/
 version(unittest)
 {
   // Some values to keep around for testing DataPoint objects.
@@ -223,6 +224,8 @@ unittest
 public class Data(size_t numInputs, size_t numTargets)
 {
 
+  alias imData = immutable(Data!(numInputs,numTargets));
+
   // Compile time constant for convenience.
   enum numVals = numInputs + numTargets;
 
@@ -234,6 +237,16 @@ public class Data(size_t numInputs, size_t numTargets)
   private bool[] dataFilter;
   private double[numVals] shift;
   private double[numVals] scale;
+
+  /**
+   * Factory methods to create immutable versions of data.
+   *
+   * See_Also: this(in double[][] data, in bool[] filter, in bool doNorm = true)
+   */
+  public static imData createImmutableData(in double[][] data, in bool[] filter, in bool doNorm = true)
+  {
+    return cast(immutable) new Data!(numInputs,numTargets)(data, filter, doNorm);
+  }
 
   /**
    * This constructor assumes the data is not normalized, and normalizes it
@@ -251,7 +264,7 @@ public class Data(size_t numInputs, size_t numTargets)
    *
    * See_Also: Normalizations
    */
-  public this(in double[][] data, in bool[] filter, in bool doNorm = true) pure
+  public this(in double[][] data, in bool[] filter, in bool doNorm = true)
   {
     // Check lengths
     enforce(data.length > 1, 
@@ -314,7 +327,7 @@ public class Data(size_t numInputs, size_t numTargets)
   private this(const double[][] data, 
                const bool[] filter,
                const double[] shift,
-               const double[] scale)
+               const double[] scale) pure
   {
     
     // Check lengths
@@ -351,34 +364,92 @@ public class Data(size_t numInputs, size_t numTargets)
    * Normalizes the array dt in place, returning the shift and scale of the
    * normalization in the so-named arrays. Filters are used to mark binary 
    * inputs and automatically set their shift to 0 and scale to 1.
-   *
-   * TODO parallelize this section to speed it up if possible.
    */
   private final void normalize(DP[] dt, 
                          ref double[numVals] shift, 
                          ref double[numVals] scale,
-                         in bool[] filters) const 
+                         in bool[] filters) const
   {
 
-    double[numVals] sum;
-    double[numVals] sumsq;
-    
+    /*==========================================================================
+      Nested struct to hold results of summing over a batch
+    ==========================================================================*/
+    struct BatchResults {
+      public double[numVals] batchSum;
+      public double[numVals] batchSumSquares;
+
+      public this(const double[numVals] sum, const double[numVals] sumSq)
+      {
+        this.batchSum = sum;
+        this.batchSumSquares = sumSq;
+      }
+    }
+
+    /*==========================================================================
+      Nested function to calculate a batch of stats.
+    ==========================================================================*/
+    BatchResults sumChunk(DP[] chunk, in bool[] filters) pure
+    {
+      double[numVals] sm = 0.0;
+      double[numVals] smSq = 0.0;
+
+      // Calculate the sum and sumsq
+      foreach(d; chunk){
+        for(size_t i = 0; i < numVals; ++i)
+        {
+          if(!filters[i])
+          {
+            sm[i] += d.data[i];
+            smSq[i] += d.data[i] * d.data[i];
+          }
+        }
+      }
+
+      return BatchResults(sm, smSq);
+    }
+
+    /*==========================================================================
+      Now do the summations in parallel.
+    ==========================================================================*/
+    double[numVals] sum = 0.0;
+    double[numVals] sumsq = 0.0;
+
+    // How many threads to use?
+    size_t numThreads = totalCPUs - 1;
+    if(numThreads < 1) numThreads = 1;
+
+    BatchResults[] reses = new BatchResults[numThreads];
+    size_t chunkSize = dt.length / numThreads;
+    size_t[] starts = new size_t[numThreads];
+    size_t[] ends = new size_t[numThreads];
+    foreach(i; 0 .. numThreads)
+    {
+      if( i == 0)
+      {
+        starts[i] = 0;
+      } 
+      else
+      {
+        starts[i] = ends[i - 1];
+      }
+      ends[i] = starts[i] + chunkSize + (i < (dt.length % numThreads) ? 1 : 0);
+    }
+
+    foreach(i, ref res; parallel(reses))
+    {
+      res = sumChunk(dt[starts[i] .. ends[i]] , filters);
+    }
+
     // Initialize
     shift[] = 0.0;
     scale[] = 1.0;
     sum[] = 0.0;
     sumsq[] = 0.0;
-    
-    // Calculate the sum and sumsq
-    foreach(d; dt){
-      for(size_t i = 0; i < numVals; ++i)
-      {
-        if(!filters[i])
-        {
-          sum[i] += d.data[i];
-          sumsq[i] += d.data[i] * d.data[i];
-        }
-      }
+
+    foreach(i, res; reses)
+    {
+      sum[] += res.batchSum[];
+      sumsq[] += res.batchSumSquares[];
     }
     
     // Calculate the mean (shift) and standard deviation (scale)
@@ -394,7 +465,7 @@ public class Data(size_t numInputs, size_t numTargets)
     }
     
     // Now use these to normalize the data
-    foreach(ref d; dt){
+    foreach(ref d; parallel(dt)){
       for(size_t j = 0; j < numVals; ++j)
         d.data[j] = (d.data[j] - shift[j]) / scale[j];
     }
@@ -807,7 +878,7 @@ unittest
 
   // Check the shift and scale - to be used later to create Normalizations.
   foreach(sc; d.scale) 
-    assert(approxEqual(sc, scalePar));
+    assert(approxEqual(sc, scalePar),format("%f != %f", sc, scalePar));
 
   foreach(i; 0 .. d.numVals) 
     assert(approxEqual(shiftPar[i], d.shift[i]));
@@ -826,7 +897,7 @@ unittest
   // Short-hand for dealing with immutable data
   alias immutable(Data!(5,2)) iData;
   
-  iData d = new iData(testData, flags, false);
+  iData d = Data!(5,2).createImmutableData(testData, flags, false);
   
   // Check the number of points
   assert(d.numPoints == 10);
@@ -884,7 +955,7 @@ unittest
   // Short-hand for dealing with immutable data
   alias immutable(Data!(5,2)) iData;
   
-  iData d = new iData(testData, flags);
+  iData d = Data!(5,2).createImmutableData(testData, flags);
   
   assert(d.nPoints == 10);
   assert(d.nInputs == 5);
@@ -898,7 +969,7 @@ unittest
   alias immutable(Data!(5,2)) iData;
   alias immutable(DataPoint!(5,2)) iDataPoint;
   
-  iData d = new iData(testData, flags);
+  iData d = Data!(5,2).createImmutableData(testData, flags);
 
   foreach(i; 0 .. d.nPoints)
   {
@@ -1021,7 +1092,7 @@ unittest
 
   alias immutable(Data!(5, 2)) iData;
 
-  iData d = new iData(testData, flags);
+  iData d = Data!(5,2).createImmutableData(testData, flags);
 
   auto r = DataRange!(5,2)(d);
   size_t i = 0;
@@ -1033,7 +1104,7 @@ unittest
 
   alias immutable(Data!(5, 2)) iData;
 
-  iData d = new iData(testData, flags);
+  iData d = Data!(5,2).createImmutableData(testData, flags);
 
   auto r = d.simpleRange;
   size_t i = 0;

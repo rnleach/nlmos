@@ -450,11 +450,12 @@ unittest
   enum normalize = false;
 
   // short hand for dealing with data
+  alias Data!(numIn, numOut) DataType;
   alias immutable(Data!(numIn, numOut)) iData;
   alias immutable(DataPoint!(numIn, numOut)) DP;
   
   // Make a data set
-  iData d1 = new iData(fakeData, binaryFlags, normalize);
+  iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
 
   // Now, build a network.
   double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
@@ -520,11 +521,12 @@ unittest{
   enum normalize = false;
 
   // short hand for dealing with data
+  alias Data!(numIn, numOut) DataType;
   alias immutable(Data!(numIn, numOut)) iData;
   alias immutable(DataPoint!(numIn, numOut)) DP;
   
   // Make a data set
-  iData d1 = new iData(andDataArr, binaryFlags, normalize);
+  iData d1 = DataType.createImmutableData(andDataArr, binaryFlags, normalize);
 
   // Now, build a network.
   double[] wts = [1000.0, 1000.0, -1500.0];
@@ -534,10 +536,10 @@ unittest{
   // Now, lets test some numbers
   foreach(dp; d1.simpleRange)
     assert(approxEqual(slpcn.eval(dp.inputs), dp.targets),
-      format("%s == %s", slpcn.eval(dp.inputs), dp.targets));
+      format("%s => %s == %s", dp.inputs, slpcn.eval(dp.inputs), dp.targets));
 
   // Make a data set
-  iData d2 = new iData(orDataArr, binaryFlags, normalize);
+  iData d2 = DataType.createImmutableData(orDataArr, binaryFlags, normalize);
 
   // Now, build a network.
   wts = [1000.0, 1000.0, -500.0];

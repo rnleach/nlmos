@@ -671,11 +671,13 @@ unittest
   enum normalize = false;
 
   // short hand for dealing with data
+  alias Data!(numIn, numOut) DataType;
   alias immutable(Data!(numIn, numOut)) iData;
   alias immutable(DataPoint!(numIn, numOut)) DP;
   
   // Make a data set
-  iData d1 = new iData(fakeData, binaryFlags, normalize);
+  iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
+
 
   // Now, build a network.
   double[] wts = [ 1000.0, -1000.0, -500.0, 
