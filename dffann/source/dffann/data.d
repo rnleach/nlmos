@@ -7,14 +7,15 @@ import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
+import std.file;
 import std.math;
 import std.random;
 import std.range;
 import std.regex;
-import std.stream;
+import std.stdio;
 import std.string;
 
-public import dffann.dffann;
+import dffann.dffann;
 
 version(unittest){
   
@@ -512,13 +513,12 @@ public class Data(size_t numInputs, size_t numTargets)
     enum numVals = numInputs + numTargets;
     
     // Open the file
-    Stream f = new BufferedFile(filename);
-    scope(exit) f.close();
+    File f = File(filename, "r");
 
     // Read the file line by line
     auto app = appender!(double[][])();
     auto sepRegEx = ctRegex!r",";
-    foreach(char[] line; f)
+    foreach(char[] line; f.byLine)
     {
       
       // Split the line on commas
@@ -570,8 +570,7 @@ public class Data(size_t numInputs, size_t numTargets)
      */
 
     // Open the file
-    Stream fl = new BufferedFile(filename, FileMode.OutNew);
-    scope(exit) fl.close();
+    File fl = File(filename, "w");
 
     // Put a header to identify it as NormalizedData
     fl.writefln("NormalizedData");
@@ -621,9 +620,7 @@ public class Data(size_t numInputs, size_t numTargets)
     // See comments in SaveProcessedData for file and header formats.
 
     // Open the file, read in the contents
-    Stream fl = new BufferedFile(filename, FileMode.In);
-    string text = fl.toString();
-    fl.close();
+    string text = readText(filename);
 
     // Split into lines as header and data sections
     string[] lines = split(text, regex("\n"));
@@ -709,9 +706,8 @@ public class Data(size_t numInputs, size_t numTargets)
 
     // Open the file, read in the contents
     try{
-      Stream fl = new BufferedFile(filename, FileMode.In);
-      string text = fl.toString();
-      fl.close();
+
+      string text = readText(filename);
 
       // Split into lines as header and data sections
       string[] lines = split(text, regex("\n"));
@@ -1233,8 +1229,7 @@ void SaveNormalization(const Normalization norm, const string path)
   assert(norm.scale.length == norm.shift.length);
   
   // Open the file
-  Stream fl = new BufferedFile(path, FileMode.OutNew);
-  scope(exit) fl.close();
+  File fl = File(path, "w");
   
   // Put a header to identify it as NormalizedData
   fl.writefln("Normalization");
@@ -1270,9 +1265,7 @@ Normalization LoadNormalization(const string fileName)
   // See file description in SaveNormalization
 
   // Open the file, read in the contents
-  Stream fl = new BufferedFile(fileName, FileMode.In);
-  string text = fl.toString();
-  fl.close();
+  string text = readText(fileName);
   
   // Split into lines
   string[] lines = split(text, regex("\n"));

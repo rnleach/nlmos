@@ -15,7 +15,7 @@ import std.array;
 import std.conv;
 import std.file;
 import std.math;
-import std.stream;
+import std.stdio;
 import std.random;
 
 import numeric.random: gasdev;
@@ -215,8 +215,7 @@ public void makeRandomCSVFile(in size_t numPoints, in bool[] binaryFlags,
 {
   double[][] testData = makeRandomArray(numPoints, binaryFlags);
 
-  Stream f = new BufferedFile(fileName, FileMode.OutNew);
-  scope(exit) f.close();
+  auto f = File(fileName, "w");
 
   foreach(vals; testData)
   {
