@@ -99,6 +99,10 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
   // TODO add constructor that takes shift and scale already and applies it
   //      to the given data. Also requires a new normalize method that
   //      doesn't calculate the normalization parameters.
+  //
+  //  This will be useful for saving off a network and normalizations, then
+  //  loading them all into a program and applying the network to novel data.
+  //
 
   /**
    * Returns: A string representation of the DataPoint.

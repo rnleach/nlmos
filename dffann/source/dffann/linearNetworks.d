@@ -5,7 +5,7 @@
  */
 module dffann.linearNetworks;
 
-public import dffann.dffann;
+import dffann.dffann;
 
 import dffann.activationFunctions;
 import dffann.feedforwardnetwork;

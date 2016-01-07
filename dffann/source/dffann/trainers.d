@@ -206,7 +206,7 @@ unittest
   // Since we supplied data with no noise added, it should be a perfect fit,
   // so the error should be zero!
   assert(approxEqual(lt.error,0.0));
-
+  
   // The network should perfectly map the inputs to the targets.
   foreach(dp; d1.simpleRange)
   {

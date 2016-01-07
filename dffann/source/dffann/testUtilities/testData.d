@@ -1,7 +1,7 @@
 /**
  * Author: Ryan Leach
  * Version: 1.0.0
- * Date: June6, 2015
+ * Date: June 6, 2015
  *
  * This module contains utilities for automatically generating test data or
  * example data, mainly for use in testing (not necessarily unittesting).
