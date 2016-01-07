@@ -8,6 +8,7 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.math;
+import std.random;
 import std.range;
 import std.regex;
 import std.stream;
@@ -425,6 +426,59 @@ public class Data(size_t numInputs, size_t numTargets)
   final DataRange!(numInputs, numTargets) batchRange(size_t batch, size_t numBatches) const
   {
     return DataRange!(numInputs, numTargets)(this, batch, numBatches);
+  }
+
+  /**
+   * Returns: a range that iterates over all of the points in this 
+   *          collection in a different order everytime. 
+   */
+  final MappedDataRange!(numInputs, numTargets) randomizedRange() const
+  {
+    size_t[] mapping = new size_t[](this.numPoints);
+
+    foreach(i; 0 .. this.numPoints)
+    {
+      mapping[i] = i;
+    }
+
+    randomShuffle(mapping);
+
+    return MappedDataRange!(numInputs, numTargets)(this, mapping);
+  }
+
+  /**
+   * Returns: a ranges that each iterate over a different, random subset of the 
+   *          points in this collection. 
+   */
+  final MappedDataRange!(numInputs, numTargets)[] randomizedBatchRanges(in size_t numBatches) const
+  {
+    size_t[] mapping = new size_t[](this.numPoints);
+
+    foreach(i; 0 .. this.numPoints)
+    {
+      mapping[i] = i;
+    }
+
+    randomShuffle(mapping);
+
+    auto app = appender!(MappedDataRange!(numInputs, numTargets)[])();
+
+    size_t start = 0;
+    size_t nPoints = this.numPoints / numBatches;
+    foreach(batchNum; 0 .. numBatches)
+    {
+      size_t end = start + nPoints;
+      if(batchNum < this.numPoints % numBatches)
+      {
+        end += 1;
+      }
+
+      app.put(MappedDataRange!(numInputs, numTargets)(this, mapping[start .. end]));
+
+      start = end;
+    }
+
+    return app.data;
   }
 
   /**
@@ -986,7 +1040,45 @@ unittest
   foreach(t; r) assert(t == d.getPoint(i++));
 }
 
-// TODO Random Data Range - data range that randomizes iteration.
+/**
+ * InputRange for iterating a subset of the data in a Data object, but with a 
+ * mapping built-in so it can be iterated out of order or just be a subset. This
+ * facilitates random ranges and batches.
+ *
+ */
+public struct MappedDataRange(size_t numInputs, size_t numTargets)
+{
+
+  alias const(Data!(numInputs, numTargets)) iData;
+
+  private immutable(size_t) length;
+  private size_t next;
+  private iData data;
+  private const size_t[] indexMap;
+  
+  /**
+   * Params: 
+   * d = The Data object you wish to iterate over.
+   * indexMap = When iterated in order returns
+   */
+  this(iData d, in size_t[] indexMap)
+  {
+    
+    this.length = indexMap.length;
+    this.next = 0;
+    this.data = d;
+    this.indexMap = indexMap;
+  }
+  
+  // Properties/methods to make this an InputRange
+  @property bool empty(){return next >= indexMap.length;}
+
+  @property auto front(){return this.data.getPoint(indexMap[next]);}
+
+  void popFront(){++next;}
+}
+static assert(isInputRange!(MappedDataRange!(5,2)));
+static assert(isDataRangeType!(MappedDataRange!(5,2)));
 
 /*==============================================================================
  *                                Normalizations

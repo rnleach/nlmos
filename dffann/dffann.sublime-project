@@ -11,29 +11,12 @@
   "build_systems":
   [
     {
-      "name":"dub release GDC",
-      "working_dir":"$project_path",
-      "cmd":["dub",
-             "--build=release",
-             "--config=lib-release",
-             "--compiler=gdc",
-             "--arch=x86_64"]
-    },
-    {
       "name":"dub release DMD",
       "working_dir":"$project_path",
       "cmd":["dub",
              "--build=release",
              "--config=lib-release",
              "--compiler=dmd",
-             "--arch=x86_64"]
-    },
-    {
-      "name":"dub test GDC",
-      "working_dir":"$project_path",
-      "cmd":["dub","test",
-             "--config=lib-release",
-             "--compiler=gdc",
              "--arch=x86_64"]
     },
     {

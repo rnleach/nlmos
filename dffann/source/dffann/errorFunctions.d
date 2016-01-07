@@ -14,7 +14,7 @@ import std.math;
 
 import numeric.func;
 
-public import dffann.dffann;
+import dffann.dffann;
 import dffann.data;
 import dffann.feedforwardnetwork;
 
