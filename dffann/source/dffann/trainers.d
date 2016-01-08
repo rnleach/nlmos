@@ -14,15 +14,15 @@ import numeric.minimize;
 
 import dffann.data;
 import dffann.feedforwardnetwork;
-import dffann.errorFunctions;
+import dffann.errorfunctions;
 
 version(unittest)
 {
   import std.math;
 
   import dffann.dffann;
-  import dffann.testUtilities.testData;
-  import dffann.linearNetworks;
+  import dffann.testutilities.testdata;
+  import dffann.linearnetworks;
 }
 
 /**
@@ -47,7 +47,7 @@ public interface Trainer
    * Get a copy of the network that was trained, again, this method assumes
    * the train method was already called.
    */
-  public @property feedforwardnetwork net();
+  public @property FeedForwardNetwork net();
 }
 
 
@@ -59,7 +59,7 @@ public abstract class AbstractTrainer(size_t nInputs, size_t nTargets): Trainer
   alias iData = immutable(Data!(nInputs,nTargets));
 
   protected double _error = double.max;
-  protected feedforwardnetwork _net = null;
+  protected FeedForwardNetwork _net = null;
   protected iData _tData;
 
   /**
@@ -68,7 +68,7 @@ public abstract class AbstractTrainer(size_t nInputs, size_t nTargets): Trainer
    *                in place.
    * trainingData = The data used to train the network.
    */
-  public this(feedforwardnetwork inNet, iData trainingData)
+  public this(FeedForwardNetwork inNet, iData trainingData)
   {
     this._net = inNet.dup;
     this._tData = trainingData;
@@ -86,7 +86,7 @@ public abstract class AbstractTrainer(size_t nInputs, size_t nTargets): Trainer
    * See_Also:
    * Trainer.net
    */
-  override @property feedforwardnetwork net() { return this._net.dup; }
+  override @property FeedForwardNetwork net() { return this._net.dup; }
 }
 
 /**
@@ -101,7 +101,7 @@ public class LinearTrainer(size_t nInputs, size_t nTargets): AbstractTrainer!(nI
    *                in place.
    * trainingData = The data used to train the network.
    */
-  public this(feedforwardnetwork inNet, iData trainingData)
+  public this(FeedForwardNetwork inNet, iData trainingData)
   {
     super(inNet, trainingData);
   }
@@ -146,9 +146,9 @@ public class LinearTrainer(size_t nInputs, size_t nTargets): AbstractTrainer!(nI
 
     // Now solve with SVD
     Matrix alpha = design.T * design;
-    Matrix beta = design.T * targets;
-    SVDDecomp svd = SVDDecomp(alpha);
-    Matrix inverseAlpha = svd.pseudoInverse;
+    const Matrix beta = design.T * targets;
+    const SVDDecomp svd = SVDDecomp(alpha);
+    const Matrix inverseAlpha = svd.pseudoInverse;
     Matrix solution = inverseAlpha * beta;
 
     // Now unpack solution and put it into the linear network parameters
@@ -184,7 +184,7 @@ unittest
   enum numOut = 2;
 
   // short hand for dealing with data
-  alias Data!(numIn, numOut) DataType;
+  alias DataType = Data!(numIn, numOut);
   alias iData = immutable(Data!(numIn, numOut));
   alias DP = immutable(DataPoint!(numIn, numOut));
 
@@ -203,7 +203,7 @@ unittest
 
   // Train the network and retrieve the newly trained network.
   lt.train;
-  feedforwardnetwork trainedNet = lt.net;
+  FeedForwardNetwork trainedNet = lt.net;
 
   // Since we supplied data with no noise added, it should be a perfect fit,
   // so the error should be zero!
@@ -250,7 +250,7 @@ AbstractTrainer!(nInputs, nTargets)
    *                in place.
    * trainingData = The data used to train the network.
    */
-  public this(feedforwardnetwork inNet, iData trainingData) 
+  public this(FeedForwardNetwork inNet, iData trainingData) 
   {
     super(inNet, trainingData);
 

@@ -20,7 +20,7 @@ import dffann.dffann;
 
 version(unittest){
   
-  import dffann.testUtilities.testData;
+  import dffann.testutilities.testdata;
 
   import std.file;
 }
@@ -43,7 +43,7 @@ version(unittest){
 public struct DataPoint(size_t numInputs, size_t numTargets)
 {
 
-  enum numVals = numInputs + numTargets;
+  private enum numVals = numInputs + numTargets;
   
   private double[numVals] data;
 
@@ -52,7 +52,8 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
    * inpts = array of input values.
    * trgts = array of target values.
    */
-  this(in double[] inpts, in double[] trgts){
+  this(in double[] inpts, in double[] trgts) pure
+  {
     // Checks - debug builds only.
     assert(inpts.length == numInputs, "Length mismatch on DataPoint inpts.");
     assert(trgts.length == numTargets,"Length mismatch on DataPoint trgts.");
@@ -68,7 +69,8 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
    * vals = input and target values in single array with targets at the end of 
    *        of the array.
    */
-  this(in double[] vals){
+  this(in double[] vals) pure
+  {
     // Checks - debug versions only
     assert(vals.length == numVals, "Length mismatch on DataPoint vals.");
 
@@ -81,7 +83,8 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
    * strRep = String representation of a DataPoint as produced by the stringRep
    *          method below.
    */
-  this(in string strRep){
+  this(in string strRep)
+  {
 
     // Regular expression for splitting the string on commas.
     auto sepRegEx = ctRegex!r",";
@@ -108,7 +111,8 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
   /**
    * Returns: A string representation of the DataPoint.
    */
-  @property string stringRep() const{
+  @property string stringRep() const
+  {
     string toRet = "";
 
     foreach(val; this.data) 
@@ -120,12 +124,12 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
   /**
    * Returns: A slice of just the inputs.
    */
-  @property double[] inputs(){return this.data[0 .. numInputs];}
+  @property const(double[]) inputs() const {return this.data[0 .. numInputs];}
 
   /**
    * Returns: A slice of just the targets.
    */
-  @property double[] targets(){return this.data[numInputs .. $];}
+  @property const(double[]) targets() const {return this.data[numInputs .. $];}
 }
 
 /**
@@ -155,34 +159,34 @@ unittest
 {
   mixin(announceTest("DataPoint this(double[], double[])"));
 
-  DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
+  const DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
   assert(dp.data == vals);
 
   // DataPoint objects with no targets are possible too.
-  DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
+  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
   assert(dp2.data == inpts);
 }
 unittest
 {
   mixin(announceTest("DataPoint this(double[])"));
 
-  DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
+  const DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
   assert(dp.data == vals);
 
   // DataPoint objects with no targets are possible too.
-  DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts);
+  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts);
   assert(dp2.data == inpts);
 }
 unittest
 {
   mixin(announceTest("DataPoint inputs and targets properties."));
 
-  DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
+  const DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
   assert(dp.inputs == inpts);
   assert(dp.targets == trgts);
 
   // DataPoint objects with no targets are possible too.
-  DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
+  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
   assert(dp2.inputs == inpts);
   assert(dp2.targets == []);
 }
@@ -190,7 +194,7 @@ unittest
 {
   mixin(announceTest("DataPoint stringRep"));
 
-  DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
+  const DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
 
   assert(dp.stringRep == "1.000000000000000,2.000000000000000," ~ 
                          "3.000000000000000,4.000000000000000," ~ 
@@ -203,7 +207,7 @@ unittest
 
   DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
 
-  DataPoint!(5,2) dp2 = DataPoint!(5,2)(dp.stringRep);
+  const DataPoint!(5,2) dp2 = DataPoint!(5,2)(dp.stringRep);
 
   assert(dp == dp2);
 }
@@ -227,7 +231,7 @@ public class Data(size_t numInputs, size_t numTargets)
   alias imData = immutable(Data!(numInputs,numTargets));
 
   // Compile time constant for convenience.
-  enum numVals = numInputs + numTargets;
+  private enum numVals = numInputs + numTargets;
 
   // Shorthand for my datapoints
   alias DP = DataPoint!(numInputs, numTargets);
@@ -419,7 +423,7 @@ public class Data(size_t numInputs, size_t numTargets)
     if(numThreads < 1) numThreads = 1;
 
     BatchResults[] reses = new BatchResults[numThreads];
-    size_t chunkSize = dt.length / numThreads;
+    const size_t chunkSize = dt.length / numThreads;
     size_t[] starts = new size_t[numThreads];
     size_t[] ends = new size_t[numThreads];
     foreach(i; 0 .. numThreads)
@@ -540,7 +544,7 @@ public class Data(size_t numInputs, size_t numTargets)
     auto app = appender!(MappedDataRange!(numInputs, numTargets)[])();
 
     size_t start = 0;
-    size_t nPoints = this.numPoints / numBatches;
+    const size_t nPoints = this.numPoints / numBatches;
     foreach(batchNum; 0 .. numBatches)
     {
       size_t end = start + nPoints;
@@ -580,7 +584,7 @@ public class Data(size_t numInputs, size_t numTargets)
    *              is binary the corresponding value in the filters array is true.
    *              The length of the filters array must be numInputs + numTargets.
    */
-  public static final Data LoadDataFromCSVFile
+  public static final Data loadDataFromCSVFile
                                       (const string filename, bool[] filters)
   {
 
@@ -625,7 +629,7 @@ public class Data(size_t numInputs, size_t numTargets)
    * pData    = The data object to save.
    * filename = The path to save the data.
    */
-  public static final void SaveProcessedData
+  public static final void saveProcessedData
              (const Data pData, const string filename)
   {
     /*
@@ -689,7 +693,7 @@ public class Data(size_t numInputs, size_t numTargets)
    * 
    * Returns: An immutable Data object.
    */
-  public static final Data LoadProcessedData(const string filename)
+  public static final Data loadProcessedData(const string filename)
   {
 
     // See comments in SaveProcessedData for file and header formats.
@@ -706,7 +710,7 @@ public class Data(size_t numInputs, size_t numTargets)
     foreach(ref line; header) line = strip(line);
 
     // Parse some variables out of the header section
-    size_t numPoints = to!size_t(header[1][10 .. $]);
+    size_t nmPoints = to!size_t(header[1][10 .. $]);
     size_t nmInputs = to!size_t(header[2][10 .. $]);
     size_t nmTargets = to!size_t(header[3][11 .. $]);
     size_t totalVals = numInputs + numTargets;
@@ -732,22 +736,22 @@ public class Data(size_t numInputs, size_t numTargets)
           "~vname~"[i] = to!"~elType~"(strip(tokens[i]));";
     }
 
-    bool[] dataFilter;
-    mixin(insertParseArray("dataFilter","bool","4"));
+    bool[] lDataFilter;
+    mixin(insertParseArray("lDataFilter","bool","4"));
 
-    double[] shift;
-    mixin(insertParseArray("shift","double","5"));
+    double[] lShift;
+    mixin(insertParseArray("lShift","double","5"));
 
-    double[] scale;
-    mixin(insertParseArray("scale","double","6"));
+    double[] lScale;
+    mixin(insertParseArray("lScale","double","6"));
 
     // Now parse each row
-    enforce(dataLines.length >= numPoints,
+    enforce(dataLines.length >= nmPoints,
       "Malformed data file, not enough input points.");
 
-    double[][] tmp = new double[][](numPoints,numVals);
+    double[][] tmp = new double[][](nmPoints,numVals);
     
-    foreach(i; 0 ..numPoints)
+    foreach(i; 0 ..nmPoints)
     {
 
       tokens = split(dataLines[i], regex(","));
@@ -760,7 +764,7 @@ public class Data(size_t numInputs, size_t numTargets)
 
     }
 
-    return new Data(tmp,  dataFilter,  shift, scale);
+    return new Data(tmp,  lDataFilter,  lShift, lScale);
   }
 
   /**
@@ -787,22 +791,21 @@ public class Data(size_t numInputs, size_t numTargets)
       // Split into lines as header and data sections
       string[] lines = split(text, regex("\n"));
       string[] header = lines[0 .. 8];
-      string[] dataLines = lines[8 .. $];
+      const string[] dataLines = lines[8 .. $];
 
       // clean up the header lines
       foreach(ref line; header) line = strip(line);
 
       // Parse some variables out of the header section
-      size_t numPoints = to!size_t(header[1][10 .. $]);
-      size_t nmInputs = to!size_t(header[2][10 .. $]);
-      size_t nmTargets = to!size_t(header[3][11 .. $]);
-      size_t totalVals = numInputs + numTargets;
+      const size_t nmPoints = to!size_t(header[1][10 .. $]);
+      const size_t nmInputs = to!size_t(header[2][10 .. $]);
+      const size_t nmTargets = to!size_t(header[3][11 .. $]);
 
       // Check that this file matches the kind of Data object we are loading.
       if(header[0] != "NormalizedData") return false;
       if(nmInputs != numInputs) return false;
       if(nmTargets != numTargets) return false;
-      if(dataLines.length < numPoints) return false;
+      if(dataLines.length < nmPoints) return false;
 
     }
     catch(Exception e){
@@ -869,7 +872,7 @@ unittest
   mixin(announceTest("Data this(double[][], bool[])"));
 
   // Short-hand for dealing with immutable data
-  alias immutable(Data!(5,2)) iData;
+  alias iData = immutable(Data!(5,2));
   
   iData d = new iData(testData, flags);
   
@@ -895,7 +898,7 @@ unittest
   mixin(announceTest("Data this(double[][], bool[], false)"));
 
   // Short-hand for dealing with immutable data
-  alias immutable(Data!(5,2)) iData;
+  alias iData = immutable(Data!(5,2));
   
   iData d = Data!(5,2).createImmutableData(testData, flags, false);
   
@@ -921,13 +924,13 @@ unittest
   mixin(announceTest("Data this(double[][], bool[], double[], double[])"));
 
   // Short-hand for dealing with immutable data
-  alias immutable(Data!(5,2)) iData;
+  alias iData = immutable(Data!(5,2));
 
   double[][] normTestData = new double[][](10, 7);
   foreach(i; 0 .. 10){
       normTestData[i][] = normalizedRowValues[i];
   }
-  double[7] scaleArr = scalePar;
+  const double[7] scaleArr = scalePar;
 
   iData d = new iData(normTestData, flags, shiftPar, scaleArr);
 
@@ -953,9 +956,9 @@ unittest
   mixin(announceTest("Data nPoints, nInputs, nTargets properties."));
   
   // Short-hand for dealing with immutable data
-  alias immutable(Data!(5,2)) iData;
+  alias iData = immutable(Data!(5,2));
   
-  iData d = Data!(5,2).createImmutableData(testData, flags);
+  const iData d = Data!(5,2).createImmutableData(testData, flags);
   
   assert(d.nPoints == 10);
   assert(d.nInputs == 5);
@@ -966,8 +969,8 @@ unittest
   mixin(announceTest("Data getPoint(size_t)."));
   
   // Short-hand for dealing with immutable data
-  alias immutable(Data!(5,2)) iData;
-  alias immutable(DataPoint!(5,2)) iDataPoint;
+  alias iData = immutable(Data!(5,2));
+  alias iDataPoint = immutable(DataPoint!(5,2));
   
   iData d = Data!(5,2).createImmutableData(testData, flags);
 
@@ -992,8 +995,7 @@ unittest
   makeRandomCSVFile(222, filters2,"TestData.csv");
   scope(exit) std.file.remove("TestData.csv");
 
-  iData d = cast(immutable) Data!(21,1).
-                      LoadDataFromCSVFile("TestData.csv", filters2);
+  Data!(21,1).loadDataFromCSVFile("TestData.csv", filters2);
 
   // If no exceptions are thrown, this unit test passes for now. More tests
   // will be done in later unit tests.
@@ -1019,13 +1021,13 @@ unittest
   assert(exists(testFileName));
   assert(!Data21.isProcessedDataFile(testFileName));
 
-  Data21 d2 = Data21.LoadDataFromCSVFile(testFileName, filters2);
+  Data21 d2 = Data21.loadDataFromCSVFile(testFileName, filters2);
   
-  Data21.SaveProcessedData(d2, testFileNameForNormalizedData);
+  Data21.saveProcessedData(d2, testFileNameForNormalizedData);
   scope(exit) std.file.remove(testFileNameForNormalizedData);
   assert(Data21.isProcessedDataFile(testFileNameForNormalizedData));
   
-  auto d3 = Data21.LoadProcessedData(testFileNameForNormalizedData);
+  auto d3 = Data21.loadProcessedData(testFileNameForNormalizedData);
   assert(d2.nPoints == d3.nPoints);
   assert(d2.nInputs == d3.nInputs);
   
@@ -1053,7 +1055,7 @@ template isDataRangeType(T)
 public struct DataRange(size_t numInputs, size_t numTargets)
 {
 
-  alias const(Data!(numInputs, numTargets)) iData;
+  alias iData = const(Data!(numInputs, numTargets));
 
   private immutable(size_t) length;
   private size_t next;
@@ -1076,11 +1078,13 @@ public struct DataRange(size_t numInputs, size_t numTargets)
     this.numBatches = numBatches;
   }
   
-  // Properties/methods to make this an InputRange
+  /// Properties/methods to make this an InputRange
   @property bool empty(){return next >= data.nPoints;}
 
+  /// ditto
   @property auto front(){return this.data.getPoint(next);}
 
+  /// ditto
   void popFront(){next += numBatches;}
 }
 static assert(isInputRange!(DataRange!(5,2)));
@@ -1090,7 +1094,7 @@ unittest
 {
   mixin(announceTest("DataRange"));
 
-  alias immutable(Data!(5, 2)) iData;
+  alias iData = immutable(Data!(5, 2));
 
   iData d = Data!(5,2).createImmutableData(testData, flags);
 
@@ -1102,7 +1106,7 @@ unittest
 {
   mixin(announceTest("Data simpleRange property"));
 
-  alias immutable(Data!(5, 2)) iData;
+  alias iData = immutable(Data!(5, 2));
 
   iData d = Data!(5,2).createImmutableData(testData, flags);
 
@@ -1120,7 +1124,7 @@ unittest
 public struct MappedDataRange(size_t numInputs, size_t numTargets)
 {
 
-  alias const(Data!(numInputs, numTargets)) iData;
+  alias iData = const(Data!(numInputs, numTargets));
 
   private immutable(size_t) length;
   private size_t next;
@@ -1141,11 +1145,13 @@ public struct MappedDataRange(size_t numInputs, size_t numTargets)
     this.indexMap = indexMap;
   }
   
-  // Properties/methods to make this an InputRange
+  /// Properties/methods to make this an InputRange
   @property bool empty(){return next >= indexMap.length;}
-
+  
+  /// ditto
   @property auto front(){return this.data.getPoint(indexMap[next]);}
 
+  /// ditto
   void popFront(){++next;}
 }
 static assert(isInputRange!(MappedDataRange!(5,2)));
@@ -1291,7 +1297,7 @@ unittest
  * 
  * TODO - When phobos library settles down, save these as XML instead.
  */
-void SaveNormalization(const Normalization norm, const string path)
+void saveNormalization(const Normalization norm, const string path)
 {
   /*
    * File format:
@@ -1317,12 +1323,13 @@ void SaveNormalization(const Normalization norm, const string path)
 
   // Save the arrays shift and scale
   fl.writef("shift = ");
-  for(int i = 0; i < nVals - 1; ++i)
+  int i;
+  for(i = 0; i < nVals - 1; ++i)
     fl.writef("%.*f,", double.dig, norm.shift[i]);
   fl.writef("%.*f\n", double.dig, norm.shift[$ - 1]);
 
   fl.writef("scale = ");
-  for(int i = 0; i < nVals - 1; ++i)
+  for(i = 0; i < nVals - 1; ++i)
     fl.writef("%.*f,", double.dig, norm.scale[i]);
   fl.writef("%.*f\n", double.dig, norm.scale[$ - 1]);
 }
@@ -1335,9 +1342,9 @@ void SaveNormalization(const Normalization norm, const string path)
  * 
  * TODO - When phobos library settles down, use XML instead.
  */
-Normalization LoadNormalization(const string fileName)
+Normalization loadNormalization(const string fileName)
 {
-  // See file description in SaveNormalization
+  // See file description in saveNormalization
 
   // Open the file, read in the contents
   string text = readText(fileName);
@@ -1350,34 +1357,35 @@ Normalization LoadNormalization(const string fileName)
   
   // Parse number of values
   enforce(lines[0] == "Normalization");
-  size_t nVals = to!size_t(lines[1][8 .. $]);
+  const size_t nVals = to!size_t(lines[1][8 .. $]);
 
   // Set shift and scale
   double[] tmpShift = new double[](nVals);
   double[] tmpScale = new double[](nVals);
 
   // Parse shift
+  int i;
   string[] tokens = split(lines[2][8 .. $],regex(","));
-  for(int i = 0; i < nVals; ++i) tmpShift[i] = to!double(strip(tokens[i]));
+  for(i = 0; i < nVals; ++i) tmpShift[i] = to!double(strip(tokens[i]));
 
   // Parse scale
   tokens = split(lines[3][8 .. $],regex(","));
-  for(int i = 0; i < nVals; ++i) tmpScale[i] = to!double(strip(tokens[i]));
+  for(i = 0; i < nVals; ++i) tmpScale[i] = to!double(strip(tokens[i]));
 
   return Normalization(tmpShift, tmpScale);
 }
 unittest
 {
-  mixin(announceTest("SaveNormalization and LoadNormalization Test."));
+  mixin(announceTest("saveNormalization and loadNormalization Test."));
 
-  Data!(5, 2) d = new Data!(5,2)(testData, flags);
+  const Data!(5, 2) d = new Data!(5,2)(testData, flags);
 
   Normalization norm = d.normalization;
 
-  SaveNormalization(norm, "norm.csv");
+  saveNormalization(norm, "norm.csv");
   scope(exit) std.file.remove("norm.csv");
   
-  auto loadedNorm = LoadNormalization("norm.csv");
+  auto loadedNorm = loadNormalization("norm.csv");
   
   assert(approxEqual(norm.shift,loadedNorm.shift));
   assert(approxEqual(norm.scale,loadedNorm.scale)); 

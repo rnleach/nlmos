@@ -81,6 +81,17 @@ public struct Matrix{
       foreach(j; 0 .. c)
         m[i * c + j] = arr[i][j];
   }
+
+  /**
+   * ditto
+   */
+  this(const Matrix orig)
+  {
+    rows = orig.rows;
+    cols = orig.cols;
+    numVals = orig.numVals;
+    m = orig.m.dup;
+  }
   unittest{
     mixin(announceTest("Constructors"));
 
@@ -119,7 +130,8 @@ public struct Matrix{
   /**
    * Postblit constructor.
    */
-  this(this){
+  this(this)
+  {
     // rows and cols was moved for us, now we have to allocate new memory and
     // copy all the values to them
     m = m.dup;
@@ -149,6 +161,14 @@ public struct Matrix{
       }
       else assert(N.m[i] == M.m[i]);
     }
+  }
+
+  /**
+   * Make a duplicate matrix.
+   */
+  @property Matrix dup() const
+  {
+    return Matrix(this);
   }
 
   /**
@@ -267,7 +287,8 @@ public struct Matrix{
    * c = the column number
    *
    */
-  double opIndex(size_t r, size_t c){
+  double opIndex(size_t r, size_t c) const
+  {
     // Bounds check, this goes away with release builds
     assert(r < rows && c < cols,"Index out of bounds error.");
 
@@ -458,8 +479,10 @@ public struct Matrix{
    * assert(B[1,1] == -A[1,1]);
    * ---------
    */
-  Matrix opUnary(string op)() if(op == "-"){
-    Matrix temp = this;
+  Matrix opUnary(string op)() const
+  if(op == "-")
+  {
+    Matrix temp = cast(Matrix)this;
 
     version(par){
       foreach(r; parallel(CountRange(rows))){
@@ -507,7 +530,9 @@ public struct Matrix{
   /**
    * Overloaded addition and subtraction operators.
    */
-  Matrix opBinary(string op)(Matrix rhs) if( op == "+" || op == "-"){
+  Matrix opBinary(string op)(in Matrix rhs) const
+  if( op == "+" || op == "-") 
+  {
     // Force them to be the same size. Note this goes away in release builds.
     assert(rows == rhs.rows && cols == rhs.cols);
 
@@ -673,7 +698,9 @@ public struct Matrix{
    * Overloaded multiplication and divistion operators for operations with a
    * Matrix and scalar.
    */
-  Matrix opBinary(string op)(double rhs) if( op == "*" || op == "/"){
+  Matrix opBinary(string op)(double rhs) const
+  if( op == "*" || op == "/")
+  {
 
     // Make a new matrix
     Matrix temp = Matrix(rows,cols);
@@ -682,7 +709,7 @@ public struct Matrix{
       foreach(r; parallel(CountRange(rows))){
         size_t rw = r * cols;
         foreach(c; 0 .. cols){
-          mixin("temp.m[rw + c] = m[rw + c] " ~ op ~ "= rhs;");
+          mixin("temp.m[rw + c] = m[rw + c] " ~ op ~ " rhs;");
         }
       }
     }
@@ -699,7 +726,9 @@ public struct Matrix{
    * Matrix and scalar. Only allow multiplication from the left, it is
    * undefined what scalar / Matrix is.
    */
-  Matrix opBinaryRight(string op)(double lhs) if( op == "*"){
+  Matrix opBinaryRight(string op)(double lhs) const
+  if( op == "*")
+  {
 
     // Make a new matrix
     Matrix temp = Matrix(rows,cols);
@@ -708,7 +737,7 @@ public struct Matrix{
       foreach(r; parallel(CountRange(rows))){
         size_t rw = r * cols;
         foreach(c; 0 .. cols){
-          temp.m[rw + c] = m[rw + c] *= lhs;
+          temp.m[rw + c] = m[rw + c] * lhs;
         }
       }
     }
@@ -748,7 +777,9 @@ public struct Matrix{
   /**
    * Overloaded multiplication of matrices..
    */
-  Matrix opBinary(string op)(Matrix rhs) if( op == "*"){
+  Matrix opBinary(string op)(in Matrix rhs) const
+  if( op == "*")
+  {
     // Check to make sure the cols of the left side == rows of right side
     assert(cols == rhs.rows,"Multiplication dimemsions mismatch.");
 
@@ -800,7 +831,9 @@ public struct Matrix{
    * Overloaded multiplication of matrices, this does the generalization of
    * the tensor product. It is used rarely, mainly with vectors, but it is used.
    */
-  Matrix opBinary(string op)(Matrix rhs) if(op == "%"){
+  Matrix opBinary(string op)(in Matrix rhs) const
+  if(op == "%")
+  {
     // No restrictions on matrix dimensions
 
     // Make a new matrix
@@ -858,7 +891,8 @@ public struct Matrix{
    * Transpose a matrix. This method creates a new Matrix and fills it with the
    * transposed values.
    */
-  @property Matrix T(){
+  @property Matrix T() const
+  {
     Matrix temp = Matrix(cols, rows);
 
     version(par){
@@ -909,7 +943,8 @@ public struct Matrix{
   /**
    * Get a transpose view of this matrix.
    */
-  @property package TransposeView Tv(){
+  @property package TransposeView Tv() const
+  {
     return TransposeView(&this);
   }
   unittest{
@@ -969,9 +1004,9 @@ public struct Matrix{
 package struct TransposeView{
 
   // Store a reference to the source matrix.
-  Matrix *src = null;
+  const Matrix *src = null;
   
-  this(Matrix *d){
+  this(const Matrix *d){
     src = d;
   }
   
@@ -993,7 +1028,8 @@ package struct TransposeView{
    *         c - the column number
    *
    */
-  double opIndex(size_t r, size_t c){
+  double opIndex(size_t r, size_t c) const
+  {
     // Bounds check, this goes away with release builds
     assert(c < src.rows && r < src.cols,"Index out of bounds error.");
 
@@ -1039,7 +1075,9 @@ package struct TransposeView{
   /**
    * Overloaded addition and subtraction operators.
    */
-  Matrix opBinary(string op)(Matrix rhs) if( op == "+" || op == "-"){
+  Matrix opBinary(string op)(in Matrix rhs) const
+  if( op == "+" || op == "-")
+  {
     // Force them to be the same size. Note this goes away in release builds.
     assert(src.cols == rhs.rows && src.rows == rhs.cols);
 
@@ -1065,7 +1103,9 @@ package struct TransposeView{
 
     return temp;
   }
-  Matrix opBinaryRight(string op)(Matrix lhs) if( op == "+" || op == "-"){
+  Matrix opBinaryRight(string op)(Matrix lhs) const
+  if( op == "+" || op == "-")
+  {
     // Force them to be the same size. Note this goes away in release builds.
     assert(src.cols == lhs.rows && src.rows == lhs.cols);
 
@@ -1093,8 +1133,9 @@ package struct TransposeView{
     return temp;
   }
   
-  Matrix opBinary(string op)(in ref TransposeView rhs) 
-  if( op == "+" || op == "-"){
+  Matrix opBinary(string op)(in ref TransposeView rhs) const
+  if( op == "+" || op == "-")
+  {
     // Force them to be the same size. Note this goes away in release builds.
     assert(src.rows == rhs.src.rows && src.cols == rhs.src.cols);
     
@@ -1160,7 +1201,9 @@ package struct TransposeView{
    * Overloaded multiplication and divistion operators for operations with a
    * Matrix and scalar.
    */
-  Matrix opBinary(string op)(double rhs) if( op == "*" || op == "/"){
+  Matrix opBinary(string op)(double rhs) const
+  if( op == "*" || op == "/")
+  {
 
     // Make a new matrix
     Matrix temp = Matrix(src.cols,src.rows);
@@ -1194,7 +1237,9 @@ package struct TransposeView{
    * Matrix and scalar. Only allow multiplication from the left, it is
    * undefined what scalar / Matrix is.
    */
-  Matrix opBinaryRight(string op)(double lhs) if( op == "*"){
+  Matrix opBinaryRight(string op)(double lhs) const
+  if( op == "*")
+  {
 
     // Make a new matrix
     Matrix temp = Matrix(src.cols,src.rows);
@@ -1244,7 +1289,9 @@ package struct TransposeView{
   /*============================================================================
    *                           Matrix Multiplication
    *==========================================================================*/
-  Matrix opBinary(string op)(Matrix rhs) if( op == "*"){
+  Matrix opBinary(string op)(in Matrix rhs) const
+  if( op == "*")
+  {
     // Check to make sure the 'rows' of the left side == rows of right side
     assert(src.rows == rhs.rows,"Multiplication dimemsions mismatch.");
 
@@ -1275,7 +1322,9 @@ package struct TransposeView{
 
     return temp;
   }
-  Matrix opBinaryRight(string op)(Matrix lhs) if( op == "*"){
+  Matrix opBinaryRight(string op)(Matrix lhs)const
+  if( op == "*")
+  {
     // Check to make sure the 'rows' of the left side == rows of right side
     assert(src.cols == lhs.cols,"Multiplication dimemsions mismatch.");
 
@@ -1345,7 +1394,9 @@ package struct TransposeView{
    * Overloaded multiplication of matrices, this does the generalization of
    * the tensor product. It is used rarely, mainly with vectors, but it is used.
    */
-  Matrix opBinary(string op)(Matrix rhs) if(op == "%"){
+  Matrix opBinary(string op)(in Matrix rhs) const
+  if(op == "%")
+  {
     // No restrictions on matrix dimensions
 
     // Make a new matrix
@@ -1373,7 +1424,9 @@ package struct TransposeView{
 
     return temp;
   }
-  Matrix opBinaryRight(string op)(Matrix lhs) if(op == "%"){
+  Matrix opBinaryRight(string op)(Matrix lhs) const
+  if(op == "%")
+  {
     // No restrictions on matrix dimensions
 
     // Make a new matrix
@@ -1492,7 +1545,9 @@ package struct TransposeView{
   /**
    * Overloaded opUnary!"-"
    */
-  Matrix opUnary(string op)() if(op == "-"){
+  Matrix opUnary(string op)() const
+  if(op == "-")
+  {
     return -src.T;
   }
   unittest{
@@ -1528,7 +1583,8 @@ package struct TransposeView{
 /**
  * SVD decomposition of a matrix.
  */
-struct SVDDecomp{
+struct SVDDecomp
+{
 
   private Matrix u;
   private size_t m;  // Rows of original Matirx
@@ -1833,7 +1889,8 @@ struct SVDDecomp{
    * Very small singular values are set to zero after inverting W (of which 
    * they are very large in).
    */
-  @property Matrix pseudoInverse(){
+  @property Matrix pseudoInverse() const
+  {
 
     Matrix Ww = Matrix.identity(this.n);
 

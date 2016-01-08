@@ -15,7 +15,7 @@
  * y[] with respect to its activation x[].
  *
  */
-module dffann.activationFunctions;
+module dffann.activationfunctions;
 
 public import dffann.dffann;
 
@@ -23,8 +23,8 @@ import std.math;
 import std.traits;
 
 
-alias isActivationFunction isAF;
-alias isOutputActivationFunction isOAF;
+alias isAF = isActivationFunction;
+alias isOAF = isOutputActivationFunction;
 /**
  * Assure a struct meets the requirements to be used as an activation function.
  */
@@ -90,9 +90,9 @@ template isOutputActivationFunction(A)
   else
   {
     // Check if it is one of the allowed types.
-    enum bool allowedOutputAF = is(A == linearAF) ||
-                                is(A == sigmoidAF) ||
-                                is(A == softmaxAF);
+    enum bool allowedOutputAF = is(A == LinearAF) ||
+                                is(A == SigmoidAF) ||
+                                is(A == SoftmaxAF);
 
     enum bool isOutputActivationFunction = allowedOutputAF;
   }
@@ -102,13 +102,19 @@ template isOutputActivationFunction(A)
  * Linear activation function, just returns its activation with no-nonlinear
  * transformation applied.
  */
-public struct linearAF
+public struct LinearAF
 {
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static void eval(in double[] act, ref double[] outpt)
   {
     outpt[] = act[];
   }
 
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static double[] deriv(in double[] act, in double[] outpt)
   {
     assert(act.length == outpt.length);
@@ -118,8 +124,8 @@ public struct linearAF
     return toRet;
   }
 }
-static assert(isAF!linearAF);
-static assert(isOAF!linearAF);
+static assert(isAF!LinearAF);
+static assert(isOAF!LinearAF);
 
 /**
  * Sigmoid activation function.
@@ -128,14 +134,20 @@ static assert(isOAF!linearAF);
  * this activation function only depends on the y vector, and is calculated as
  * deriv[i] = y[i] * (1.0 - y[i]).
  */
-public struct sigmoidAF
+public struct SigmoidAF
 {
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static void eval(in double[] act, ref double[] outpt)
   {
     foreach(i; 0 .. outpt.length)
       outpt[i] = 1.0 / (1.0 + exp(-act[i]));
   }
 
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static double[] deriv(in double[] act, in double[] outpt)
   {
     double[] derivative = new double[act.length];
@@ -145,20 +157,26 @@ public struct sigmoidAF
     return derivative;
   }
 }
-static assert(isAF!sigmoidAF);
-static assert(isOAF!sigmoidAF);
+static assert(isAF!SigmoidAF);
+static assert(isOAF!SigmoidAF);
 
 /**
  * Tanh activation function.
  */
-public struct tanhAF
+public struct TanhAF
 {
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static void eval(in double[] act, ref double[] outpt)
   {
     foreach(i; 0 .. outpt.length)
       outpt[i] = tanh(act[i]);
   }
 
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static double[] deriv(in double[] act, in double[] outpt)
   {
     double[] derivative = new double[act.length];
@@ -168,18 +186,25 @@ public struct tanhAF
     return derivative;
   }
 }
-static assert(isAF!tanhAF);
+static assert(isAF!TanhAF);
 
 /**
  * arctan activation function.
  */
-public struct arctanAF{
+public struct ArctanAF{
+
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static void eval(in double[] act, ref double[] outpt)
   {
     foreach(i; 0 .. outpt.length)
       outpt[i] = atan(act[i]);
   }
 
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static double[] deriv(in double[] act, in double[] outpt)
   {
     double[] derivative = new double[act.length];
@@ -189,7 +214,7 @@ public struct arctanAF{
     return derivative;
   }
 }
-static assert(isAF!arctanAF);
+static assert(isAF!ArctanAF);
 
 /**
  * This is the softplus activation function. It should help in the training 
@@ -197,29 +222,36 @@ static assert(isAF!arctanAF);
  * as quickly.
  *
  */
-public struct softPlusAF
+public struct SoftPlusAF
 {
+
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static void eval(in double[] act, ref double[] outpt)
   {
     foreach(i; 0 .. outpt.length)
       outpt[i] = act[i] / (1.0 + abs(act[i]));
   }
 
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static double[] deriv(in double[] act, in double[] outpt)
   {
     double[] derivative = new double[act.length];
 
     foreach(i; 0 .. outpt.length)
     {
-      double absV = abs(act[i]);
-      double k = 1.0 / (1.0 + absV);
+      const double absV = abs(act[i]);
+      const double k = 1.0 / (1.0 + absV);
       derivative[i] = k * (1.0 - k * absV);
     }
 
     return derivative;
   }
 }
-static assert(isAF!softPlusAF);
+static assert(isAF!SoftPlusAF);
 
 /**
  * The softmax vector for vector x.
@@ -234,9 +266,12 @@ static assert(isAF!softPlusAF);
  *   otherwise it will always be 1.0!
  *
  */
-public struct softmaxAF
+public struct SoftmaxAF
 {
 
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static void eval(in double[] x, ref double[] y)
   {
     
@@ -269,6 +304,9 @@ public struct softmaxAF
     
   }
 
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static double[] deriv(in double[] x, in double[] y)
   {
     double[] s = new double[y.length];
@@ -278,8 +316,8 @@ public struct softmaxAF
     return s;
   }
 }
-static assert(isAF!softmaxAF);
-static assert(isOAF!softmaxAF);
+static assert(isAF!SoftmaxAF);
+static assert(isOAF!SoftmaxAF);
 
 /**
  * This activation function returns it's outputs if they are greater than zero,
@@ -290,8 +328,12 @@ static assert(isOAF!softmaxAF);
  * it takes a lot of neurons, a lot more than you would typically need with
  * other activation function types.
  */
-public struct rectifiedLinearAF
+public struct RectifiedLinearAF
 {
+
+  /**
+   * See module documentation for overview of activation functions.
+   */
   public static void eval(in double[] x, ref double[] y)
   {
 
@@ -299,6 +341,9 @@ public struct rectifiedLinearAF
       y[i] = x[i] < 0.0 ? 0.0 : x[i];
   }
 
+  /**
+   * See module documentation for overview of activation functions.
+   */ 
   public static double[] deriv( in double[] x, in double[] y)
   {
     double[] s = new double[y.length];
@@ -309,4 +354,4 @@ public struct rectifiedLinearAF
     return s;
   }
 }
-static assert(isAF!rectifiedLinearAF);
+static assert(isAF!RectifiedLinearAF);

@@ -3,11 +3,11 @@
  *
  * Author: Ryan Leach
  */
-module dffann.linearNetworks;
+module dffann.linearnetworks;
 
 import dffann.dffann;
 
-import dffann.activationFunctions;
+import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
 import numeric.random: gasdev;
@@ -21,14 +21,21 @@ import std.string;
 
 version(unittest) import dffann.data;
 
-public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
+/**
+ * Linear Network.
+ *
+ * Params:
+ * OAF = the type of the output activation function.
+ */
+public class LinearNetwork(OAF) : FeedForwardNetwork 
+if(isOAF!OAF)
 {
 
   private double[] weights;
   private double[] biases;
   private const(double)[] inputNodes;
   private double[] outputActivationNodes;
-  static if(!is(OAF == linearAF))  private double[] outputNodes;
+  static if(!is(OAF == LinearAF))  private double[] outputNodes;
 
   private immutable uint nInputs;
   private immutable uint nOutputs;
@@ -39,16 +46,23 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
   private double[] flatParms = null;
   private double[] nonBiasParms = null;
 
+  /** 
+   * Create a new linear network.
+   *
+   * Params:
+   * nInputs = The number of inputs for the network, not including biases.
+   * nOutputs = The number of outputs for the network.
+   */
   public this(uint nInputs, uint nOutputs)
   {
 
-    static if(is(OAF == sigmoidAF))
+    static if(is(OAF == SigmoidAF))
     {
       enforce(nOutputs == 1,"Only 1 output allowed for 2-class linear " ~
         "classification network. This error was generated to ensure the " ~
         "proper functioning of backpropagation.");
     }
-    static if(is(OAF == softmaxAF))
+    static if(is(OAF == SoftmaxAF))
     {
       enforce(nOutputs > 1,"More than 1 output required for general linear " ~
         "classification network. This error was generated to ensure the " ~
@@ -65,7 +79,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
 
     this.inputNodes = new double[](nInputs);
     this.outputActivationNodes = new double[](nOutputs);
-    static if(!is(OAF == linearAF)) this.outputNodes = new double[](nOutputs);
+    static if(!is(OAF == LinearAF)) this.outputNodes = new double[](nOutputs);
 
     this.biases = new double[](nOutputs);
     this.weights = new double[](nOutputs * nInputs);
@@ -83,7 +97,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     // Set up nodes.
     this.inputNodes = new double[](nInputs);
     this.outputActivationNodes = new double[](nOutputs);
-    static if(!is(OAF == linearAF)) this.outputNodes = new double[](nOutputs);
+    static if(!is(OAF == LinearAF)) this.outputNodes = new double[](nOutputs);
 
     // Copy in weights and biases.
     this.biases = biases.dup;
@@ -123,7 +137,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     // Set up the nodes
     this.inputNodes = new double[](this.nInputs);
     this.outputActivationNodes = new double[](this.nOutputs);
-    static if(!is(OAF == linearAF)) this.outputNodes = new double[](nOutputs);
+    static if(!is(OAF == LinearAF)) this.outputNodes = new double[](nOutputs);
 
     // Parse the weights
     string data = lines[4][13 .. $];
@@ -166,7 +180,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     assert(targets.length == nOutputs, 
       "targets.length doesn't equal the number of network outputs.");
 
-    static if(is(OAF == linearAF)) alias outputNodes = outputActivationNodes;
+    static if(is(OAF == LinearAF)) alias outputNodes = outputActivationNodes;
     
     // Initialize if needed.
     if(backPropResults is null)
@@ -237,7 +251,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     }
 
     // Apply the output activation function.
-    static if(is(OAF == linearAF))
+    static if(is(OAF == LinearAF))
     {
       alias outputNodes = outputActivationNodes;
     }
@@ -301,7 +315,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
   /**
    * ditto
    */
-  public override @property double[] parameters(double[] parms)
+  public override @property void parameters(const double[] parms)
   {
     assert(parms.length == numParameters, 
       "Supplied array different size than number of parameters in network.");
@@ -314,8 +328,6 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
         weights[offset + i] = parms[j++];
       biases[o] = parms[j++];
     }
-    
-    return parms;
   }
 
   /**
@@ -352,7 +364,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
   {
     
     // Initalize weights with small random values
-    double scaleFactor = sqrt(1.0 / nInputs);
+    const double scaleFactor = sqrt(1.0 / nInputs);
     foreach(j; 0 .. (numInputs * numOutputs))
     {
       weights[j] = gasdev() * scaleFactor;
@@ -410,7 +422,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
 /**
  * Linear Regression Network.
  */
-alias LinRegNet = LinearNetwork!linearAF;
+alias LinRegNet = LinearNetwork!LinearAF;
 
 /**
  * Linear Classification Network. 
@@ -418,7 +430,7 @@ alias LinRegNet = LinearNetwork!linearAF;
  * 2 classes only, 1 output only, 0-1 coding to tell the difference between
  * classes.
  */
-alias Lin2ClsNet = LinearNetwork!sigmoidAF;
+alias Lin2ClsNet = LinearNetwork!SigmoidAF;
 
 /**
 * Linear Classification Network.
@@ -426,7 +438,7 @@ alias Lin2ClsNet = LinearNetwork!sigmoidAF;
 * Any number of classes, but must have at least 2 outputs. Uses 1 of N coding
 * on ouput nodes.
 */
-alias LinClsNet = LinearNetwork!softmaxAF;
+alias LinClsNet = LinearNetwork!SoftmaxAF;
 
 unittest
 {
@@ -450,15 +462,15 @@ unittest
   enum normalize = false;
 
   // short hand for dealing with data
-  alias Data!(numIn, numOut) DataType;
-  alias immutable(Data!(numIn, numOut)) iData;
-  alias immutable(DataPoint!(numIn, numOut)) DP;
+  alias DataType = Data!(numIn, numOut);
+  alias iData = immutable(Data!(numIn, numOut));
+  alias DP = immutable(DataPoint!(numIn, numOut));
   
   // Make a data set
   iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
 
   // Now, build a network.
-  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
@@ -521,9 +533,9 @@ unittest{
   enum normalize = false;
 
   // short hand for dealing with data
-  alias Data!(numIn, numOut) DataType;
-  alias immutable(Data!(numIn, numOut)) iData;
-  alias immutable(DataPoint!(numIn, numOut)) DP;
+  alias DataType = Data!(numIn, numOut);
+  alias iData = immutable(Data!(numIn, numOut));
+  alias DP = immutable(DataPoint!(numIn, numOut));
   
   // Make a data set
   iData d1 = DataType.createImmutableData(andDataArr, binaryFlags, normalize);

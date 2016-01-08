@@ -3,11 +3,11 @@
  *
  * Author: Ryan Leach
  */
-module dffann.multilayerPerceptrons;
+module dffann.multilayerperceptrons;
 
 public import dffann.dffann;
 
-import dffann.activationFunctions;
+import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
 import numeric.random: gasdev;
@@ -22,8 +22,14 @@ import std.string;
 
 version(unittest) import dffann.data;
 
-
-public class MultiLayerPerceptronNetwork(HAF, OAF) : feedforwardnetwork 
+/**
+ * Multilayer Perceptron.
+ *
+ * Params:
+ * HAF = hidden activation function.
+ * OAF = output activation function.
+ */
+public class MultiLayerPerceptronNetwork(HAF, OAF) : FeedForwardNetwork 
 if(isAF!HAF && isOAF!OAF)
 {
   /*
@@ -67,16 +73,23 @@ if(isAF!HAF && isOAF!OAF)
   private double[][] deltaB = null;     // Used in backProp
   private double[][] deltaNodes = null; // Used in backProp
 
+  /**
+   * Params:
+   * numNodes = description of the structure of the network. numNodes[0] is the
+   *            number of input nodes. numNodes[$-1] is the number of output
+   *            nodes. Everything in between is the number of hidden nodes in
+   *            each hidden layer.
+   */
   public this(in uint[] numNodes)
   {
 
-    static if(is(OAF == sigmoidAF))
+    static if(is(OAF == SigmoidAF))
     {
       enforce(numNodes[$ - 1] == 1,"Only 1 output allowed for 2-class linear " ~
         "classification network. This error was generated to ensure the " ~
         "proper functioning of backpropagation.");
     }
-    static if(is(OAF == softmaxAF))
+    static if(is(OAF == SoftmaxAF))
     {
       enforce(numNodes[$ - 1] > 1,"More than 1 output required for general linear " ~
         "classification network. This error was generated to ensure the " ~
@@ -496,7 +509,7 @@ if(isAF!HAF && isOAF!OAF)
   /**
    * ditto
    */
-  override @property double[] parameters(double[] parms)
+  override @property void parameters(const (double[]) parms)
   {
     assert(parms.length == numParameters, 
       "Supplied array different size than number of parameters in network.");
@@ -513,8 +526,6 @@ if(isAF!HAF && isOAF!OAF)
         B[l][o] = parms[p++]; // For the bias!
       }
     }
-
-    return parms;
   }
 
   /**
@@ -560,7 +571,7 @@ if(isAF!HAF && isOAF!OAF)
       // Set the scale of the random weights in this layer
       // to the square root of the reciprocal of the number of nodes in 
       // the layer the weights are coming out of.
-      double scaleFactor = sqrt(1.0 / nNodes[l]);
+      const double scaleFactor = sqrt(1.0 / nNodes[l]);
       foreach(o; 0 .. nNodes[l + 1])
       {
         foreach(i; 0 .. nNodes[l])
@@ -629,7 +640,7 @@ if(isAF!HAF && isOAF!OAF)
 /**
  * MLP tanh Regression Network.
  */
-alias MLPRegNet = MultiLayerPerceptronNetwork!(tanhAF,linearAF);
+alias MLPRegNet = MultiLayerPerceptronNetwork!(TanhAF, LinearAF);
 
 /**
  * MLP tanh Classification Network. 
@@ -637,7 +648,7 @@ alias MLPRegNet = MultiLayerPerceptronNetwork!(tanhAF,linearAF);
  * 2 classes only, 1 output only, 0-1 coding to tell the difference between
  * classes.
  */
-alias MLP2ClsNet = MultiLayerPerceptronNetwork!(tanhAF,sigmoidAF);
+alias MLP2ClsNet = MultiLayerPerceptronNetwork!(TanhAF, SigmoidAF);
 
 /**
  * MLP tanh Classification Network.
@@ -645,7 +656,7 @@ alias MLP2ClsNet = MultiLayerPerceptronNetwork!(tanhAF,sigmoidAF);
  * Any number of classes, but must have at least 2 outputs. Uses 1 of N coding
  * on ouput nodes.
  */
-alias MLPClsNet = MultiLayerPerceptronNetwork!(tanhAF,softmaxAF);
+alias MLPClsNet = MultiLayerPerceptronNetwork!(TanhAF, SoftmaxAF);
 
 
 unittest
@@ -671,16 +682,16 @@ unittest
   enum normalize = false;
 
   // short hand for dealing with data
-  alias Data!(numIn, numOut) DataType;
-  alias immutable(Data!(numIn, numOut)) iData;
-  alias immutable(DataPoint!(numIn, numOut)) DP;
+  alias DataType = Data!(numIn, numOut);
+  alias iData = immutable(Data!(numIn, numOut));
+  alias DP =immutable(DataPoint!(numIn, numOut));
   
   // Make a data set
   iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
 
 
   // Now, build a network.
-  double[] wts = [ 1000.0, -1000.0, -500.0, 
+  const double[] wts = [ 1000.0, -1000.0, -500.0, 
                   -1000.0,  1000.0, -500.0, 
                    1000.0,  1000.0,  500.0];
 

@@ -7,7 +7,7 @@
  * as an addition to the error function.
  *
  */
-module dffann.errorFunctions;
+module dffann.errorfunctions;
 
 import std.array;
 import std.math;
@@ -32,7 +32,7 @@ import dffann.feedforwardnetwork;
  * of 2 class classification problems where the network can only have a single
  * output.
  */
-enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C};
+enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
 
 /**
  * A class for computing the value and gradient of an error function for 
@@ -54,10 +54,10 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
   /*
    * Keep data immutable as it may be shared across threads.
    */
-  alias immutable(T) iData;
-  alias typeof(T.getPoint(0)) iDataPoint;
+  alias iData = immutable(T);
+  alias iDataPoint = typeof(T.getPoint(0));
 
-  private feedforwardnetwork net;
+  private FeedForwardNetwork net;
   private Regulizer reg;
   private immutable size_t numParms;
   private iData data;
@@ -71,7 +71,7 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
    * reg   = The Regulizer to apply to the network. This can be null if no
    *         regularization is desired.
    */
-  public this(feedforwardnetwork inNet, iData data, Regulizer reg = null)
+  public this(FeedForwardNetwork inNet, iData data, Regulizer reg = null)
   {
     this.net = inNet.dup;
     this.reg = reg;
@@ -128,7 +128,7 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
     /*==========================================================================
       Nested function to calculate the error over a range.
     ==========================================================================*/
-    results doErrorChunk(DR)(DR dr, feedforwardnetwork nt)
+    results doErrorChunk(DR)(DR dr, FeedForwardNetwork nt)
     if(isDataRangeType!DR)
     {
       // Set up return variables
@@ -152,7 +152,7 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
           double err = 0.0;
           foreach(i; 0 .. y.length)
           { 
-            double val = (y[i] - dp.targets[i]);
+            const double val = (y[i] - dp.targets[i]);
             err += val * val;
           }
           d_error += 0.5 * err;
@@ -190,13 +190,13 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
 
     static if(par) // Parallel Code
     {
-      import std.parallelism;
+      import std.parallelism : totalCPUs, parallel;
 
       // How many threads to use?
       size_t numThreads = totalCPUs - 1;
       if(numThreads < 1) numThreads = 1;
 
-      alias typeof(data.simpleRange) RngType;
+      alias RngType = typeof(data.simpleRange);
       results[] reses = new results[numThreads];
 
       foreach(i, ref res; parallel(reses))
@@ -253,7 +253,7 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
 
 version(unittest)
 {
-  import dffann.linearNetworks;
+  import dffann.linearnetworks;
 
   // Test Data
   double[][] fakeData = 
@@ -274,8 +274,8 @@ version(unittest)
   enum normalize = false; 
 
   // short hand for dealing with data
-  alias immutable(Data!(numIn, numOut)) iData;
-  alias Data!(numIn, numOut) DataType;
+  alias iData = immutable(Data!(numIn, numOut));
+  alias DataType = Data!(numIn, numOut);
 
 }
 
@@ -284,15 +284,15 @@ unittest
   mixin(dffann.dffann.announceTest("ChiSquareEF"));
 
   // Make a data set
-  iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
+  const iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
 
   // Now, build a network.
-  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ErrorFunction!(EFType.ChiSquare, iData, false) ChiSquareEF_S;
-  alias ErrorFunction!(EFType.ChiSquare, iData) ChiSquareEF_P;
+  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, iData, false);
+  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare, iData);
 
   ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1);
   ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1);
@@ -327,7 +327,7 @@ abstract class Regulizer: func
   /**
    * Returns: The hyper-parameters packed into an array.
    */
-  public abstract @property double[] hyperParameters();
+  public abstract @property const(double[]) hyperParameters() const;
 
   /**
    * Set the value of the hyper-parameters.
@@ -338,7 +338,7 @@ abstract class Regulizer: func
    * Returns: The value of the error as calculated by the last call to evaluate,
    *          which is required by the func interface.
    */
-  public final override @property double value()
+  public final override @property double value() pure
   {
     return errorTerm;
   }
@@ -347,7 +347,7 @@ abstract class Regulizer: func
    * Returns: The value of the error gradient as calculated by the last call to
    *          evaluate, which is required by the func interface.
    */
-  public final override @property double[] gradient()
+  public final override @property double[] gradient() pure
   {
     return gradientTerm;
   }
@@ -355,7 +355,7 @@ abstract class Regulizer: func
   /**
    * Required method by func interface, will be implemented in sub-classes.
    */
-  public abstract void evaluate(in double[] inputs, bool grad=true);
+  public abstract void evaluate(in double[] inputs, bool grad=true) pure;
 }
 
 /**
@@ -377,11 +377,11 @@ class WeightDecayRegulizer: Regulizer
     this.nu = nuParm;
   }
 
-  public final override void evaluate(in double[] inputs, bool grad=true)
+  public final override void evaluate(in double[] inputs, bool grad=true) pure
   {
     // When optimizing the hyper parameters, they may go negative, so always
     // use the absolute value to force it to be positive.
-    double pnu = fabs(nu);
+    const double pnu = fabs(nu);
 
     // Calculate the error term
     errorTerm = 0.0;
@@ -399,7 +399,7 @@ class WeightDecayRegulizer: Regulizer
     }
   }
 
-  public override @property double[] hyperParameters()
+  public override @property const(double[]) hyperParameters() const
   {
     double[] toRet = new double[1];
     toRet[0] = nu;
@@ -417,7 +417,7 @@ unittest
   mixin(dffann.dffann.announceTest("WeightDecayRegularizer"));
 
   // Build a network.
-  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
@@ -456,11 +456,11 @@ class WeightEliminationRegulizer: Regulizer
     this.nuRef = nuRefParm;
   }
 
-  public final override void evaluate(in double[] inputs, bool grad=true)
+  public final override void evaluate(in double[] inputs, bool grad=true) pure
   {
     // When optimizing the hyper parameters, they may go negative, so always
     // use the absolute value to force it to be positive.
-    double pnu = fabs(nu);
+    const double pnu = fabs(nu);
     
     // Initialize
     errorTerm = 0.0;
@@ -469,8 +469,8 @@ class WeightEliminationRegulizer: Regulizer
     // Calculate
     foreach(i; 0 .. inputs.length)
     {
-      double w2 = inputs[i] * inputs[i];
-      double denom = w2 + nuRef * nuRef;
+      const double w2 = inputs[i] * inputs[i];
+      const double denom = w2 + nuRef * nuRef;
       errorTerm += w2 / denom;
       if(grad)
       {
@@ -481,7 +481,7 @@ class WeightEliminationRegulizer: Regulizer
 
   }
 
-  public override @property double[] hyperParameters()
+  public override @property const(double[]) hyperParameters() const
   {
     double[] toRet = new double[2];
     toRet[0] = nu;
@@ -501,7 +501,7 @@ unittest
   mixin(dffann.dffann.announceTest("WeightEliminationRegularizer"));
 
   // Build a network.
-  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
@@ -524,15 +524,15 @@ unittest
   mixin(dffann.dffann.announceTest("ErrorFunction with Regulizer"));
 
   // Make a data set
-  iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
+  const iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
 
   // Now, build a network.
-  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ErrorFunction!(EFType.ChiSquare, iData, false) ChiSquareEF_S;
-  alias ErrorFunction!(EFType.ChiSquare, iData) ChiSquareEF_P;
+  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, iData, false);
+  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare, iData);
 
   auto wdr = new WeightDecayRegulizer(0.01);
   ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1, wdr);

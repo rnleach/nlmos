@@ -7,7 +7,7 @@
  * example data, mainly for use in testing (not necessarily unittesting).
  *
  */
-module dffann.testUtilities.testData;
+module dffann.testutilities.testdata;
 
 import std.algorithm.iteration;
 import std.algorithm.sorting;
@@ -26,6 +26,9 @@ import numeric.random: gasdev;
  */
 public class TestUtilityException: Exception
 {
+  /**
+   * Construct
+   */
   this(string message){ super(message); }
 }
 
@@ -271,7 +274,7 @@ public double[][] makeLinearClassificationnData(in size_t numPoints,
   sortedSums = sums.dup;
   sort(sortedSums);
   size_t sizeOfPercentile = numPoints / numOutputs;
-  size_t numBreaks = numOutputs - 1;
+  const size_t numBreaks = numOutputs - 1;
   double[] breaks = new double[](numBreaks);
   foreach(i; 0 .. numBreaks)
   {

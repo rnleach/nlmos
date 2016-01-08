@@ -10,7 +10,7 @@ public import dffann.dffann;
 /**
  * Interface for feed foward networks.
  */
-interface feedforwardnetwork{
+interface FeedForwardNetwork{
 	
 	/**
 	 * Evaluate the network.
@@ -71,7 +71,7 @@ interface feedforwardnetwork{
 	 * newParms = the new parameters, or weights, to use in the network,
 	 *            typically called in a trainer.
 	 */
-	@property double[] parameters(double[] newParams);
+	@property void parameters(const double[] newParams);
 
   /**
 	 * Used by regularizations, which often should not affect the bias
@@ -96,6 +96,6 @@ interface feedforwardnetwork{
 	/**
 	 * Returns: A copy of this network.
 	 */
-	@property feedforwardnetwork dup();
+	@property FeedForwardNetwork dup();
 	
 }
