@@ -500,15 +500,6 @@ public class Data(size_t numInputs, size_t numTargets)
   }
 
   /**
-   * Returns: a range that iterates over a subset of the points in this 
-   *          collection in the same order everytime. 
-   */
-  final DataRange!(numInputs, numTargets) batchRange(size_t batch, size_t numBatches) const
-  {
-    return DataRange!(numInputs, numTargets)(this, batch, numBatches);
-  }
-
-  /**
    * Returns: a range that iterates over all of the points in this 
    *          collection in a different order everytime. 
    */
@@ -521,44 +512,7 @@ public class Data(size_t numInputs, size_t numTargets)
       mapping[i] = i;
     }
 
-    randomShuffle(mapping);
-
-    return MappedDataRange!(numInputs, numTargets)(this, mapping);
-  }
-
-  /**
-   * Returns: a ranges that each iterate over a different, random subset of the 
-   *          points in this collection. 
-   */
-  final MappedDataRange!(numInputs, numTargets)[] randomizedBatchRanges(in size_t numBatches) const
-  {
-    size_t[] mapping = new size_t[](this.numPoints);
-
-    foreach(i; 0 .. this.numPoints)
-    {
-      mapping[i] = i;
-    }
-
-    randomShuffle(mapping);
-
-    auto app = appender!(MappedDataRange!(numInputs, numTargets)[])();
-
-    size_t start = 0;
-    const size_t nPoints = this.numPoints / numBatches;
-    foreach(batchNum; 0 .. numBatches)
-    {
-      size_t end = start + nPoints;
-      if(batchNum < this.numPoints % numBatches)
-      {
-        end += 1;
-      }
-
-      app.put(MappedDataRange!(numInputs, numTargets)(this, mapping[start .. end]));
-
-      start = end;
-    }
-
-    return app.data;
+    return MappedDataRange!(numInputs, numTargets)(this, mapping, true);
   }
 
   /**
@@ -814,8 +768,6 @@ public class Data(size_t numInputs, size_t numTargets)
 
     return true;
   }
-
-  // TODO split - given a Data object, split it into two without re-normalizing
 }
 
 /**
@@ -1040,12 +992,21 @@ unittest
  *============================================================================*/
 
 /**
- * Template to test if a type is an instantiation of the parameterized DataRange
- * struct.
+ * Template to test if a type is an instantiation of a DataRange struct. Note
+ * that the type name must have "DataRange!" in it to be considered. It must
+ * also meet the requirements of a forward range and has slicing.
  */
 template isDataRangeType(T)
 {
-  enum bool isDataRangeType = indexOf(T.stringof, "DataRange!") > -1;
+  enum bool isDataRangeType = indexOf(T.stringof, "DataRange!") > -1 &&
+                              isForwardRange!T;// &&
+                          //    hasSlicing!T;
+
+  /*
+     hasSlicing doesn't work. I've tested every aspect individually and it 
+     passes all of them. I think it has something to do with the init property
+     of the Data!() member.
+  */
 }
 
 /**
@@ -1057,9 +1018,10 @@ public struct DataRange(size_t numInputs, size_t numTargets)
 
   alias iData = const(Data!(numInputs, numTargets));
 
-  private immutable(size_t) length;
+  private size_t _length;
   private size_t next;
   private iData data;
+  private size_t batchNum;
   private size_t numBatches;
   
   /**
@@ -1072,13 +1034,14 @@ public struct DataRange(size_t numInputs, size_t numTargets)
   {
     size_t numPoints = d.nPoints / numBatches;
     if(batch <= d.nPoints % numBatches) numPoints += 1;
-    this.length = numPoints;
+    this._length = numPoints;
     this.next = batch - 1;
     this.data = d;
     this.numBatches = numBatches;
+    this.batchNum = batch;
   }
   
-  /// Properties/methods to make this an InputRange
+  /// Properties/methods to make this a ForwardRange with slicing.
   @property bool empty(){return next >= data.nPoints;}
 
   /// ditto
@@ -1086,9 +1049,33 @@ public struct DataRange(size_t numInputs, size_t numTargets)
 
   /// ditto
   void popFront(){next += numBatches;}
+
+  /// ditto
+  @property auto save()
+  {
+    return DataRange!(numInputs, numTargets)(data, batchNum, numBatches);
+  }
+
+  /// ditto
+  @property size_t length(){return this._length;}
+
+  /// ditto
+  typeof(this) opSlice(size_t start, size_t end)
+  {
+    // Create a copy
+    auto temp = this.save;
+
+    // Update the start position
+    temp.next = start * numBatches + batchNum - 1;
+    temp._length = end;
+
+    return temp;
+  }
+
+  /// ditto
+  @property size_t opDollar(){return this._length;}
 }
-static assert(isInputRange!(DataRange!(5,2)));
-static assert(isDataRangeType!(DataRange!(5,2)));
+static assert(isDataRangeType!(DataRange!(5,2))); 
 
 unittest
 {
@@ -1101,6 +1088,12 @@ unittest
   auto r = DataRange!(5,2)(d);
   size_t i = 0;
   foreach(t; r) assert(t == d.getPoint(i++));
+
+  // Check length
+  assert(testData.length == r.length);
+  
+  // Check the type of slices
+  static assert(isDataRangeType!(typeof(r[0..$-1])));
 }
 unittest
 {
@@ -1126,23 +1119,27 @@ public struct MappedDataRange(size_t numInputs, size_t numTargets)
 
   alias iData = const(Data!(numInputs, numTargets));
 
-  private immutable(size_t) length;
+  private size_t _length;
+  private immutable(bool) randomized;
   private size_t next;
   private iData data;
-  private const size_t[] indexMap;
+  private size_t[] indexMap;
   
   /**
    * Params: 
    * d = The Data object you wish to iterate over.
    * indexMap = When iterated in order returns
    */
-  this(iData d, in size_t[] indexMap)
+  this(iData d, in size_t[] indexMap, in bool randomize = false)
   {
     
-    this.length = indexMap.length;
+    this._length = indexMap.length;
     this.next = 0;
     this.data = d;
-    this.indexMap = indexMap;
+    this.indexMap = indexMap.dup;
+    this.randomized = randomize;
+
+    if(randomize) randomShuffle(this.indexMap);
   }
   
   /// Properties/methods to make this an InputRange
@@ -1153,8 +1150,32 @@ public struct MappedDataRange(size_t numInputs, size_t numTargets)
 
   /// ditto
   void popFront(){++next;}
+
+  /// ditto
+  @property typeof(this) save()
+  {
+    return MappedDataRange!(numInputs, numTargets)( data, indexMap, randomized);
+  }
+
+  /// ditto
+  @property size_t length(){return this._length;}
+
+  /// ditto
+  typeof(this) opSlice(size_t start, size_t end)
+  {
+    // Create a copy
+    auto temp = this.save;
+
+    // Update the start position
+    temp.next = start;
+    temp._length = end;
+
+    return temp;
+  }
+
+  /// ditto
+  @property size_t opDollar(){return this._length;}
 }
-static assert(isInputRange!(MappedDataRange!(5,2)));
 static assert(isDataRangeType!(MappedDataRange!(5,2)));
 
 /*==============================================================================

@@ -168,7 +168,7 @@ public class LinearTrainer(size_t nInputs, size_t nTargets): AbstractTrainer!(nI
     _net.parameters = p;
 
     // Calculate the error.
-    auto ef = new ErrorFunction!(EFType.ChiSquare, typeof(_tData))(_net, _tData);
+    auto ef = new ErrorFunction!(EFType.ChiSquare, typeof(_tData.simpleRange))(_net, _tData.simpleRange);
     ef.evaluate(p, false);
     this._error = ef.value;
   }

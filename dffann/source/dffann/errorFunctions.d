@@ -42,40 +42,39 @@ enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
  *
  * Params:
  * errFuncType = The specific error function to calculate.
- * T           = An instantiation of a DataType template as a type.
+ * DR          = An instantiation of a DataRange template as a type.
  * par         = true if you want to use the parallel (concurrent) code in the
  *               evaluate method. You may want to use false if you plan to 
  *               parallelize at a higher level construct.
  *
  */
-class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
+class ErrorFunction(EFType errFuncType, DR, bool par=true): func if(isDataRangeType!DR)
 {
 
   /*
    * Keep data immutable as it may be shared across threads.
    */
-  alias iData = immutable(T);
-  alias iDataPoint = typeof(T.getPoint(0));
+  alias iDataPoint = typeof(DR.front);
 
   private FeedForwardNetwork net;
   private Regulizer reg;
   private immutable size_t numParms;
-  private iData data;
+  private DR data;
   private double error = double.max;
   private double[] grad = null;
 
   /**
    * Params:
    * inNet = The network for which the error will be evaluated.
-   * data  = The data set on which the error will be evaluated.
+   * data  = The range set on which the error will be evaluated.
    * reg   = The Regulizer to apply to the network. This can be null if no
    *         regularization is desired.
    */
-  public this(FeedForwardNetwork inNet, iData data, Regulizer reg = null)
+  public this(FeedForwardNetwork inNet, DR data, Regulizer reg = null)
   {
     this.net = inNet.dup;
     this.reg = reg;
-    this.data = data;
+    this.data = data.save;
 
     this.numParms = net.parameters.length;
   }
@@ -128,8 +127,7 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
     /*==========================================================================
       Nested function to calculate the error over a range.
     ==========================================================================*/
-    results doErrorChunk(DR)(DR dr, FeedForwardNetwork nt)
-    if(isDataRangeType!DR)
+    results doErrorChunk(DR dr, FeedForwardNetwork nt)
     {
       // Set up return variables
       size_t d_count = 0;
@@ -196,12 +194,25 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
       size_t numThreads = totalCPUs - 1;
       if(numThreads < 1) numThreads = 1;
 
-      alias RngType = typeof(data.simpleRange);
       results[] reses = new results[numThreads];
+      size_t[] starts = new size_t[numThreads];
+      size_t[] ends = new size_t[numThreads];
+
+      // Build the ranges
+      size_t start = 0;
+      foreach(i; 0 .. numThreads)
+      {
+        size_t batchSize = data.length / numThreads;
+        if( i < data.length % numThreads) batchSize += 1;
+        const size_t end = start + batchSize;
+        starts[i] = start;
+        ends[i] = end;
+        start = end;
+      }
 
       foreach(i, ref res; parallel(reses))
       {
-        res = doErrorChunk!RngType(data.batchRange(i + 1, numThreads), net.dup);
+        res = doErrorChunk(data[starts[i] .. ends[i]], net.dup);
       }
 
       foreach(i, res; reses)
@@ -214,10 +225,7 @@ class ErrorFunction(EFType errFuncType, T, bool par=true): func if(isDataType!T)
     
     else // Serial Code
     {
-      // Get a data range for iterating the data points
-      auto dr = data.simpleRange;
-
-      results res = doErrorChunk!(typeof(dr))(dr, net);
+      results res = doErrorChunk(data, net);
 
       count = res.r_count;
       error = res.r_error;
@@ -285,17 +293,18 @@ unittest
 
   // Make a data set
   const iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
+  alias DRType = typeof(d1.simpleRange);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, iData, false);
-  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare, iData);
+  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, DRType, false);
+  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare, DRType);
 
-  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1);
-  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1);
+  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1.simpleRange);
+  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1.simpleRange);
 
   // Test without regularization - evaluate the gradient
   ef_S.evaluate(slprn.parameters);
@@ -525,18 +534,19 @@ unittest
 
   // Make a data set
   const iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
+  alias DRType = typeof(d1.simpleRange);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, iData, false);
-  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare, iData);
+  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, DRType, false);
+  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare, DRType);
 
   auto wdr = new WeightDecayRegulizer(0.01);
-  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1, wdr);
-  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1, wdr);
+  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1.simpleRange, wdr);
+  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1.simpleRange, wdr);
 
   ef_S.evaluate(slprn.parameters);
   ef_P.evaluate(slprn.parameters);
