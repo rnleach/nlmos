@@ -247,7 +247,9 @@ public class Data(size_t numInputs, size_t numTargets)
    *
    * See_Also: this(in double[][] data, in bool[] filter, in bool doNorm = true)
    */
-  public static imData createImmutableData(in double[][] data, in bool[] filter, in bool doNorm = true)
+  public static imData createImmutableData(in double[][] data, 
+                                           in bool[] filter, 
+                                           in bool doNorm = true)
   {
     return cast(immutable) new Data!(numInputs,numTargets)(data, filter, doNorm);
   }
@@ -481,10 +483,12 @@ public class Data(size_t numInputs, size_t numTargets)
    * Get information about the sizes of data associated with this Data object.
    */
   @property final size_t nPoints() const {return this.numPoints;}
+
   /**
    * ditto
    */
   @property final size_t nInputs() const {return numInputs;}
+  
   /**
    * ditto
    */
@@ -503,16 +507,9 @@ public class Data(size_t numInputs, size_t numTargets)
    * Returns: a range that iterates over all of the points in this 
    *          collection in a different order everytime. 
    */
-  final MappedDataRange!(numInputs, numTargets) randomizedRange() const
+  final RandomDataRange!(numInputs, numTargets) randomRange() const
   {
-    size_t[] mapping = new size_t[](this.numPoints);
-
-    foreach(i; 0 .. this.numPoints)
-    {
-      mapping[i] = i;
-    }
-
-    return MappedDataRange!(numInputs, numTargets)(this, mapping, true);
+    return RandomDataRange!(numInputs, numTargets)(this);
   }
 
   /**
@@ -999,8 +996,7 @@ unittest
 template isDataRangeType(T)
 {
   enum bool isDataRangeType = indexOf(T.stringof, "DataRange!") > -1 &&
-                              isForwardRange!T;// &&
-                          //    hasSlicing!T;
+                              isForwardRange!T;// && hasSlicing!T;
 
   /*
      hasSlicing doesn't work. I've tested every aspect individually and it 
@@ -1010,7 +1006,7 @@ template isDataRangeType(T)
 }
 
 /**
- * InputRange for iterating a subset of the data in a Data object.
+ * ForwardRange for iterating a subset of the data in a Data object.
  *
  */
 public struct DataRange(size_t numInputs, size_t numTargets)
@@ -1018,62 +1014,61 @@ public struct DataRange(size_t numInputs, size_t numTargets)
 
   alias iData = const(Data!(numInputs, numTargets));
 
-  private size_t _length;
-  private size_t next;
-  private iData data;
-  private size_t batchNum;
-  private size_t numBatches;
-  
+  private size_t _start;
+  private size_t _end;
+  private size_t _next;
+  private iData _data;
+
   /**
    * Params: 
    * d = The Data object you wish to iterate over.
-   * batch = The batch number, 1 to numBatches
-   * numBatches = the number of batches created in total.
    */
-  this(iData d, size_t batch = 1, size_t numBatches = 1)
+  this(iData d)
   {
-    size_t numPoints = d.nPoints / numBatches;
-    if(batch <= d.nPoints % numBatches) numPoints += 1;
-    this._length = numPoints;
-    this.next = batch - 1;
-    this.data = d;
-    this.numBatches = numBatches;
-    this.batchNum = batch;
+    this._start = 0;
+    this._next  = 0;
+    this._end   = d.nPoints;
+    this._data  = d;
   }
   
   /// Properties/methods to make this a ForwardRange with slicing.
-  @property bool empty(){return next >= data.nPoints;}
+  @property bool empty(){return _next >= _end;}
 
   /// ditto
-  @property auto front(){return this.data.getPoint(next);}
+  @property auto front(){return this._data.getPoint(_next);}
 
   /// ditto
-  void popFront(){next += numBatches;}
+  void popFront(){++_next;}
 
   /// ditto
-  @property auto save()
-  {
-    return DataRange!(numInputs, numTargets)(data, batchNum, numBatches);
-  }
+  // Since this is a struct, return copies all values! Easy.
+  @property auto save(){ return this; }
 
   /// ditto
-  @property size_t length(){return this._length;}
+  @property size_t length(){return _end - _start;}
 
   /// ditto
   typeof(this) opSlice(size_t start, size_t end)
   {
+    assert(start <= end, "Range Error, start must be less than end.");
+    assert(start >= 0, "No negative indicies allowed!");
+
     // Create a copy
     auto temp = this.save;
 
     // Update the start position
-    temp.next = start * numBatches + batchNum - 1;
-    temp._length = end;
+    temp._start = _next + start;
+    temp._next  = _next + start;
+    temp._end   = _next + end;
+
+    assert(temp._start <= this._data.nPoints);
+    assert(temp._end   <= this._data.nPoints);
 
     return temp;
   }
 
   /// ditto
-  @property size_t opDollar(){return this._length;}
+  @property size_t opDollar(){return _end - _start;}
 }
 static assert(isDataRangeType!(DataRange!(5,2))); 
 
@@ -1109,83 +1104,103 @@ unittest
 }
 
 /**
- * InputRange for iterating a subset of the data in a Data object, but with a 
- * mapping built-in so it can be iterated out of order or just be a subset. This
- * facilitates random ranges and batches.
- *
+ * ForwardRange for iterating a data set in a random order.
  */
-public struct MappedDataRange(size_t numInputs, size_t numTargets)
+public struct RandomDataRange(size_t numInputs, size_t numTargets)
 {
 
   alias iData = const(Data!(numInputs, numTargets));
 
-  private size_t _length;
-  private immutable(bool) randomized;
-  private size_t next;
-  private iData data;
-  private size_t[] indexMap;
-  
+  private size_t _start;
+  private size_t _end;
+  private size_t _next;
+  private size_t[] _indexMap;
+  private iData _data;
+
   /**
    * Params: 
    * d = The Data object you wish to iterate over.
-   * indexMap = When iterated in order returns
    */
-  this(iData d, in size_t[] indexMap, in bool randomize = false)
+  this(iData d)
   {
-    
-    this._length = indexMap.length;
-    this.next = 0;
-    this.data = d;
-    this.indexMap = indexMap.dup;
-    this.randomized = randomize;
+    _start = 0;
+    _next  = 0;
+    _end   = d.nPoints;
+    _data  = d;
 
-    if(randomize) randomShuffle(this.indexMap);
-  }
-  
-  /// Properties/methods to make this an InputRange
-  @property bool empty(){return next >= indexMap.length;}
-  
-  /// ditto
-  @property auto front(){return this.data.getPoint(indexMap[next]);}
+    _indexMap = new size_t[](d.nPoints);
+    foreach(size_t i; 0 .. d.nPoints) _indexMap[i] = i;
 
-  /// ditto
-  void popFront(){++next;}
-
-  /// ditto
-  @property typeof(this) save()
-  {
-    return MappedDataRange!(numInputs, numTargets)( data, indexMap, randomized);
+    randomShuffle(_indexMap);
   }
 
+  /**
+   * Postblit for moving the internal mapping.
+   */
+  this(this)
+  {
+    _indexMap = _indexMap.dup;
+  }
+  
+  /// Properties/methods to make this a ForwardRange with slicing.
+  @property bool empty(){return _next >= _end;}
+
   /// ditto
-  @property size_t length(){return this._length;}
+  @property auto front(){return this._data.getPoint(_indexMap[_next]);}
+
+  /// ditto
+  void popFront(){++_next;}
+
+  /// ditto
+  // Since this is a struct, return copies all values! Easy.
+  @property auto save()
+  { 
+    auto temp = this; // vis postblit constructor
+
+    // Every time it is saved, shuffle the order so it is never the same.
+    randomShuffle(temp._indexMap);
+
+    return temp; 
+  }
+
+  /// ditto
+  @property size_t length(){return _end - _start;}
 
   /// ditto
   typeof(this) opSlice(size_t start, size_t end)
   {
+    assert(start <= end, "Range Error, start must be less than end.");
+    assert(start >= 0, "No negative indicies allowed!");
+
     // Create a copy
-    auto temp = this.save;
+    auto temp = this; // via postblit constructor
 
     // Update the start position
-    temp.next = start;
-    temp._length = end;
+    temp._start = _next + start;
+    temp._next  = _next + start;
+    temp._end   = _next + end;
+
+    assert(temp._start <= this._data.nPoints);
+    assert(temp._end   <= this._data.nPoints);
+
+    // It seems wierd to randomize again here, so don't.
 
     return temp;
   }
 
   /// ditto
-  @property size_t opDollar(){return this._length;}
+  @property size_t opDollar(){return _end - _start;}
 }
-static assert(isDataRangeType!(MappedDataRange!(5,2)));
+static assert(isDataRangeType!(RandomDataRange!(5,2)));
 
 /*==============================================================================
  *                                Normalizations
- *============================================================================*/
-/* Will use a struct for this, but considered using closures. I foresee 
-* situations where this is called a lot, so a closure might be pretty 
-* inefficient considering a struct can be allocated on the stack, whereas a
-* closure would necessarily be allocated on the heap.
-*/
+ *==============================================================================
+ * Will use a struct for this, but considered using closures. I foresee 
+ * situations where this is called a lot, so a closure might be pretty 
+ * inefficient considering a struct can be allocated on the stack, whereas a
+ * closure would necessarily be allocated on the heap.
+ */
 
 /**
  * A normalization is used to force data to have certain statistical properties,
