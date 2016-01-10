@@ -195,24 +195,11 @@ class ErrorFunction(EFType errFuncType, DR, bool par=true): func if(isDataRangeT
       if(numThreads < 1) numThreads = 1;
 
       results[] reses = new results[numThreads];
-      size_t[] starts = new size_t[numThreads];
-      size_t[] ends = new size_t[numThreads];
-
-      // Build the ranges
-      size_t start = 0;
-      foreach(i; 0 .. numThreads)
-      {
-        size_t batchSize = data.length / numThreads;
-        if( i < data.length % numThreads) batchSize += 1;
-        const size_t end = start + batchSize;
-        starts[i] = start;
-        ends[i] = end;
-        start = end;
-      }
+      auto ranges = BatchRange!DR(data, numThreads);
 
       foreach(i, ref res; parallel(reses))
       {
-        res = doErrorChunk(data[starts[i] .. ends[i]], net.dup);
+        res = doErrorChunk(ranges[i], net.dup);
       }
 
       foreach(i, res; reses)

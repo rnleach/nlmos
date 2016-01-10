@@ -5,6 +5,7 @@ module dffann.data;
 
 import std.algorithm;
 import std.array;
+import std.container;
 import std.conv;
 import std.exception;
 import std.file;
@@ -61,7 +62,6 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
     // Since the values are stored in static arrays, must copy them elementwise.
     data[0 .. numInputs] = inpts[];
     data[numInputs .. numVals] = trgts[];
-
   }
 
   /**
@@ -75,7 +75,6 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
     assert(vals.length == numVals, "Length mismatch on DataPoint vals.");
 
     data[] = vals[];
-
   }
 
   /**
@@ -501,6 +500,14 @@ public class Data(size_t numInputs, size_t numTargets)
   @property final DataRange!(numInputs, numTargets) simpleRange() const
   {
     return DataRange!(numInputs, numTargets)(this);
+  }
+
+  /**
+   * Get a batch of data ranges that partition the data.
+   */
+  public final auto getBatches(size_t numBatches)
+  {
+    return BatchRange!(DataRange!(numInputs, numTargets))(simpleRange(), numBatches);
   }
 
   /**
@@ -996,7 +1003,8 @@ unittest
 template isDataRangeType(T)
 {
   enum bool isDataRangeType = indexOf(T.stringof, "DataRange!") > -1 &&
-                              isForwardRange!T;// && hasSlicing!T;
+                              isForwardRange!T &&
+                              hasLength!T;// && hasSlicing!T;
 
   /*
      hasSlicing doesn't work. I've tested every aspect individually and it 
@@ -1035,7 +1043,7 @@ public struct DataRange(size_t numInputs, size_t numTargets)
   @property bool empty(){return _next >= _end;}
 
   /// ditto
-  @property auto front(){return this._data.getPoint(_next);}
+  @property auto ref front(){return this._data.getPoint(_next);}
 
   /// ditto
   void popFront(){++_next;}
@@ -1146,7 +1154,7 @@ public struct RandomDataRange(size_t numInputs, size_t numTargets)
   @property bool empty(){return _next >= _end;}
 
   /// ditto
-  @property auto front(){return this._data.getPoint(_indexMap[_next]);}
+  @property auto ref front(){return this._data.getPoint(_indexMap[_next]);}
 
   /// ditto
   void popFront(){++_next;}
@@ -1192,6 +1200,86 @@ public struct RandomDataRange(size_t numInputs, size_t numTargets)
   @property size_t opDollar(){return _end - _start;}
 }
 static assert(isDataRangeType!(RandomDataRange!(5,2)));
+
+/**
+ * Break a range of points into smaller ranges for doing batches of data.
+ */
+public struct BatchRange(DR) if(isDataRangeType!DR)
+{
+  private size_t _nextBatch;
+  private size_t _lastBatch;
+  private size_t _numBatches;
+  private const size_t[] _starts;
+  private const size_t[] _ends;
+  private DR _allData;
+
+  /**
+   * Construc a range that returns ranges of DataPoints.
+   */
+  this(DR allData, size_t numBatches)
+  {
+    _allData = allData.save;
+    _nextBatch = 0;
+    _lastBatch = _numBatches - 1;
+    _numBatches = numBatches;
+    
+    size_t[] tempStarts = new size_t[numBatches];
+    size_t[] tempEnds = new size_t[numBatches];
+
+    foreach(size_t i; 0 .. numBatches)
+    {
+      if( i == 0) tempStarts[0] = 0;
+      else tempStarts[i] = tempEnds[i - 1];
+
+      size_t batchSize = allData.length / numBatches;
+      if( i < allData.length % numBatches) batchSize++;
+
+      tempEnds[i] = tempStarts[i] + batchSize;
+    }
+
+    _starts = tempStarts;
+    _ends = tempEnds;
+  }
+
+  /// Properties/methods to make this a RandomAccessRange.
+  @property bool empty(){return _nextBatch > _lastBatch;}
+
+  /// ditto
+  @property auto front()
+  {
+    // Return a slice of the original data
+    return _allData[_starts[_nextBatch] .. _ends[_nextBatch]];
+  }
+
+  /// ditto
+  @property auto back()
+  {
+    // Return a slice of the original data
+    return _allData[_starts[_lastBatch] .. _ends[_lastBatch]];
+  }
+
+  /// ditto
+  void popFront(){++_nextBatch;}
+
+  /// ditto
+  void popBack(){--_lastBatch;}
+
+  /// ditto
+  // Since this is a struct, return copies all values! Easy.
+  @property auto save(){ return this; }
+
+  /// ditto
+  auto ref opIndex(size_t idx)
+  {
+    return _allData[_starts[idx] .. _ends[idx]];
+  }
+
+  /// Length property for the range. This was easy, so why not!
+  @property size_t length(){return _lastBatch - _nextBatch + 1;}
+}
+static assert(isRandomAccessRange!(BatchRange!(DataRange!(5,2))));
+static assert(isRandomAccessRange!(BatchRange!(RandomDataRange!(5,2))));
+static assert(hasLength!(BatchRange!(DataRange!(5,2))));
 
 /*==============================================================================
  *                                Normalizations
