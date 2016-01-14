@@ -5,8 +5,6 @@
  */
 module dffann.linearnetworks;
 
-import dffann.dffann;
-
 import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
@@ -26,6 +24,8 @@ version(unittest) import dffann.data;
  *
  * Params:
  * OAF = the type of the output activation function.
+ *
+ * See_Also: dffann.activationfunctions
  */
 public class LinearNetwork(OAF) : FeedForwardNetwork 
 if(isOAF!OAF)
@@ -277,8 +277,8 @@ if(isOAF!OAF)
 
   /**
    * Params:
-   * newParms = the new parameters, or weights, to use in the network,
-   *            typically called in a trainer.
+   * parms = the new parameters, or weights, to use in the network,
+   *         typically called in a trainer.
    *
    * Returns: the weights of the network organized as a 1-d array.
    */
@@ -442,7 +442,6 @@ alias LinClsNet = LinearNetwork!SoftmaxAF;
 
 unittest
 {
-  mixin(announceTest("LinRegNet eval(double)"));
 
   // Make a fake data set
   double[][] fakeData = [[  1.0,   2.0,   3.0,   4.0,  35.0,  31.0],
@@ -479,10 +478,7 @@ unittest
     assert(approxEqual(slprn.eval(dp.inputs), dp.targets));
 }
 
-
 unittest{
-  mixin(announceTest("LinRegNet stringForm and this(string)"));
-  
   // Number of inputs and outputs
   enum numIn = 2;
   enum numOut = 1;
@@ -490,8 +486,6 @@ unittest{
   // Now, build a network.
   LinRegNet slpcn = new LinRegNet(numIn,numOut);
   LinRegNet loaded = new LinRegNet(slpcn.stringForm);
-
-  write(LinRegNet.stringof,"....");
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);
@@ -501,10 +495,7 @@ unittest{
   assert(approxEqual(slpcn.biases, loaded.biases));
 }
 
-
 unittest{
-  mixin(announceTest("Lin2ClsNet eval(double)"));
-
   // Make a fake data set, this is an AND network
   double[][] andDataArr = [
       [ 0.0, 0.0, 0.0 ],
@@ -563,7 +554,6 @@ unittest{
 }
 
 unittest{
-  mixin(announceTest("Lin2ClsNet stringForm and this(string)"));
   
   // Number of inputs and outputs
   enum numIn = 2;
@@ -572,8 +562,6 @@ unittest{
   // Now, build a network.
   Lin2ClsNet slpcn = new Lin2ClsNet(numIn,numOut);
   Lin2ClsNet loaded = new Lin2ClsNet(slpcn.stringForm);
-
-  write(Lin2ClsNet.stringof,"....");
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);
@@ -584,7 +572,6 @@ unittest{
 }
 
 unittest{
-  mixin(announceTest("LinClsNet stringForm and this(string)"));
   
   // Number of inputs and outputs
   enum numIn = 4;
@@ -593,8 +580,6 @@ unittest{
   // Now, build a network.
   LinClsNet slpcn = new LinClsNet(numIn,numOut);
   LinClsNet loaded = new LinClsNet(slpcn.stringForm);
-
-  write(LinClsNet.stringof,"....");
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);

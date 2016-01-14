@@ -17,14 +17,13 @@
  */
 module dffann.activationfunctions;
 
-public import dffann.dffann;
-
 import std.math;
 import std.traits;
 
-
+/// Shorthand versions of some template tests.
 alias isAF = isActivationFunction;
-alias isOAF = isOutputActivationFunction;
+alias isOAF = isOutputActivationFunction; /// ditto
+
 /**
  * Assure a struct meets the requirements to be used as an activation function.
  */
@@ -124,6 +123,21 @@ public struct LinearAF
     return toRet;
   }
 }
+
+///
+unittest
+{
+  const double[] input = [1.0, 2.0, 3.0, 42.0];
+  double[] output = [0.0, 0.0, 0.0, 0.0];
+  LinearAF.eval(input, output);
+
+  // Test eval
+  assert(approxEqual(input, output));
+
+  // Test deriv
+  assert(approxEqual(LinearAF.deriv(input, output), [1.0, 1.0, 1.0, 1.0]));
+}
+
 static assert(isAF!LinearAF);
 static assert(isOAF!LinearAF);
 
@@ -157,6 +171,21 @@ public struct SigmoidAF
     return derivative;
   }
 }
+
+///
+unittest
+{
+  const double[] input = [0.0, 1000.0, -1000.0];
+  double[] output = [0.0, 0.0, 0.0];
+  SigmoidAF.eval(input, output);
+
+  // Test eval
+  assert(approxEqual(output, [0.5, 1.0, 0.0]));
+
+  // Test deriv
+  assert(approxEqual(SigmoidAF.deriv(input, output), [0.25, 0.0, 0.0]));
+}
+
 static assert(isAF!SigmoidAF);
 static assert(isOAF!SigmoidAF);
 

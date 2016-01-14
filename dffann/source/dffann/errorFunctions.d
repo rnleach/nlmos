@@ -14,7 +14,6 @@ import std.math;
 
 import numeric.func;
 
-import dffann.dffann;
 import dffann.data;
 import dffann.feedforwardnetwork;
 
@@ -37,7 +36,7 @@ enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
 /**
  * A class for computing the value and gradient of an error function for 
  * a feed forward network with a given set of weights. This class implements 
- * the numeric.func.func interface so it can be used with the function 
+ * the numeric.func.Func interface so it can be used with the function 
  * minimization tools in the numeric package during training.
  *
  * Params:
@@ -48,7 +47,7 @@ enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
  *               parallelize at a higher level construct.
  *
  */
-class ErrorFunction(EFType errFuncType, DR, bool par=true): func if(isDataRangeType!DR)
+class ErrorFunction(EFType errFuncType, DR, bool par=true): Func if(isDataRangeType!DR)
 {
 
   /*
@@ -158,9 +157,8 @@ class ErrorFunction(EFType errFuncType, DR, bool par=true): func if(isDataRangeT
 
         else static if(errFuncType == EFType.CrossEntropy2C)
         {
-          foreach(i; 0 .. y.length)
-            d_error -= dp.targets[i] * log(y[i]) + 
-                                        (1.0 - dp.targets[i]) * log(1.0 - y[i]);
+          d_error -= dp.targets[0] * log(y[0]) + 
+                                        (1.0 - dp.targets[0]) * log(1.0 - y[0]);
         }
 
         else static if(errFuncType == EFType.CrossEntropy)
@@ -274,9 +272,10 @@ version(unittest)
 
 }
 
+///
 unittest
 {
-  mixin(dffann.dffann.announceTest("ChiSquareEF"));
+  // ChiSquareEF
 
   // Make a data set
   const iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
@@ -315,7 +314,7 @@ unittest
  * An abstract class for Regulizers. It includes methods for manipulating the
  * hyper-parameters so the training process itself can be optimized.
  */
-abstract class Regulizer: func
+abstract class Regulizer: Func
 {
   protected double errorTerm = double.max;
   protected double[] gradientTerm = null;
@@ -332,7 +331,7 @@ abstract class Regulizer: func
 
   /**
    * Returns: The value of the error as calculated by the last call to evaluate,
-   *          which is required by the func interface.
+   *          which is required by the Func interface.
    */
   public final override @property double value() pure
   {
@@ -341,7 +340,7 @@ abstract class Regulizer: func
 
   /**
    * Returns: The value of the error gradient as calculated by the last call to
-   *          evaluate, which is required by the func interface.
+   *          evaluate, which is required by the Func interface.
    */
   public final override @property double[] gradient() pure
   {
@@ -349,7 +348,7 @@ abstract class Regulizer: func
   }
 
   /**
-   * Required method by func interface, will be implemented in sub-classes.
+   * Required method by Func interface, will be implemented in sub-classes.
    */
   public abstract void evaluate(in double[] inputs, bool grad=true) pure;
 }
@@ -408,9 +407,11 @@ class WeightDecayRegulizer: Regulizer
     this.nu = hParms[0];
   }
 }
+
+///
 unittest
 {
-  mixin(dffann.dffann.announceTest("WeightDecayRegularizer"));
+  // WeightDecayRegularizer
 
   // Build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
@@ -492,9 +493,11 @@ class WeightEliminationRegulizer: Regulizer
     this.nuRef = hParms[1];
   }
 }
+
+///
 unittest
 {
-  mixin(dffann.dffann.announceTest("WeightEliminationRegularizer"));
+  // WeightEliminationRegularizer
 
   // Build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
@@ -515,9 +518,10 @@ unittest
   assert(wer.hyperParameters == [0.1, 1.0]);
 }
 
+///
 unittest
 {
-  mixin(dffann.dffann.announceTest("ErrorFunction with Regulizer"));
+  // ErrorFunction with Regulizer
 
   // Make a data set
   const iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);

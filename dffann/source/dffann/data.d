@@ -1,5 +1,8 @@
 /**
  * Utilities for loading, saving, and passing data around.
+ *
+ * Author: Ryan Leach
+ * 
  */
 module dffann.data;
 
@@ -17,14 +20,11 @@ import std.regex;
 import std.stdio;
 import std.string;
 
-import dffann.dffann;
-
-version(unittest){
-  
+version(unittest)
+{
   import dffann.testutilities.testdata;
-
-  import std.file;
 }
+
 /*------------------------------------------------------------------------------
  *                             DataPoint struct
  *----------------------------------------------------------------------------*/
@@ -131,6 +131,69 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
   @property const(double[]) targets() const {return this.data[numInputs .. $];}
 }
 
+version(unittest)
+{
+  // Some values to keep around for testing DataPoint objects.
+  double[5] inpts = [1.0, 2.0, 3.0, 4.0, 5.0];
+  double[2] trgts = [6.0, 7.0];
+  double[7] vals  = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+}
+///
+unittest
+{
+  const DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
+  assert(dp.data == vals);
+
+  // DataPoint objects with no targets are possible too.
+  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
+  assert(dp2.data == inpts);
+}
+
+///
+unittest
+{
+  const DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
+  assert(dp.data == vals);
+
+  // DataPoint objects with no targets are possible too.
+  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts);
+  assert(dp2.data == inpts);
+}
+
+///
+unittest
+{
+  const DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
+  assert(dp.inputs == inpts);
+  assert(dp.targets == trgts);
+
+  // DataPoint objects with no targets are possible too.
+  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
+  assert(dp2.inputs == inpts);
+  assert(dp2.targets == []);
+}
+
+///
+unittest
+{
+  const DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
+
+  assert(dp.stringRep == "1.000000000000000,2.000000000000000," ~ 
+                         "3.000000000000000,4.000000000000000," ~ 
+                         "5.000000000000000,6.000000000000000," ~
+                         "7.000000000000000");
+}
+
+///
+unittest
+{
+  DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
+
+  const DataPoint!(5,2) dp2 = DataPoint!(5,2)(dp.stringRep);
+
+  assert(dp == dp2);
+}
+
 /**
  * Template to test if a type is an instantiation of the parameterized DataPoint
  * class.
@@ -143,73 +206,6 @@ static assert(!isDataPointType!(immutable(Data!(5,2))));
 static assert(isDataPointType!(immutable(DataPoint!(5,2))));
 static assert(isDataPointType!(DataPoint!(5,2)));
 static assert(isDataPointType!(const(DataPoint!(6,6))));
-
-/*==============================================================================
- *                   Unit tests for DataPoint
- *============================================================================*/
-version(unittest)
-{
-  // Some values to keep around for testing DataPoint objects.
-  double[5] inpts = [1.0, 2.0, 3.0, 4.0, 5.0];
-  double[2] trgts = [6.0, 7.0];
-  double[7] vals  = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
-}
-unittest
-{
-  mixin(announceTest("DataPoint this(double[], double[])"));
-
-  const DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
-  assert(dp.data == vals);
-
-  // DataPoint objects with no targets are possible too.
-  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
-  assert(dp2.data == inpts);
-}
-unittest
-{
-  mixin(announceTest("DataPoint this(double[])"));
-
-  const DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
-  assert(dp.data == vals);
-
-  // DataPoint objects with no targets are possible too.
-  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts);
-  assert(dp2.data == inpts);
-}
-unittest
-{
-  mixin(announceTest("DataPoint inputs and targets properties."));
-
-  const DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
-  assert(dp.inputs == inpts);
-  assert(dp.targets == trgts);
-
-  // DataPoint objects with no targets are possible too.
-  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
-  assert(dp2.inputs == inpts);
-  assert(dp2.targets == []);
-}
-unittest
-{
-  mixin(announceTest("DataPoint stringRep"));
-
-  const DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
-
-  assert(dp.stringRep == "1.000000000000000,2.000000000000000," ~ 
-                         "3.000000000000000,4.000000000000000," ~ 
-                         "5.000000000000000,6.000000000000000," ~
-                         "7.000000000000000");
-}
-unittest
-{
-  mixin(announceTest("DataPoint this(string)"));
-
-  DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
-
-  const DataPoint!(5,2) dp2 = DataPoint!(5,2)(dp.stringRep);
-
-  assert(dp == dp2);
-}
 
 /*******************************************************************************
  * A collection of DataPoint objects with some other added functionality 
@@ -483,14 +479,10 @@ public class Data(size_t numInputs, size_t numTargets)
    */
   @property final size_t nPoints() const {return this.numPoints;}
 
-  /**
-   * ditto
-   */
+  /// ditto
   @property final size_t nInputs() const {return numInputs;}
   
-  /**
-   * ditto
-   */
+  /// ditto
   @property final size_t nTargets() const {return numTargets;}
 
   /**
@@ -504,6 +496,10 @@ public class Data(size_t numInputs, size_t numTargets)
 
   /**
    * Get a batch of data ranges that partition the data.
+   *
+   * Returns: a RandomAccessRange of data ranges.
+   *
+   * See_Also: DataRange
    */
   public final auto getBatches(size_t numBatches)
   {
@@ -512,9 +508,10 @@ public class Data(size_t numInputs, size_t numTargets)
 
   /**
    * Returns: a range that iterates over all of the points in this 
-   *          collection in a different order everytime. 
+   *          collection in a different order everytime. Every time the range
+   *          is saved, the order of the points is shuffled again.
    */
-  final RandomDataRange!(numInputs, numTargets) randomRange() const
+  @property final RandomDataRange!(numInputs, numTargets) randomRange() const
   {
     return RandomDataRange!(numInputs, numTargets)(this);
   }
@@ -825,8 +822,6 @@ version(unittest)
 }
 unittest
 {
-  mixin(announceTest("Data this(double[][], bool[])"));
-
   // Short-hand for dealing with immutable data
   alias iData = immutable(Data!(5,2));
   
@@ -851,8 +846,6 @@ unittest
 }
 unittest
 {
-  mixin(announceTest("Data this(double[][], bool[], false)"));
-
   // Short-hand for dealing with immutable data
   alias iData = immutable(Data!(5,2));
   
@@ -877,8 +870,6 @@ unittest
 }
 unittest
 {
-  mixin(announceTest("Data this(double[][], bool[], double[], double[])"));
-
   // Short-hand for dealing with immutable data
   alias iData = immutable(Data!(5,2));
 
@@ -909,8 +900,6 @@ unittest
 }
 unittest
 {
-  mixin(announceTest("Data nPoints, nInputs, nTargets properties."));
-  
   // Short-hand for dealing with immutable data
   alias iData = immutable(Data!(5,2));
   
@@ -922,8 +911,6 @@ unittest
 }
 unittest
 {
-  mixin(announceTest("Data getPoint(size_t)."));
-  
   // Short-hand for dealing with immutable data
   alias iData = immutable(Data!(5,2));
   alias iDataPoint = immutable(DataPoint!(5,2));
@@ -939,8 +926,6 @@ unittest
 }
 unittest
 {
-  mixin(announceTest("Data LoadDataFromCSVFile(string, bool[])"));
-
   alias iData = immutable(Data!(21,1));
 
   bool[] filters2 = [false,false,false,false,false,false,false,
@@ -958,8 +943,6 @@ unittest
 }
 unittest
 {
-  mixin(announceTest("Data SaveProcessedData and LoadProcessedData"));
-
   alias Data21 = Data!(21,1);
 
   enum string testFileName = "TestData.csv";
@@ -1015,7 +998,6 @@ template isDataRangeType(T)
 
 /**
  * ForwardRange for iterating a subset of the data in a Data object.
- *
  */
 public struct DataRange(size_t numInputs, size_t numTargets)
 {
@@ -1080,10 +1062,9 @@ public struct DataRange(size_t numInputs, size_t numTargets)
 }
 static assert(isDataRangeType!(DataRange!(5,2))); 
 
+///
 unittest
 {
-  mixin(announceTest("DataRange"));
-
   alias iData = immutable(Data!(5, 2));
 
   iData d = Data!(5,2).createImmutableData(testData, flags);
@@ -1098,10 +1079,10 @@ unittest
   // Check the type of slices
   static assert(isDataRangeType!(typeof(r[0..$-1])));
 }
+
+///
 unittest
 {
-  mixin(announceTest("Data simpleRange property"));
-
   alias iData = immutable(Data!(5, 2));
 
   iData d = Data!(5,2).createImmutableData(testData, flags);
@@ -1202,7 +1183,7 @@ public struct RandomDataRange(size_t numInputs, size_t numTargets)
 static assert(isDataRangeType!(RandomDataRange!(5,2)));
 
 /**
- * Break a range of points into smaller ranges for doing batches of data.
+ * Breaks a range of points into smaller ranges for doing batches of data.
  */
 public struct BatchRange(DR) if(isDataRangeType!DR)
 {
@@ -1214,7 +1195,7 @@ public struct BatchRange(DR) if(isDataRangeType!DR)
   private DR _allData;
 
   /**
-   * Construc a range that returns ranges of DataPoints.
+   * Construct a RandomAccessRange that returns ranges of DataPoints.
    */
   this(DR allData, size_t numBatches)
   {
@@ -1351,10 +1332,10 @@ struct Normalization
             (d.data[] - shift[0 .. d.data.length]) / scale[0 .. d.data.length];
   }
 }
+
+///
 unittest
 {
-  mixin(announceTest("Normalization"));
-
   Data!(5, 2) d = new Data!(5,2)(testData, flags);
 
   Normalization norm = Normalization(d.shift, d.scale);
@@ -1393,10 +1374,10 @@ unittest
     assert(approxEqual(tmp.data[], d.getPoint(i).data[]));
   }
 }
+
+///
 unittest
 {
-  mixin(announceTest("Data normalization property"));
-
   Data!(5, 2) d = new Data!(5,2)(testData, flags);
 
   Normalization norm = d.normalization;
@@ -1415,11 +1396,11 @@ unittest
  * Useful for associating with a trained network, send the normalizations
  * along with the network file, otherwise the network is useless.
  * 
+ * TODO - When phobos library settles down, save these as XML instead.
+ *
  * Params: 
  * norm = the normalization to save
  * path = path to the file to save.
- * 
- * TODO - When phobos library settles down, save these as XML instead.
  */
 void saveNormalization(const Normalization norm, const string path)
 {
@@ -1460,11 +1441,11 @@ void saveNormalization(const Normalization norm, const string path)
 
 /**
  * Load a normalization from the file system.
+ *
+ * TODO - When phobos library settles down, use XML instead.
  * 
  * Parms: 
  * fileName = path to the file to be loaded.
- * 
- * TODO - When phobos library settles down, use XML instead.
  */
 Normalization loadNormalization(const string fileName)
 {
@@ -1498,10 +1479,10 @@ Normalization loadNormalization(const string fileName)
 
   return Normalization(tmpShift, tmpScale);
 }
+
+///
 unittest
 {
-  mixin(announceTest("saveNormalization and loadNormalization Test."));
-
   const Data!(5, 2) d = new Data!(5,2)(testData, flags);
 
   Normalization norm = d.normalization;

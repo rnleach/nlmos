@@ -5,8 +5,6 @@
  */
 module dffann.multilayerperceptrons;
 
-public import dffann.dffann;
-
 import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
@@ -28,6 +26,8 @@ version(unittest) import dffann.data;
  * Params:
  * HAF = hidden activation function.
  * OAF = output activation function.
+ *
+ * See_Also: dffann.activationfunctions
  */
 public class MultiLayerPerceptronNetwork(HAF, OAF) : FeedForwardNetwork 
 if(isAF!HAF && isOAF!OAF)
@@ -452,8 +452,7 @@ if(isAF!HAF && isOAF!OAF)
     }
     OAF.eval(activations[idx], nodes[idx]);
     
-    return nodes[idx];
-    
+    return nodes[idx];  
   }
 
   /**
@@ -495,8 +494,8 @@ if(isAF!HAF && isOAF!OAF)
 
   /**
    * Params:
-   * newParms = the new parameters, or weights, to use in the network,
-   *            typically called in a trainer.
+   * parms = the new parameters, or weights, to use in the network,
+   *         typically called in a trainer.
    *
    * Returns: the weights of the network organized as a 1-d array.
    */
@@ -636,7 +635,6 @@ if(isAF!HAF && isOAF!OAF)
   }
 }
 
-
 /**
  * MLP tanh Regression Network.
  */
@@ -658,10 +656,9 @@ alias MLP2ClsNet = MultiLayerPerceptronNetwork!(TanhAF, SigmoidAF);
  */
 alias MLPClsNet = MultiLayerPerceptronNetwork!(TanhAF, SoftmaxAF);
 
-
 unittest
 {
-  mixin(announceTest("MLP2ClsNet eval(double)"));
+  // MLP2ClsNet eval(double)
 
   // Make a fake data set XOR
   double[][] fakeData = [[ 0.0, 0.0, 0.0],
@@ -692,8 +689,8 @@ unittest
 
   // Now, build a network.
   const double[] wts = [ 1000.0, -1000.0, -500.0, 
-                  -1000.0,  1000.0, -500.0, 
-                   1000.0,  1000.0,  500.0];
+                        -1000.0,  1000.0, -500.0, 
+                         1000.0,  1000.0, 500.0];
 
   MLP2ClsNet slprn = new MLP2ClsNet(numNodes);
   slprn.parameters = wts;
@@ -705,8 +702,9 @@ unittest
         dp.inputs, slprn.eval(dp.inputs), dp.targets));
 }
 
-unittest{
-  mixin(announceTest("MLPRegNet stringForm and this(string)"));
+unittest
+{
+  // MLPRegNet stringForm and this(string)
   
   // Number of nodes per layer
   enum uint[] numNodes = [2,5,6,2];
@@ -715,8 +713,6 @@ unittest{
   MLPRegNet slpcn = new MLPRegNet(numNodes);
   MLPRegNet loaded = new MLPRegNet(slpcn.stringForm);
 
-  write(MLPRegNet.stringof,"....");
-
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);
   assert(slpcn.numInputs == loaded.numInputs);
@@ -726,9 +722,9 @@ unittest{
   assert(approxEqual(slpcn.B, loaded.B));
 }
 
-
-unittest{
-  mixin(announceTest("MLP2ClsNet stringForm and this(string)"));
+unittest
+{
+  // MLP2ClsNet stringForm and this(string)
   
   // Number of nodes per layer
   enum uint[] numNodes = [4,5,6,1];
@@ -737,8 +733,6 @@ unittest{
   MLP2ClsNet slpcn = new MLP2ClsNet(numNodes);
   MLP2ClsNet loaded = new MLP2ClsNet(slpcn.stringForm);
 
-  write(MLP2ClsNet.stringof,"....");
-
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);
   assert(slpcn.numInputs == loaded.numInputs);
@@ -748,8 +742,9 @@ unittest{
   assert(approxEqual(slpcn.B, loaded.B));
 }
 
-unittest{
-  mixin(announceTest("MLPClsNet stringForm and this(string)"));
+unittest
+{
+  // MLPClsNet stringForm and this(string)
   
   // Number of nodes per layer
   enum uint[] numNodes = [4,5,6,3];
@@ -757,8 +752,6 @@ unittest{
   // Now, build a network.
   MLPClsNet slpcn = new MLPClsNet(numNodes);
   MLPClsNet loaded = new MLPClsNet(slpcn.stringForm);
-
-  write(MLPClsNet.stringof,"....");
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);

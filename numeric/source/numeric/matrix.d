@@ -20,7 +20,8 @@ version(par){
 /**
  * Matrix struct for basic matrix operations.
  */
-public struct Matrix{
+public struct Matrix
+{
 
   /*
    * Store the matrix internally in a singly allocated chunk of memory.
@@ -41,7 +42,8 @@ public struct Matrix{
    * The single variable version creates a square Matrix, and the version that
    * takes an array copies the array values into a new Matix object.
    */
-  this(size_t r, size_t c){
+  this(size_t r, size_t c)
+  {
 
     rows = r;
     cols = c;
@@ -50,19 +52,16 @@ public struct Matrix{
     m = new double[numVals];
   }
 
-  /**
-   * ditto
-   */
+  /// ditto
   this(size_t r){
     this(r,r);
   }
 
-  /**
-   * ditto
-   */
-  this(const double[][] arr){
+  /// ditto
+  this(const double[][] arr)
+  {
     // Get the dimensions
-    size_t r = arr.length;
+    const size_t r = arr.length;
     size_t c = arr[0].length;
 
     // Make sure the array is not a jagged array
@@ -82,9 +81,7 @@ public struct Matrix{
         m[i * c + j] = arr[i][j];
   }
 
-  /**
-   * ditto
-   */
+  /// ditto
   this(const Matrix orig)
   {
     rows = orig.rows;
@@ -92,8 +89,10 @@ public struct Matrix{
     numVals = orig.numVals;
     m = orig.m.dup;
   }
-  unittest{
-    mixin(announceTest("Constructors"));
+
+  unittest
+  {
+    // Constructors
 
     // Test blank initialization
     Matrix M = Matrix(4,5);
@@ -127,17 +126,17 @@ public struct Matrix{
     assert(N[2,2] == 2.2);
   }
 
-  /**
-   * Postblit constructor.
-   */
+  /// Postblit constructor.
   this(this)
   {
     // rows and cols was moved for us, now we have to allocate new memory and
     // copy all the values to them
     m = m.dup;
   }
-  unittest{
-    mixin(announceTest("Postblit constructor."));
+
+  unittest
+  {
+    // Postblit constructor.
     
     Matrix M = Matrix(4, 5);
 
@@ -154,8 +153,10 @@ public struct Matrix{
 
     // Demonstrate assignment to 1 does not affect the other.
     N.m[0] = 3.14159;
-    foreach(size_t i; 0 .. M.numVals){
-      if(i == 0){ 
+    foreach(size_t i; 0 .. M.numVals)
+    {
+      if(i == 0)
+      { 
         assert(M.m[i] != N.m[i]);
         assert(N.m[i] == 3.14159);
       }
@@ -163,9 +164,7 @@ public struct Matrix{
     }
   }
 
-  /**
-   * Make a duplicate matrix.
-   */
+  /// Make a duplicate matrix.
   @property Matrix dup() const
   {
     return Matrix(this);
@@ -175,10 +174,13 @@ public struct Matrix{
    * Make a human readable string representation of a matrix suitable for
    * terminal output. Not a good idea to use this on large Matrices.
    */
-  string toString(){
+  string toString() const 
+  {
     string toRet = format("Matrix(%s,%s)\n",rows,cols);
-    foreach(r; 0 .. rows){
-      foreach(c; 0 .. cols){
+    foreach(r; 0 .. rows)
+    {
+      foreach(c; 0 .. cols)
+      {
         toRet ~= format("%6f  ",m[r * cols + c]);
       }
       toRet ~= "\n";
@@ -191,9 +193,7 @@ public struct Matrix{
   /*============================================================================
    *                        Static factory methods
    *==========================================================================*/
-  /**
-   * Create a matrix initialized to any desired value.
-   */
+  /// Create a matrix initialized to any desired value.
   static Matrix matrixOf(double val, size_t r, size_t c){
     Matrix temp = Matrix(r,c);
 
@@ -201,36 +201,34 @@ public struct Matrix{
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("Matrix.matrixOf"));
+
+  unittest
+  {
+    // Matrix.matrixOf
     
     Matrix M = Matrix.matrixOf(2.17,7,8);
     foreach(i; 0 .. M.numVals) assert(M.m[i] == 2.17);
   }
 
-  /**
-   * Create a matrix of zeros.
-   */
-  static Matrix zeros(size_t r, size_t c){
+  /// Create a matrix of zeros.
+  static Matrix zeros(size_t r, size_t c)
+  {
     return matrixOf(0.0, r, c);
   }
-  /**
-   * ditto
-   */
-  static Matrix zeros(size_t r){
-    return zeros(r,r);
-  }
-  unittest{
-    mixin(announceTest("Matrix.zeros"));
+  
+  /// ditto
+  static Matrix zeros(size_t r){ return zeros(r,r); }
+
+  unittest
+  {
+    // Matrix.zeros
     
     Matrix M = Matrix.zeros(3,5);
     foreach(i; 0 .. M.numVals) assert(M.m[i] == 0.0);
   }
 
   
-  /**
-   * Create an identity matrix.
-   */
+  /// Create an identity matrix.
   static Matrix identity(size_t r){
 
     Matrix temp = zeros(r);
@@ -239,8 +237,10 @@ public struct Matrix{
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("Matrix.identity"));
+
+  unittest
+  {
+    /// Matrix.identity
     
     Matrix M = Matrix.identity(3);
 
@@ -265,9 +265,7 @@ public struct Matrix{
 
     return temp;
   }
-  /**
-   * ditto
-   */
+  /// ditto
   static Matrix random(size_t r){return Matrix.random(r,r);}
 
   /*============================================================================
@@ -294,8 +292,9 @@ public struct Matrix{
 
     return m[r * cols + c];
   }
-  unittest{
-    mixin(announceTest("opIndex"));
+  unittest
+  {
+    // opIndex
 
     Matrix M = matrixOf(4.0, 3, 3);
 
@@ -329,18 +328,22 @@ public struct Matrix{
    * r   = the row number
    * c   = the column number
    */
-  void opIndexAssign(double val, size_t r, size_t c){
+  void opIndexAssign(double val, size_t r, size_t c)
+  {
     // Bounds check, this goes away with release builds
     assert(r < rows && c < cols,"Index out of bounds error.");
 
     m[r * cols + c] = val;
   }
-  unittest{
-    mixin(announceTest("opIndexAssign"));
+
+  unittest
+  {
+    // opIndexAssign
     
     Matrix M = Matrix(3);
     foreach(r; 0 .. M.numRows)
-      foreach(c; 0 .. M.numCols){
+      foreach(c; 0 .. M.numCols)
+      {
         M[r,c] = r * c;
         assert(M[r,c] == r * c);
       }
@@ -366,14 +369,17 @@ public struct Matrix{
    *
    */
   void opIndexOpAssign(string op)(double val, size_t r, size_t c)
-  if(op == "+" || op == "-" || op == "*" || op == "/"){
+  if(op == "+" || op == "-" || op == "*" || op == "/")
+  {
     // Bounds check, this goes away with release builds
     assert(r < rows && c < cols,"Index out of bounds error.");
 
     mixin("m[r * cols + c] " ~ op ~ "= val;");
   }
-  unittest{
-    mixin(announceTest("opIndexOpAssign"));
+
+  unittest
+  {
+    // opIndexOpAssign
     
     Matrix M = Matrix.matrixOf(1.0,3,3);
     foreach(r; 0 .. M.numRows)
@@ -399,18 +405,15 @@ public struct Matrix{
       }
   }
 
-  /**
-   * Returns: The number of rows in this matrix.
-   */
+  /// Returns: The number of rows in this matrix.
   @property size_t numRows(){return rows;}
 
-  /**
-   * Returns: The number of columns in this matrix.
-   */
+  /// Returns: The number of columns in this matrix.
   @property size_t numCols(){return cols;}
 
-  unittest{
-    mixin(announceTest("numRows and numCols"));
+  unittest
+  {
+    // numRows and numCols
     
     Matrix M = Matrix(800,500);
     assert(M.numRows == 800);
@@ -436,7 +439,8 @@ public struct Matrix{
    * assert(A == B && A != C); // Ok!
    * ---------
    */
-  bool opEquals(Matrix rhs){
+  bool opEquals(Matrix rhs) const
+  {
     // Test for same object first.
     if(this is rhs) return true;
 
@@ -446,8 +450,11 @@ public struct Matrix{
     
     else return false;
   }
-  unittest{
-    mixin(announceTest("opEquals"));
+
+  ///
+  unittest
+  {
+    // opEquals
     
     Matrix M = Matrix.matrixOf(3.14159, 80, 4);
     Matrix N = M; // Copied via postblit
@@ -497,8 +504,11 @@ public struct Matrix{
     }
     return temp;
   }
-  unittest{
-    mixin(announceTest("opUnary"));
+
+  ///
+  unittest
+  {
+    // opUnary
 
     double[][] m = [[1.0, 2.0],
                     [3.0, 4.0]];
@@ -527,9 +537,7 @@ public struct Matrix{
   /*============================================================================
    *                  Addition/Subtraction Operator Overloads
    *==========================================================================*/
-  /**
-   * Overloaded addition and subtraction operators.
-   */
+  /// Overloaded addition and subtraction operators.
   Matrix opBinary(string op)(in Matrix rhs) const
   if( op == "+" || op == "-") 
   {
@@ -542,21 +550,26 @@ public struct Matrix{
     version(par){
       foreach(r; parallel(CountRange(rows))){
         size_t rw = r * cols;
-        foreach(c; 0 .. cols){
+        foreach(c; 0 .. cols)
+        {
           mixin("temp.m[rw + c] = m[rw + c] " ~ op ~ 
                                                       " rhs.m[rw + c];");
         }
       }
     }
-    else{
+    else
+    {
       // Now do the element by element op
       foreach(i; 0 .. numVals) temp.m[i] = mixin("m[i] " ~ op ~ " rhs.m[i]");
     }
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("opBinary!+-"));
+
+  ///
+  unittest
+  {
+    // opBinary!+-
     
     // Test addition
     Matrix M = Matrix.identity(3);
@@ -576,17 +589,17 @@ public struct Matrix{
         else assert(O[i,j] == (0.0 - 1.0));
   }
 
-  /**
-   * Overloaded addition and subtraction operators with assignment.
-   */
+  /// Overloaded addition and subtraction operators with assignment.
   ref Matrix opOpAssign(string op)(Matrix rhs) if( op == "+" || op == "-"){
     // Force them to be the same size. Note this goes away in release builds.
     assert(rows == rhs.rows && cols == rhs.cols);
 
     version(par){
-      foreach(r; parallel(CountRange(rows))){
+      foreach(r; parallel(CountRange(rows)))
+      {
         size_t rw = r * cols;
-        foreach(c; 0 .. cols){
+        foreach(c; 0 .. cols)
+        {
           mixin("m[rw + c] " ~ op ~ "= rhs.m[rw + c];");
         }
       }
@@ -598,8 +611,10 @@ public struct Matrix{
 
     return this;
   }
-  unittest{
-    mixin(announceTest("opOpAssign"));
+
+  unittest
+  {
+    // opOpAssign
 
     // Test addition
     Matrix M = Matrix.identity(3);
@@ -618,11 +633,10 @@ public struct Matrix{
         else assert(M[i,j] == (0.0 + 1.0 - 1.0));
   }
   
-  /**
-   * Overloaded addition and subtraction operators with assignment.
-   */
+  /// Overloaded addition and subtraction operators with assignment.
   ref Matrix opOpAssign(string op)(in ref TransposeView rhs) 
-  if( op == "+" || op == "-"){
+  if( op == "+" || op == "-")
+  {
     // Force them to be the same size. Note this goes away in release builds.
     assert(rows == rhs.src.cols && cols == rhs.src.rows);
 
@@ -642,8 +656,11 @@ public struct Matrix{
 
     return this;
   }
-  unittest{
-    mixin(announceTest("opOpAssign w/TransposeView"));
+
+  ///
+  unittest
+  {
+    // opOpAssign w/TransposeView
 
     double[][] m = [[1.0, 2.0, 3.0],
                     [4.0, 5.0, 6.0]];
@@ -665,29 +682,23 @@ public struct Matrix{
     Matrix OT = O.T;
     
     M += NTv;
-    foreach(r; 0 .. M.rows){
-      foreach(c; 0 .. M.cols){
+    foreach(r; 0 .. M.rows)
+      foreach(c; 0 .. M.cols)
         assert(M[r,c] == O[r,c]);
-      }
-    }
     assert(M == O);
     
     M = Matrix(m);
     N += MTv;
-    foreach(r; 0 .. N.rows){
-      foreach(c; 0 .. N.cols){
+    foreach(r; 0 .. N.rows)
+      foreach(c; 0 .. N.cols)
         assert(N[r,c] == OT[r,c]);
-      }
-    }
     assert(N == OT);
     
     OT -= MTv;
     N = Matrix(n);
-    foreach(r; 0 .. OT.rows){
-      foreach(c; 0 .. OT.cols){
+    foreach(r; 0 .. OT.rows)
+      foreach(c; 0 .. OT.cols)
         assert(OT[r,c] == N[r,c]);
-      }
-    }
     assert(OT == N);
   }
 
@@ -705,15 +716,18 @@ public struct Matrix{
     // Make a new matrix
     Matrix temp = Matrix(rows,cols);
 
-    version(par){
-      foreach(r; parallel(CountRange(rows))){
+    version(par)
+    {
+      foreach(r; parallel(CountRange(rows)))
+      {
         size_t rw = r * cols;
         foreach(c; 0 .. cols){
           mixin("temp.m[rw + c] = m[rw + c] " ~ op ~ " rhs;");
         }
       }
     }
-    else{
+    else
+    {
       // Now do the element by element op
       foreach(i; 0 .. numVals) mixin("temp.m[i] = m[i] " ~ op ~ " rhs;");
     }
@@ -733,23 +747,30 @@ public struct Matrix{
     // Make a new matrix
     Matrix temp = Matrix(rows,cols);
 
-    version(par){
-      foreach(r; parallel(CountRange(rows))){
+    version(par)
+    {
+      foreach(r; parallel(CountRange(rows)))
+      {
         size_t rw = r * cols;
-        foreach(c; 0 .. cols){
+        foreach(c; 0 .. cols)
+        {
           temp.m[rw + c] = m[rw + c] * lhs;
         }
       }
     }
-    else{
+    else
+    {
       // Now do the element by element op
       foreach(i; 0 .. numVals) temp.m[i] = m[i] * lhs;
     }
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("opBinary for scalars."));
+
+  ///
+  unittest
+  {
+    // opBinary for scalars.
     
     // Test multiplication
     Matrix M = Matrix.matrixOf(1.0,3,3);
@@ -774,9 +795,7 @@ public struct Matrix{
   /*============================================================================
    *                           Matrix Multiplication
    *==========================================================================*/
-  /**
-   * Overloaded multiplication of matrices..
-   */
+  /// Overloaded multiplication of matrices..
   Matrix opBinary(string op)(in Matrix rhs) const
   if( op == "*")
   {
@@ -787,21 +806,29 @@ public struct Matrix{
     Matrix temp = Matrix(rows,rhs.cols);
 
     // Now do the element by element op
-    version(par){
-      foreach(r; parallel(CountRange(rows))){
-        foreach(c; 0 .. rhs.cols){
+    version(par)
+    {
+      foreach(r; parallel(CountRange(rows)))
+      {
+        foreach(c; 0 .. rhs.cols)
+        {
           temp[r,c] = 0.0;
-          foreach(k; 0 .. cols){
+          foreach(k; 0 .. cols)
+          {
             temp[r,c] += m[r * cols + k] * rhs.m[k * rhs.cols + c];
           }
         }
       }
     }
-    else{
-      foreach(r; 0 .. rows){
-        foreach(c; 0 .. rhs.cols){
+    else
+    {
+      foreach(r; 0 .. rows)
+      {
+        foreach(c; 0 .. rhs.cols)
+        {
           temp[r,c] = 0.0;
-          foreach(k; 0 .. cols){
+          foreach(k; 0 .. cols)
+          {
             temp[r,c] += m[r * cols + k] * rhs.m[k * rhs.cols + c];
           }
         }
@@ -810,8 +837,11 @@ public struct Matrix{
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("opBinary*"));
+
+  ///
+  unittest
+  {
+    // opBinary*
 
     double[][] m = [[1.0, 2.0, 3.0],
                     [4.0, 5.0, 6.0]];
@@ -840,18 +870,24 @@ public struct Matrix{
     Matrix temp = Matrix(rows * rhs.rows,cols * rhs.cols);
 
     // Now do the element by element op
-    version(par){
-      foreach(r; parallel(CountRange(temp.rows))){
-        foreach(c; 0 .. temp.cols){
+    version(par)
+    {
+      foreach(r; parallel(CountRange(temp.rows)))
+      {
+        foreach(c; 0 .. temp.cols)
+        {
           temp.m[r * temp.cols + c] = 
                    m[(r / rows) * cols + (c / cols)] * 
                    rhs.m[(r % rhs.rows) * rhs.cols + (c % rhs.cols)];
         }
       }
     }
-    else{
-      foreach(r; 0 .. temp.rows){
-        foreach(c; 0 .. temp.cols){
+    else
+    {
+      foreach(r; 0 .. temp.rows)
+      {
+        foreach(c; 0 .. temp.cols)
+        {
           temp.m[r * temp.cols + c] = 
                    m[(r / rows) * cols + (c / cols)] * 
                    rhs.m[(r % rhs.rows) * rhs.cols + (c % rhs.cols)];
@@ -861,8 +897,11 @@ public struct Matrix{
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("opBinary%"));
+
+  ///
+  unittest
+  {
+    /// opBinary%
     
     // Test multiplication
     double[][] m = [[1.0, 2.0],
@@ -895,16 +934,21 @@ public struct Matrix{
   {
     Matrix temp = Matrix(cols, rows);
 
-    version(par){
-      foreach(r; parallel(CountRange(rows))){
+    version(par)
+    {
+      foreach(r; parallel(CountRange(rows)))
+      {
         foreach(c; 0 .. cols){
           temp.m[c * rows + r] = m[r * cols + c];
         }
       }
     }
-    else{
-      for(size_t r = 0; r < rows; ++r){
-        for(size_t c = 0; c < cols; ++c){
+    else
+    {
+      for(size_t r = 0; r < rows; ++r)
+      {
+        for(size_t c = 0; c < cols; ++c)
+        {
           temp.m[c * rows + r] = m[r * cols + c];
         }
       }
@@ -912,8 +956,11 @@ public struct Matrix{
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("T"));
+
+  ///
+  unittest
+  {
+    // T
    
     // Test multiplication
     double[][] m = [[1.0, 2.0],
@@ -947,8 +994,11 @@ public struct Matrix{
   {
     return TransposeView(&this);
   }
-  unittest{
-    mixin(announceTest("TransposeView"));
+
+  ///
+  unittest
+  {
+    // TransposeView
     
     double[][] arr = [[0.0, 1.0, 2.0],
                       [0.1, 1.1, 2.1],
@@ -972,7 +1022,8 @@ public struct Matrix{
    * Does an element-by-element comparison with std.math.approxEqual to see
    * if these matrices are approximately equal.
    */
-  static bool approxEqual(const Matrix lhs, const Matrix rhs){
+  static bool approxEqual(const Matrix lhs, const Matrix rhs)
+  {
     // Are they the same Matrix? If so, they are more tha approxEqual!
     if(lhs is rhs) return true;
     
@@ -1001,12 +1052,14 @@ public struct Matrix{
  * perspective.
  *
  */
-package struct TransposeView{
+package struct TransposeView
+{
 
   // Store a reference to the source matrix.
   const Matrix *src = null;
   
-  this(const Matrix *d){
+  this(const Matrix *d)
+  {
     src = d;
   }
   
@@ -1035,8 +1088,11 @@ package struct TransposeView{
 
     return src.m[c * src.cols + r];
   }
-  unittest{
-    mixin(announceTest("opIndex"));
+
+  ///
+  unittest
+  {
+    // opIndex
     
     double[][] arr = [[0.0, 1.0, 2.0],
                       [0.1, 1.1, 2.1],
@@ -1061,8 +1117,9 @@ package struct TransposeView{
    */
   @property size_t numCols(){return src.rows;}
 
-  unittest{
-    mixin(announceTest("numRows, numCols"));
+  unittest
+  {
+    // numRows, numCols
     
     TransposeView M = Matrix(800,500).Tv;
     assert(M.numRows == 500);
@@ -1084,18 +1141,22 @@ package struct TransposeView{
     // Make a new matrix
     Matrix temp = Matrix(src.cols,src.rows);
 
-    version(par){
+    version(par)
+    {
       // Now do the element by element op
       foreach(r; parallel(CountRange(src.cols)))
-        foreach(c; 0 .. src.rows){
+        foreach(c; 0 .. src.rows)
+        {
           mixin("temp.m[r * temp.cols + c] = src.m[c * src.cols + r] " ~ op ~ 
                             " rhs.m[r * rhs.cols + c];");
         }
     }
-    else{
+    else
+    {
       // Now do the element by element op
       foreach(r; 0 .. src.cols)
-        foreach(c; 0 .. src.rows){
+        foreach(c; 0 .. src.rows)
+        {
           mixin("temp.m[r * temp.cols + c] = src.m[c * src.cols + r] " ~ op ~ 
                             " rhs.m[r * rhs.cols + c];");
         }
@@ -1103,6 +1164,8 @@ package struct TransposeView{
 
     return temp;
   }
+
+  /// ditto
   Matrix opBinaryRight(string op)(Matrix lhs) const
   if( op == "+" || op == "-")
   {
@@ -1112,27 +1175,31 @@ package struct TransposeView{
     // Make a new matrix
     Matrix temp = Matrix(src.cols,src.rows);
 
-    version(par){
+    version(par)
+    {
       // Now do the element by element op
       foreach(r; parallel(CountRange(src.cols)))
-        foreach(c; 0 .. src.rows){
+        foreach(c; 0 .. src.rows)
+        {
           mixin("temp.m[r * temp.cols + c] = lhs.m[r * lhs.cols + c] " ~ op ~ 
                             " src.m[c * src.cols + r];");
         }
     }
-    else{
+    else
+    {
       // Now do the element by element op
       foreach(r; 0 .. src.cols)
-        foreach(c; 0 .. src.rows){
+        foreach(c; 0 .. src.rows)
+        {
           mixin("temp.m[r * temp.cols + c] = lhs.m[r * lhs.cols + c] " ~ op ~ 
                             " src.m[c * src.cols + r];");
         }
     }
 
-    
     return temp;
   }
   
+  /// ditto
   Matrix opBinary(string op)(in ref TransposeView rhs) const
   if( op == "+" || op == "-")
   {
@@ -1142,18 +1209,22 @@ package struct TransposeView{
     // Make a new matrix
     Matrix temp = Matrix(src.cols,src.rows);
 
-    version(par){
+    version(par)
+    {
       // Now do the element by element op
       foreach(r; parallel(CountRange(src.cols)))
-        foreach(c; 0 .. src.rows){
+        foreach(c; 0 .. src.rows)
+        {
              mixin("temp.m[r * temp.cols + c] = src.m[c * src.cols + r] " ~ op ~
                         " rhs.src.m[c * rhs.src.cols + r];");
         }
     }
-    else{
+    else
+    {
       // Now do the element by element op
       foreach(r; 0 .. src.cols)
-        foreach(c; 0 .. src.rows){
+        foreach(c; 0 .. src.rows)
+        {
              mixin("temp.m[r * temp.cols + c] = src.m[c * src.cols + r] " ~ op ~
                         " rhs.src.m[c * rhs.src.cols + r];");
         }
@@ -1161,8 +1232,11 @@ package struct TransposeView{
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("opBinary!'+', opBinary!'-'"));
+
+  ///
+  unittest
+  {
+    // opBinary!'+', opBinary!'-'
     
     // Test addition
     double[][] m = [[1.0, 2.0, 3.0],
@@ -1208,20 +1282,26 @@ package struct TransposeView{
     // Make a new matrix
     Matrix temp = Matrix(src.cols,src.rows);
 
-    version(par){
+    version(par)
+    {
       // Now do the element by element op
-      foreach(r; parallel(CountRange(temp.rows))){
-        foreach(c; 0 .. temp.cols){
+      foreach(r; parallel(CountRange(temp.rows)))
+      {
+        foreach(c; 0 .. temp.cols)
+        {
           mixin(
             "temp.m[r * temp.cols + c]  = src.m[c * src.cols + r] "~op~" rhs;"
           );
         }
       }
     }
-    else{
+    else
+    {
       // Now do the element by element op
-      foreach(r; 0 .. temp.rows){
-        foreach(c; 0 .. temp.cols){
+      foreach(r; 0 .. temp.rows)
+      {
+        foreach(c; 0 .. temp.cols)
+        {
           mixin(
             "temp.m[r * temp.cols + c]  = src.m[c * src.cols + r] "~op~" rhs;"
           );
@@ -1244,18 +1324,24 @@ package struct TransposeView{
     // Make a new matrix
     Matrix temp = Matrix(src.cols,src.rows);
 
-    version(par){
+    version(par)
+    {
       // Now do the element by element op
-      foreach(r; parallel(CountRange(temp.rows))){
-        foreach(c; 0 .. temp.cols){
+      foreach(r; parallel(CountRange(temp.rows)))
+      {
+        foreach(c; 0 .. temp.cols)
+        {
          temp.m[r * temp.cols + c]  = src.m[c * src.cols + r] * lhs;
         }
       }
     }
-    else{
+    else
+    {
       // Now do the element by element op
-      foreach(r; 0 .. temp.rows){
-        foreach(c; 0 .. temp.cols){
+      foreach(r; 0 .. temp.rows)
+      {
+        foreach(c; 0 .. temp.cols)
+        {
          temp.m[r * temp.cols + c]  = src.m[c * src.cols + r] * lhs;
         }
       }
@@ -1263,8 +1349,11 @@ package struct TransposeView{
     
     return temp;
   }
-  unittest{
-    mixin(announceTest("opBinary!'*', opBinary!'/' for scalars"));
+
+  ///
+  unittest
+  {
+    // opBinary!'*', opBinary!'/' for scalars
     
     double[][] m = [[1.0, 2.0, 3.0],
                    [4.0, 5.0, 6.0]];
@@ -1289,6 +1378,8 @@ package struct TransposeView{
   /*============================================================================
    *                           Matrix Multiplication
    *==========================================================================*/
+
+  /// Matrix Multiplication
   Matrix opBinary(string op)(in Matrix rhs) const
   if( op == "*")
   {
@@ -1300,20 +1391,27 @@ package struct TransposeView{
 
     // Now do the element by element op
     version(par){
-      foreach(r; parallel(CountRange(src.cols))){
-        foreach(c; 0 .. rhs.cols){
+      foreach(r; parallel(CountRange(src.cols)))
+      {
+        foreach(c; 0 .. rhs.cols)
+        {
           temp[r,c] = 0.0;
-          foreach(k; 0 .. src.rows){
+          foreach(k; 0 .. src.rows)
+          {
             temp[r,c] += src.m[k * src.cols + r] * rhs.m[k * rhs.cols + c];
           }
         }
       }
     }
-    else{
-      foreach(r; 0.. src.cols){
-        foreach(c; 0 .. rhs.cols){
+    else
+    {
+      foreach(r; 0.. src.cols)
+      {
+        foreach(c; 0 .. rhs.cols)
+        {
           temp[r,c] = 0.0;
-          foreach(k; 0 .. src.rows){
+          foreach(k; 0 .. src.rows)
+          {
             temp[r,c] += src.m[k * src.cols + r] * rhs.m[k * rhs.cols + c];
           }
         }
@@ -1322,6 +1420,8 @@ package struct TransposeView{
 
     return temp;
   }
+
+  /// ditto
   Matrix opBinaryRight(string op)(Matrix lhs)const
   if( op == "*")
   {
@@ -1332,21 +1432,29 @@ package struct TransposeView{
     Matrix temp = Matrix(lhs.rows,src.rows);
 
     // Now do the element by element op
-    version(par){
-      foreach(r; parallel(CountRange(lhs.rows))){
-        foreach(c; 0 .. src.rows){
+    version(par)
+    {
+      foreach(r; parallel(CountRange(lhs.rows)))
+      {
+        foreach(c; 0 .. src.rows)
+        {
           temp[r,c] = 0.0;
-          foreach(k; 0 .. lhs.cols){
+          foreach(k; 0 .. lhs.cols)
+          {
             temp[r,c] += src.m[c * src.cols + k] * lhs.m[r * lhs.cols + k];
           }
         }
       }
     }
-    else{
-      foreach(r; 0 .. lhs.rows){
-        foreach(c; 0 .. src.rows){
+    else
+    {
+      foreach(r; 0 .. lhs.rows)
+      {
+        foreach(c; 0 .. src.rows)
+        {
           temp[r,c] = 0.0;
-          foreach(k; 0 .. lhs.cols){
+          foreach(k; 0 .. lhs.cols)
+          {
             temp[r,c] += src.m[c * src.cols + k] * lhs.m[r * lhs.cols + k];
           }
         }
@@ -1355,8 +1463,11 @@ package struct TransposeView{
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("opBinary!'*', for scalars TransposeView and Matrix"));
+
+  ///
+  unittest
+  {
+    // opBinary!'*', for scalars TransposeView and Matrix"
 
     double[][] m = [[1.0, 2.0, 3.0],
                     [4.0, 5.0, 6.0]];
@@ -1403,18 +1514,24 @@ package struct TransposeView{
     Matrix temp = Matrix(src.cols * rhs.rows,src.rows * rhs.cols);
 
     // Now do the element by element op
-    version(par){
-      foreach(r; parallel(CountRange(temp.rows))){
-        foreach(c; 0 .. temp.cols){
+    version(par)
+    {
+      foreach(r; parallel(CountRange(temp.rows)))
+      {
+        foreach(c; 0 .. temp.cols)
+        {
           temp.m[r * temp.cols + c] = 
                    src.m[(c / src.rows) * src.cols + (r / src.cols)] * 
                    rhs.m[(r % rhs.rows) * rhs.cols + (c % rhs.cols)];
         }
       }
     }
-    else{
-      foreach(r; 0 .. temp.rows){
-        foreach(c; 0 .. temp.cols){
+    else
+    {
+      foreach(r; 0 .. temp.rows)
+      {
+        foreach(c; 0 .. temp.cols)
+        {
           temp.m[r * temp.cols + c] = 
                    src.m[(c / src.rows) * src.cols + (r / src.cols)] * 
                    rhs.m[(r % rhs.rows) * rhs.cols + (c % rhs.cols)];
@@ -1424,6 +1541,8 @@ package struct TransposeView{
 
     return temp;
   }
+
+  /// ditto
   Matrix opBinaryRight(string op)(Matrix lhs) const
   if(op == "%")
   {
@@ -1433,18 +1552,24 @@ package struct TransposeView{
     Matrix temp = Matrix(lhs.rows * src.cols, lhs.cols * src.rows);
 
     // Now do the element by element op
-    version(par){
-      foreach(r; parallel(CountRange(temp.rows))){
-        foreach(c; 0 .. temp.cols){
+    version(par)
+    {
+      foreach(r; parallel(CountRange(temp.rows)))
+      {
+        foreach(c; 0 .. temp.cols)
+        {
           temp.m[r * temp.cols + c] = 
                    lhs.m[(r / lhs.rows) * lhs.cols + (c / lhs.cols)] *
                    src.m[(c % src.rows) * src.cols + (r % src.cols)];
         }
       }
     }
-    else{
-      foreach(r; 0 .. temp.rows){
-        foreach(c; 0 .. temp.cols){
+    else
+    {
+      foreach(r; 0 .. temp.rows)
+      {
+        foreach(c; 0 .. temp.cols)
+        {
           temp.m[r * temp.cols + c] = 
                    lhs.m[(r / lhs.rows) * lhs.cols + (c / lhs.cols)] *
                    src.m[(c % src.rows) * src.cols + (r % src.cols)];
@@ -1454,8 +1579,11 @@ package struct TransposeView{
 
     return temp;
   }
-  unittest{
-    mixin(announceTest("opBinary'%'"));
+
+  ///
+  unittest
+  {
+    // opBinary'%'
     
     double[][] m = [[1.0, 3.0],
                     [2.0, 4.0]];
@@ -1508,16 +1636,17 @@ package struct TransposeView{
     else return false;
   }
   
-  /**
-   * Overloaded opEquals with Matrix.
-   */
+  /// ditto
   bool opEquals(Matrix rhs){
 
     // Compare them element by element
-    if(src.cols == rhs.rows && src.rows == rhs.cols){
+    if(src.cols == rhs.rows && src.rows == rhs.cols)
+    {
       // Compare them element by element to be sure the values are the same.
-      foreach(r; 0 .. rhs.rows){
-        foreach(c; 0 .. rhs.cols){
+      foreach(r; 0 .. rhs.rows)
+      {
+        foreach(c; 0 .. rhs.cols)
+        {
           if(src.m[c * src.cols + r] != rhs.m[r * rhs.cols + c]) return false;
         }
       }
@@ -1528,8 +1657,11 @@ package struct TransposeView{
 
     else return false;
   }
-  unittest{
-    mixin(announceTest("opEquals"));
+
+  ///
+  unittest
+  {
+    // opEquals
     
     Matrix M = Matrix.matrixOf(3.14159, 80, 4);
     Matrix N = M;
@@ -1550,8 +1682,10 @@ package struct TransposeView{
   {
     return -src.T;
   }
-  unittest{
-    mixin(announceTest("opUnary!'-'"));
+
+  unittest
+  {
+    // opUnary!'-'
 
     double[][] m = [[1.0, 3.0],
                    [2.0, 4.0]];
@@ -1599,7 +1733,8 @@ struct SVDDecomp
    * The decomposition is performed in this constructor.
    *
    */
-  this(Matrix a){
+  this(Matrix a)
+  {
     this.u = a;      // Copy in via postblit
     m = a.rows;
     n = a.cols;
@@ -1617,11 +1752,13 @@ struct SVDDecomp
    * If passed a Transpose view, just create the new matrix and work with
    * that. 
    */
-  this(TransposeView aT){
+  this(TransposeView aT)
+  {
     this(aT.matrix);
   }
 
-  private void decompose(){
+  private void decompose()
+  {
 
     double[] rv1 = new double[](this.n);
     size_t l;
@@ -1810,8 +1947,9 @@ struct SVDDecomp
       }
     }
   }
-  unittest{
-    mixin(announceTest("SVDDecomp - decompose"));
+  unittest
+  {
+    // SVDDecomp - decompose
     
     double[][] m = [[ 1.0,  2.0,  3.0,  4.0],
                     [ 5.0,  6.0,  7.0,  8.0],
@@ -1853,8 +1991,12 @@ struct SVDDecomp
     }
 
     return this.cond;
-  }unittest{
-    mixin(announceTest("SVDDecomp - condition"));
+  }
+
+  ///
+  unittest
+  {
+    // SVDDecomp - condition
 
     double[][] m = [[ 1.0,  2.0,  3.0,  4.0],
                     [ 5.0,  6.0,  7.0,  8.0],
@@ -1866,16 +2008,14 @@ struct SVDDecomp
 
     SVDDecomp svd = SVDDecomp(M);
 
-    write(svd.condition, "...");
-
     M = Matrix.random(12);
     svd = SVDDecomp(M);
-    write(svd.condition, "...");
   }
 
   @property Matrix U() {return this.u;}
   @property Matrix V() {return this.v;}
-  @property Matrix W(){
+  @property Matrix W()
+  {
     Matrix wmat = Matrix.zeros(this.n);
     foreach(i; 0 .. this.n) wmat[i,i] = this.w[i];
     return wmat;
@@ -1902,17 +2042,16 @@ struct SVDDecomp
 
     return this.v * Ww * this.u.Tv;
   }
-  
 }
 
 /*==============================================================================
  *   Vectors - convenient way of looking at matrices with 1 row or 1 column
  *============================================================================*/
 /**
- * Convenience methods for creating vectors, which are doublely just simple
+ * Convenience methods for creating vectors, which are really just simple
  * matrices.
  */
-alias Matrix Vector;
+alias Vector = Matrix;
 
 /**
  * A column vector. This is a shorthand for defining a column vector.
@@ -1933,8 +2072,9 @@ Vector RVector(in double[] vals){
   foreach(i, v; vals)temp[0,i] = vals[i];
   return temp;
 }
-unittest{
-  mixin(announceTest("Vectors"));
+unittest
+{
+  // Vectors
 
   Vector v = CVector([1.0, 2.0, 3.0, 4.0, 5.0]);
   Vector vt = RVector([1.0, 2.0, 3.0, 4.0, 5.0]);
@@ -1961,7 +2101,8 @@ private struct CountRange{
 
   this(size_t mx){max = mx;}
 
-  this(size_t mx, size_t stepSize){
+  this(size_t mx, size_t stepSize)
+  {
     max = mx; 
     step = stepSize;
   }
@@ -1976,7 +2117,7 @@ private struct CountRange{
 
   @property size_t front(){return i;}
 
-  void popFront(){i += step;};
+  void popFront(){i += step;}
 
   /+
   // According to D Cookbook by Adam Ruppe, Page 267-269, processing parallel
@@ -1995,8 +2136,10 @@ private struct CountRange{
   }
   +/
 }
-unittest{
-  mixin(announceTest("CountRange"));
+
+unittest
+{
+  // CountRange
   size_t k = 0;
   foreach(i; CountRange(4)){
     assert(i == k);

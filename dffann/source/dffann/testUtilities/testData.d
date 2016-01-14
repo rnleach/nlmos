@@ -15,8 +15,8 @@ import std.array;
 import std.conv;
 import std.file;
 import std.math;
-import std.stdio;
 import std.random;
+import std.stdio;
 
 import numeric.random: gasdev;
 
@@ -165,7 +165,7 @@ public double[][] makeNonlinearRegressionData(in size_t numPoints,
   // Make a shift and a scale to apply to random numbers for each input column
   // This is to give each column a different distribution
   double[] inShift = new double[numInputs];
-  double[] inScale = new double[numOutputs];
+  double[] inScale = new double[numInputs];
 
   foreach(i; 0 .. numInputs)
   {
@@ -191,7 +191,7 @@ public double[][] makeNonlinearRegressionData(in size_t numPoints,
       // Add a nonlinear combination of the inputs
       foreach(i; 0 .. numInputs)
       {
-        toRet[p][o] += sqrt(i + 1.0) * toRet[p][i] + toRet[p][i] * log(toRet[p][i]) * cos(toRet[p][i]);
+        toRet[p][o] += sqrt(i + 1.0) * toRet[p][i] + toRet[p][i] * toRet[p][i] * cos(toRet[p][i]);
       }
 
       // Add the noise factor

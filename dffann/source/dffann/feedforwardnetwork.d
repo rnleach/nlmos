@@ -5,8 +5,6 @@
 */
 module dffann.feedforwardnetwork;
 
-public import dffann.dffann;
-
 /**
  * Interface for feed foward networks.
  */
@@ -23,7 +21,7 @@ interface FeedForwardNetwork{
 	 *
 	 * Returns: the network outputs.
 	 */
-	ref const(double[]) eval(in double[] input);
+	ref const(double[]) eval(in double[] inputs);
   
   /**
    * Get the error derivative with respect to the weights via backpropagation.
@@ -68,8 +66,8 @@ interface FeedForwardNetwork{
   
   /**
    * Params:
-	 * newParms = the new parameters, or weights, to use in the network,
-	 *            typically called in a trainer.
+	 * newParams = the new parameters, or weights, to use in the network,
+	 *             typically called in a trainer.
 	 */
 	@property void parameters(const double[] newParams);
 
