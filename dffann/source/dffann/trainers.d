@@ -233,8 +233,8 @@ AbstractTrainer!(nInputs, nTargets)
   /// The maximum number of iterations to attempt.
   public size_t maxIt = 1_000;
 
-  /// Maximum number of time to try.
-  public uint maxTries = 2;
+  /// Maximum number of times to try.
+  public uint maxTries = 1;
 
   /// A stopping criterion for changes in the error function.
   public double minDeltaE = 2.0 * sqrt(double.min_normal) + double.min_normal;
@@ -373,11 +373,11 @@ unittest
   // Since we supplied data with no noise added, it should be a perfect fit,
   // so the error should be zero!
   writefln("Error = %s ", bfgs_t.error);
-  //assert(approxEqual(bfgs_t.error,0.0), format("Error is %s.", bfgs_t.error));
+  assert(approxEqual(bfgs_t.error,0.0), format("Error is %s.", bfgs_t.error));
   // The network should perfectly map the inputs to the targets.
   foreach(dp; d1.simpleRange)
   {
-    //assert(approxEqual(trainedNet.eval(dp.inputs),dp.targets));
+    assert(approxEqual(trainedNet.eval(dp.inputs),dp.targets));
     writefln("Inputs: %5s    Evaluated: %5s   Targets: %5s", dp.inputs, trainedNet.eval(dp.inputs), dp.targets);
   }
 }

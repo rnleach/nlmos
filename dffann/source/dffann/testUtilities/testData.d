@@ -112,7 +112,7 @@ public double[][] makeLinearRegressionData(in size_t numPoints,
     // Inputs
     foreach(i; 0 .. numInputs)
     {
-      toRet[p][i] = gasdev() * inScale[i] + inShift[i];
+      toRet[p][i] = uniform(0.0, 1.0) * inScale[i] + inShift[i];
     }
 
     // Outputs
@@ -169,8 +169,8 @@ public double[][] makeNonlinearRegressionData(in size_t numPoints,
 
   foreach(i; 0 .. numInputs)
   {
-    inShift[i] = gasdev() * 100.0;
-    inScale[i] = uniform(0.2, 10.0);
+    inShift[i] = i * i * (i % 2 == 0 ? 1 : -1); // even numbers have a - shift
+    inScale[i] = 1.0 / (i + 1.0);       // larger shift = narrower distribution
   }
 
   // Build the inputs and outputs
@@ -179,7 +179,7 @@ public double[][] makeNonlinearRegressionData(in size_t numPoints,
     // Inputs
     foreach(i; 0 .. numInputs)
     {
-      toRet[p][i] = gasdev() * inScale[i] + inShift[i];
+      toRet[p][i] = uniform(0.0, 1.0) * inScale[i] + inShift[i];
     }
 
     // Outputs
@@ -191,7 +191,7 @@ public double[][] makeNonlinearRegressionData(in size_t numPoints,
       // Add a nonlinear combination of the inputs
       foreach(i; 0 .. numInputs)
       {
-        toRet[p][o] += sqrt(i + 1.0) * toRet[p][i] + toRet[p][i] * toRet[p][i] * cos(toRet[p][i]);
+        toRet[p][o] += sqrt(i + 1.0) * toRet[p][i] + toRet[p][i] * toRet[p][i];
       }
 
       // Add the noise factor

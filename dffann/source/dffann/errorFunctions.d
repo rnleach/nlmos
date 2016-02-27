@@ -47,7 +47,8 @@ enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
  *               parallelize at a higher level construct.
  *
  */
-class ErrorFunction(EFType errFuncType, DR, bool par=true): Func if(isDataRangeType!DR)
+class ErrorFunction(EFType errFuncType, DR, bool par=true): Func 
+if(isDataRangeType!DR)
 {
 
   /*
