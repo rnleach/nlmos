@@ -29,83 +29,41 @@ version(unittest)
  *                             DataPoint struct
  *----------------------------------------------------------------------------*/
 /**
- * This struct is the most basic form of a data point, and is what
- * most methods in this framework know how to work with.
+ * This struct is the most basic form of a data point.
  * 
  * Authors: Ryan Leach
- * Date: January 21, 2015
+ * Date: February 27, 2016
+ * Version: 2.0
  * See_Also: Data
- * 
- * Params:
- * numInputs  = The number of inputs stored in each DataPoint.
- * numTargets = The number of targets stored in each DataPoint.
+ *
+ * History:
+ *    V1.0 Initial implementation.
+ *    V2.0 No longer a template, instead of holding data, holds a view into a
+ *         Data object via slices.
  *
  */
-public struct DataPoint(size_t numInputs, size_t numTargets)
+public struct DataPoint
 {
 
-  private enum numVals = numInputs + numTargets;
-  
-  private double[numVals] data;
+  public double[] inputs;
+  public double[] targets;
 
   /**
    * Params:
    * inpts = array of input values.
    * trgts = array of target values.
    */
-  this(in double[] inpts, in double[] trgts) pure
+  this(double[] inpts, double[] trgts = [])
   {
-    // Checks - debug builds only.
-    assert(inpts.length == numInputs, "Length mismatch on DataPoint inpts.");
-    assert(trgts.length == numTargets,"Length mismatch on DataPoint trgts.");
-
-    // Since the values are stored in static arrays, must copy them elementwise.
-    data[0 .. numInputs] = inpts[];
-    data[numInputs .. numVals] = trgts[];
+    inputs = inpts;
+    targets = trgts;
   }
 
-  /**
-   * Params:
-   * vals = input and target values in single array with targets at the end of 
-   *        of the array.
-   */
-  this(in double[] vals) pure
+  this(immutable double[] inpts, immutable double[] trgts) immutable
   {
-    // Checks - debug versions only
-    assert(vals.length == numVals, "Length mismatch on DataPoint vals.");
-
-    data[] = vals[];
+    inputs = inpts;
+    targets = trgts;
   }
-
-  /**
-   * Params:
-   * strRep = String representation of a DataPoint as produced by the stringRep
-   *          method below.
-   */
-  this(in string strRep)
-  {
-
-    // Regular expression for splitting the string on commas.
-    auto sepRegEx = ctRegex!r",";
-
-    // Split the string on commas
-    string[] tokens = split(strRep, sepRegEx);
-
-    // Check to make sure we have enough tokens.
-    assert(tokens.length == numVals, "Length mismatch on DataPoint strRep.");
-
-    // Copy in
-    foreach(i; 0 .. numVals) 
-      this.data[i] = to!double(tokens[i]);
-  }
-
-  // TODO add constructor that takes shift and scale already and applies it
-  //      to the given data. Also requires a new normalize method that
-  //      doesn't calculate the normalization parameters.
-  //
-  //  This will be useful for saving off a network and normalizations, then
-  //  loading them all into a program and applying the network to novel data.
-  //
 
   /**
    * Returns: A string representation of the DataPoint.
@@ -114,69 +72,37 @@ public struct DataPoint(size_t numInputs, size_t numTargets)
   {
     string toRet = "";
 
-    foreach(val; this.data) 
+    foreach(val; this.inputs) 
+      toRet ~= format("%.*f,", double.dig, val);
+    foreach(val; this.targets)
       toRet ~= format("%.*f,", double.dig, val);
     
     return toRet[0 .. ($ - 1)]; // -1 to trim final comma
   }
-
-  /**
-   * Returns: A slice of just the inputs.
-   */
-  @property const(double[]) inputs() const {return this.data[0 .. numInputs];}
-
-  /**
-   * Returns: A slice of just the targets.
-   */
-  @property const(double[]) targets() const {return this.data[numInputs .. $];}
 }
 
 version(unittest)
 {
   // Some values to keep around for testing DataPoint objects.
-  double[5] inpts = [1.0, 2.0, 3.0, 4.0, 5.0];
-  double[2] trgts = [6.0, 7.0];
   double[7] vals  = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+  double[] inpts = vals[0 .. 5];
+  double[] trgts = vals[5 .. $];
 }
 ///
 unittest
 {
-  const DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
-  assert(dp.data == vals);
+  const DataPoint dp = DataPoint(inpts, trgts);
+  assert( dp.inputs == vals[0 .. 5] );
 
   // DataPoint objects with no targets are possible too.
-  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
-  assert(dp2.data == inpts);
+  const DataPoint dp2 = DataPoint(vals);
+  assert( dp2.inputs == vals );
 }
 
 ///
 unittest
 {
-  const DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
-  assert(dp.data == vals);
-
-  // DataPoint objects with no targets are possible too.
-  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts);
-  assert(dp2.data == inpts);
-}
-
-///
-unittest
-{
-  const DataPoint!(5,2) dp = DataPoint!(5,2)(inpts, trgts);
-  assert(dp.inputs == inpts);
-  assert(dp.targets == trgts);
-
-  // DataPoint objects with no targets are possible too.
-  const DataPoint!(5,0) dp2 = DataPoint!(5,0)(inpts,[]);
-  assert(dp2.inputs == inpts);
-  assert(dp2.targets == []);
-}
-
-///
-unittest
-{
-  const DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
+  const DataPoint dp = DataPoint(vals);
 
   assert(dp.stringRep == "1.000000000000000,2.000000000000000," ~ 
                          "3.000000000000000,4.000000000000000," ~ 
@@ -184,350 +110,138 @@ unittest
                          "7.000000000000000");
 }
 
-///
-unittest
-{
-  DataPoint!(5,2) dp = DataPoint!(5,2)(vals);
-
-  const DataPoint!(5,2) dp2 = DataPoint!(5,2)(dp.stringRep);
-
-  assert(dp == dp2);
-}
-
-/**
- * Template to test if a type is an instantiation of the parameterized DataPoint
- * class.
- */
-template isDataPointType(T)
-{
-  enum bool isDataPointType = indexOf(T.stringof, "DataPoint!") > -1;
-}
-static assert(!isDataPointType!(immutable(Data!(5,2))));
-static assert(isDataPointType!(immutable(DataPoint!(5,2))));
-static assert(isDataPointType!(DataPoint!(5,2)));
-static assert(isDataPointType!(const(DataPoint!(6,6))));
-
 /*******************************************************************************
  * A collection of DataPoint objects with some other added functionality 
  * related to creating various Ranges and Normalizations.
- *
- * Params:
- * numInputs  = The number of inputs stored in each DataPoint.
- * numTargets = The number of targets stored in each DataPoint.
  * 
  * Authors: Ryan Leach
  * Date: January 21, 2015
  * See_Also: DataPoint
+ * Version: 2.0
+ *
+ * History:
+ *    V1.0 Initial implementation.
+ *    V2.0 No longer a template. Moved normalization out into it's own class.
+ *
  * 
 *******************************************************************************/
-public class Data(size_t numInputs, size_t numTargets)
+public class Data
 {
 
-  alias imData = immutable(Data!(numInputs,numTargets));
-
-  // Compile time constant for convenience.
-  private enum numVals = numInputs + numTargets;
-
-  // Shorthand for my datapoints
-  alias DP = DataPoint!(numInputs, numTargets);
-
-  private DP[] list;
-  private size_t numPoints;
-  private bool[] dataFilter;
-  private double[numVals] shift;
-  private double[numVals] scale;
+  private double[] data_;
+  private const uint numInputs;
+  private const uint numTargets;
+  private const uint numVals;
 
   /**
-   * Factory methods to create immutable versions of data.
-   *
-   * See_Also: this(in double[][] data, in bool[] filter, in bool doNorm = true)
+   * Factory method to create immutable versions of data.
    */
-  public static imData createImmutableData(in double[][] data, 
-                                           in bool[] filter, 
-                                           in bool doNorm = true)
+  public static immutable(Data) createImmutableData(uint nInputs,
+    uint nTgts, in double[][] data)
   {
-    return cast(immutable) new Data!(numInputs,numTargets)(data, filter, doNorm);
+    return cast(immutable) new Data(nInputs, nTgts, data);
   }
 
   /**
-   * This constructor assumes the data is not normalized, and normalizes it
-   * unless otherwise specified.
+   * Basic constructor
    *
    * Params: 
+   * nInputs = The number of values in a point that are inputs. This class 
+   *           assumes the inputs are first, followed by the targets in an
+   *           array.
+   * nTgts   = The number of values in a point that are targets. This class
+   *           assumes those are the last points in an array.
    * data    = A 2-d array with rows representing a data point and columns, e.g. 
    *           1000 rows by 5 columns is 1000 5-dimensional data points. If
    *           there are 3 inputs and 2 targets, then the targets are the last
    *           two values in each point.
-   * filter  = Must be size inputs + targets. True values indicate that the 
-   *           corresponding column is a binary input (this is not checked) and 
-   *           has value 0 or 1. Thus it should not be normalized.
-   * doNorm  = true if you want the data to be normalized.
    *
-   * See_Also: Normalizations
    */
-  public this(in double[][] data, in bool[] filter, in bool doNorm = true)
+  public this(uint nInputs, uint nTgts, in double[][] data)
   {
+    this.numInputs  = nInputs;
+    this.numTargets = nTgts;
+    this.numVals    = nInputs + nTgts;
+
     // Check lengths
     enforce(data.length > 1, 
       "Initialization Error, no points in supplied array.");
     
-    enforce(numVals  == data[0].length,
+    enforce(this.numVals  <= data[0].length,
       "Initialization Error, sizes do not match.");
     
-    enforce(filter.length == data[0].length,
-      "Initialization Error, filters do not match data.");
-  
-    this.numPoints = data.length;
-    this.dataFilter = filter.dup;
-
     // Set up the local data storage and copy values
     //
     // list has scope only in this constructor, so when it exits there is no 
     // other reference to the newly copied data, except the immutable ones!
-    DP[] temp = new DP[](numPoints);
+    this.data_ = new double[](data.length);
     
-    for(size_t i = 0; i < numPoints; ++i)
-      temp[i] = DP(data[i]);
-    
-    // Normalize list in place while calculating shifts and scales
-    double[numVals] shift_tmp;
-    double[numVals] scale_tmp;
-    if(doNorm) normalize(temp, shift_tmp, scale_tmp, filter);
-    else
+    for(size_t i = 0; i < data.length; ++i)
     {
-      shift_tmp[] = 0.0;
-      scale_tmp[] = 1.0;
+      size_t start = i * this.numVals;
+      assert( data[i].length == this.numVals );
+      this.data_[start .. (start + this.numVals)] = data[i][];
     }
-
-    // Cast temp to the immutable data, temp never escapes constructor as 
-    // mutable data.
-    this.list = temp;
-
-    this.shift = shift_tmp;
-    this.scale = scale_tmp;
-  }
-
-  /**
-   * This constructor assumes the data IS already normalized, and does not 
-   * normalize it again. Intended to be used when loading normalizded data from
-   * a file.
-   * 
-   * Params: 
-   * data    = A 2-d array with rows representing a data point and columns,
-   *                e.g. 1000 rows by 5 columns is 1000 5-dimensional data 
-   *                points.
-   * filter  = Must be size inputs + targets. True values indicate that the 
-   *           corresponding column is a binary input (this is not checked) and 
-   *           has value 0 or 1. Thus it should not be normalized. This is used
-   *           for creating Normalizations, so it is still needed.
-   * shift   = The shift used in the normalization.
-   * scale   = The scale used in the normalization.
-   *
-   * See_Also: Normalizations.
-   */
-  private this(const double[][] data, 
-               const bool[] filter,
-               const double[] shift,
-               const double[] scale) pure
-  {
-    
-    // Check lengths
-    enforce(data.length > 1, 
-      "Initialization Error, no points in supplied array.");
-    
-    enforce(filter.length == numVals, 
-      "Initialization Error, filters do not match data.");
-    
-    enforce(shift.length == numVals, 
-      "Initialization Error, shifts do not match data.");
-    
-    enforce(scale.length == numVals, 
-      "Initialization Error, scales do not match data.");
-    
-    // Assign values
-    this.numPoints = data.length;
-    this.dataFilter = filter.dup;
-    this.scale = scale.idup;
-    this.shift = shift.idup;
-    
-    // tmp has scope only in this constructor, so when it exits there
-    // is no other reference to the newly copied data, except the immutable
-    // one!
-    DP[] tmp = new DP[](numPoints);
-    
-    // Copy data by value into tmp arrays
-    foreach(size_t i, const double[] d; data) 
-      tmp[i] = DP(d);
-    this.list = tmp;
-  }
-
-  /**
-   * Normalizes the array dt in place, returning the shift and scale of the
-   * normalization in the so-named arrays. Filters are used to mark binary 
-   * inputs and automatically set their shift to 0 and scale to 1.
-   */
-  private final void normalize(DP[] dt, 
-                         ref double[numVals] shift, 
-                         ref double[numVals] scale,
-                         in bool[] filters) const
-  {
-
-    /*==========================================================================
-      Nested struct to hold results of summing over a batch
-    ==========================================================================*/
-    struct BatchResults {
-      public double[numVals] batchSum;
-      public double[numVals] batchSumSquares;
-
-      public this(const double[numVals] sum, const double[numVals] sumSq)
-      {
-        this.batchSum = sum;
-        this.batchSumSquares = sumSq;
-      }
-    }
-
-    /*==========================================================================
-      Nested function to calculate a batch of stats.
-    ==========================================================================*/
-    BatchResults sumChunk(DP[] chunk, in bool[] filters) pure
-    {
-      double[numVals] sm = 0.0;
-      double[numVals] smSq = 0.0;
-
-      // Calculate the sum and sumsq
-      foreach(d; chunk){
-        for(size_t i = 0; i < numVals; ++i)
-        {
-          if(!filters[i])
-          {
-            sm[i] += d.data[i];
-            smSq[i] += d.data[i] * d.data[i];
-          }
-        }
-      }
-
-      return BatchResults(sm, smSq);
-    }
-
-    /*==========================================================================
-      Now do the summations in parallel.
-    ==========================================================================*/
-    double[numVals] sum = 0.0;
-    double[numVals] sumsq = 0.0;
-
-    // How many threads to use?
-    size_t numThreads = totalCPUs - 1;
-    if(numThreads < 1) numThreads = 1;
-
-    BatchResults[] reses = new BatchResults[numThreads];
-    const size_t chunkSize = dt.length / numThreads;
-    size_t[] starts = new size_t[numThreads];
-    size_t[] ends = new size_t[numThreads];
-    foreach(i; 0 .. numThreads)
-    {
-      if( i == 0)
-      {
-        starts[i] = 0;
-      } 
-      else
-      {
-        starts[i] = ends[i - 1];
-      }
-      ends[i] = starts[i] + chunkSize + (i < (dt.length % numThreads) ? 1 : 0);
-    }
-
-    foreach(i, ref res; parallel(reses))
-    {
-      res = sumChunk(dt[starts[i] .. ends[i]] , filters);
-    }
-
-    // Initialize
-    shift[] = 0.0;
-    scale[] = 1.0;
-    sum[] = 0.0;
-    sumsq[] = 0.0;
-
-    foreach(i, res; reses)
-    {
-      sum[] += res.batchSum[];
-      sumsq[] += res.batchSumSquares[];
-    }
-    
-    // Calculate the mean (shift) and standard deviation (scale)
-    size_t nPoints = dt.length;
-    for(size_t i = 0; i < numVals; ++i)
-    {
-      if(!filters[i])
-      {
-        shift[i] = sum[i] / nPoints;
-        scale[i] = sqrt((sumsq[i] / nPoints - shift[i] * shift[i]) * 
-          nPoints / (nPoints - 1));
-      }
-    }
-    
-    // Now use these to normalize the data
-    foreach(ref d; parallel(dt)){
-      for(size_t j = 0; j < numVals; ++j)
-        d.data[j] = (d.data[j] - shift[j]) / scale[j];
-    }
-    
-    // All done, now return.
   }
 
   /**
    * Get information about the sizes of data associated with this Data object.
    */
-  @property final size_t nPoints() const {return this.numPoints;}
+  @property final size_t nPoints() const 
+  {
+    return this.data_.length / this.numVals;
+  }
 
   /// ditto
-  @property final size_t nInputs() const {return numInputs;}
+  @property final size_t nInputs() const {return this.numInputs;}
   
   /// ditto
-  @property final size_t nTargets() const {return numTargets;}
+  @property final size_t nTargets() const {return this.numTargets;}
+
+
+  /**
+   * Returns: a range that iterates over the points in this collection.
+   */
+  @property final auto simpleRange() const
+  {
+    return DataRange!(typeof(this))(this);
+  }
 
   /**
    * Returns: a range that iterates over the points in this collection in
    *          the same order everytime.
    */
-  @property final DataRange!(numInputs, numTargets) simpleRange() const
+  @property final auto infiniteRange() const
   {
-    return DataRange!(numInputs, numTargets)(this);
+    return InfiniteDataRange!(typeof(this))(this);
   }
 
   /**
-   * Get a batch of data ranges that partition the data.
-   *
-   * Returns: a RandomAccessRange of data ranges.
-   *
-   * See_Also: DataRange
+   * Returns: a range that iterates over the points in this collection at
+   *          random. It is an infinite range.
    */
-  public final auto getBatches(size_t numBatches)
+  @property final auto randomRange() const
   {
-    return BatchRange!(DataRange!(numInputs, numTargets))(simpleRange(), numBatches);
-  }
-
-  /**
-   * Returns: a range that iterates over all of the points in this 
-   *          collection in a different order everytime. Every time the range
-   *          is saved, the order of the points is shuffled again.
-   */
-  @property final RandomDataRange!(numInputs, numTargets) randomRange() const
-  {
-    return RandomDataRange!(numInputs, numTargets)(this);
-  }
-
-  /**
-   *  Returns: a normalization for this data set.
-   */
-  @property final Normalization normalization() const
-  {
-    return Normalization(this.shift, this.scale);
+    return RandomDataRange!(typeof(this))(this);
   }
 
   /**
    * Returns: The DataPoint object at the given position in this collection.
    */
-  public final DP getPoint(size_t index) const {return this.list[index];}
+  public final inout (DataPoint) opIndex(size_t index) inout 
+  {
+    const size_t start = index * numVals;
+    const size_t end = start + numVals;
+    const size_t brk = start + numInputs;
+    return DataPoint(data_[start .. brk], data_[brk .. end]);
+  }
+
+  public final size_t opDollar(size_t pos)() const
+  {
+    return this.data_.length;
+  }
+
+  /+
 
   /**
    * Load data from a file and create a Data object.
@@ -769,18 +483,8 @@ public class Data(size_t numInputs, size_t numTargets)
 
     return true;
   }
+  +/
 }
-
-/**
- * Template to test if a type is an instantiation of the parameterized Data 
- * class.
- */
-template isDataType(T)
-{
-  enum bool isDataType = indexOf(T.stringof, "Data!") > -1;
-}
-static assert(isDataType!(immutable(Data!(5,2))));
-static assert(!isDataType!(immutable(DataPoint!(5,2))));
 
 /*==============================================================================
  *                     Unit tests for data class
@@ -820,6 +524,8 @@ version(unittest)
   // None of these values are binary, so all flags are false
   bool[] flags = [false, false, false, false, false, false, false]; 
 }
+
+/+
 unittest
 {
   // Short-hand for dealing with immutable data
@@ -973,295 +679,189 @@ unittest
   foreach(k; 0 .. d3.nPoints)
     assert(approxEqual(d2.getPoint(k).data[],d3.getPoint(k).data[]));
 }
-
++/
 /*==============================================================================
  *                                   DataRange
  *============================================================================*/
 
 /**
- * Template to test if a type is an instantiation of a DataRange struct. Note
- * that the type name must have "DataRange!" in it to be considered. It must
- * also meet the requirements of a forward range and has slicing.
+ * ForwardRange for iterating over a Data object.
  */
-template isDataRangeType(T)
-{
-  enum bool isDataRangeType = indexOf(T.stringof, "DataRange!") > -1 &&
-                              isForwardRange!T &&
-                              hasLength!T;// && hasSlicing!T;
-
-  /*
-     hasSlicing doesn't work. I've tested every aspect individually and it 
-     passes all of them. I think it has something to do with the init property
-     of the Data!() member.
-  */
-}
-
-/**
- * ForwardRange for iterating a subset of the data in a Data object.
- */
-public struct DataRange(size_t numInputs, size_t numTargets)
+public struct DataRange(DataType)
 {
 
-  alias iData = const(Data!(numInputs, numTargets));
-
-  private size_t _start;
-  private size_t _end;
-  private size_t _next;
-  private iData _data;
+  private size_t start_;
+  private size_t end_;
+  private DataType dataObject_;
 
   /**
    * Params: 
    * d = The Data object you wish to iterate over.
    */
-  this(iData d)
+  this(DataType d)
   {
-    this._start = 0;
-    this._next  = 0;
-    this._end   = d.nPoints;
-    this._data  = d;
+    this.start_ = 0;
+    this.end_ = d.nPoints;
+    this.dataObject_ = d;
   }
   
-  /// Properties/methods to make this a ForwardRange with slicing.
-  @property bool empty(){return _next >= _end;}
+  /// Properties/methods to make this a RandomAccessRange.
+  @property bool empty(){ return start_ >= end_; }
 
   /// ditto
-  @property auto ref front(){return this._data.getPoint(_next);}
+  @property auto ref front(){ return this.dataObject_[start_]; }
 
   /// ditto
-  void popFront(){++_next;}
+  void popFront(){ ++start_; }
+
+  /// ditto
+  @property auto ref back(){ return this.dataObject_[end_ - 1]; }
+
+  /// ditto
+  void popBack(){ --end_; }
 
   /// ditto
   // Since this is a struct, return copies all values! Easy.
   @property auto save(){ return this; }
 
-  /// ditto
-  @property size_t length(){return _end - _start;}
+  auto ref opIndex(size_t index)
+  {
+    return this.dataObject_[start_ + index];
+  }
 
   /// ditto
+  @property size_t length(){return end_ - start_;}
+
+  /// ditto
+  /*
+  Never have been able to get this to work with the hasSlicing! test.
+  */
   typeof(this) opSlice(size_t start, size_t end)
   {
     assert(start <= end, "Range Error, start must be less than end.");
     assert(start >= 0, "No negative indicies allowed!");
+    assert( this.start_ + end < this.end_, "Out of range!" );
 
     // Create a copy
     auto temp = this.save;
 
-    // Update the start position
-    temp._start = _next + start;
-    temp._next  = _next + start;
-    temp._end   = _next + end;
+    // Update the next
+    temp.start_  = start_ + start;
+    temp.end_   = start_ + end;
 
-    assert(temp._start <= this._data.nPoints);
-    assert(temp._end   <= this._data.nPoints);
+    assert(temp.start_ <= this.dataObject_.nPoints);
+    assert(temp.end_   <= this.dataObject_.nPoints);
 
     return temp;
   }
 
   /// ditto
-  @property size_t opDollar(){return _end - _start;}
+  @property size_t opDollar(){ return this.length; }
 }
-static assert(isDataRangeType!(DataRange!(5,2))); 
+static assert( isInputRange!(DataRange!(immutable Data)) );
+static assert( isForwardRange!(DataRange!(immutable Data)) );
+static assert( isBidirectionalRange!(DataRange!(immutable Data)) );
+static assert( isRandomAccessRange!(DataRange!(immutable Data)) );
+static assert( hasLength!(DataRange!(immutable Data)) );
 
 ///
 unittest
 {
-  alias iData = immutable(Data!(5, 2));
+  // Create a data set to test on.
+  auto d = Data.createImmutableData(5, 2, testData);
 
-  iData d = Data!(5,2).createImmutableData(testData, flags);
-
-  auto r = DataRange!(5,2)(d);
-  size_t i = 0;
-  foreach(t; r) assert(t == d.getPoint(i++));
+  // Create a range to test
+  auto r = DataRange(d);
 
   // Check length
   assert(testData.length == r.length);
-  
-  // Check the type of slices
-  static assert(isDataRangeType!(typeof(r[0..$-1])));
-}
 
-///
-unittest
-{
-  alias iData = immutable(Data!(5, 2));
-
-  iData d = Data!(5,2).createImmutableData(testData, flags);
-
-  auto r = d.simpleRange;
+  // Test that the elements line up.
   size_t i = 0;
-  foreach(t; r) assert(t == d.getPoint(i++));
+  foreach(t; r) assert( t == d[i++]);
+  
+  // TODO a lot more tests on this range!
 }
 
 /**
- * ForwardRange for iterating a data set in a random order.
+ * Infinite ForwardRange for iterating a data set in a random order.
  */
-public struct RandomDataRange(size_t numInputs, size_t numTargets)
+public struct RandomDataRange(DataType)
 {
+  private DataType dataObject_;
+  private const size_t nPoints_;
 
-  alias iData = const(Data!(numInputs, numTargets));
-
-  private size_t _start;
-  private size_t _end;
-  private size_t _next;
-  private size_t[] _indexMap;
-  private iData _data;
 
   /**
    * Params: 
    * d = The Data object you wish to iterate over.
    */
-  this(iData d)
+  this(DataType d)
   {
-    _start = 0;
-    _next  = 0;
-    _end   = d.nPoints;
-    _data  = d;
-
-    _indexMap = new size_t[](d.nPoints);
-    foreach(size_t i; 0 .. d.nPoints) _indexMap[i] = i;
-
-    randomShuffle(_indexMap);
-  }
-
-  /**
-   * Postblit for moving the internal mapping.
-   */
-  this(this)
-  {
-    _indexMap = _indexMap.dup;
+    dataObject_ = d;
+    nPoints_ = d.nPoints;
   }
   
   /// Properties/methods to make this a ForwardRange with slicing.
-  @property bool empty(){return _next >= _end;}
+  public enum bool empty = false;
 
   /// ditto
-  @property auto ref front(){return this._data.getPoint(_indexMap[_next]);}
+  @property auto ref front()
+  {
+    return this.dataObject_[uniform(0, nPoints_)];
+  }
 
   /// ditto
-  void popFront(){++_next;}
+  void popFront(){}
 
   /// ditto
   // Since this is a struct, return copies all values! Easy.
-  @property auto save()
-  { 
-    auto temp = this; // vis postblit constructor
-
-    // Every time it is saved, shuffle the order so it is never the same.
-    randomShuffle(temp._indexMap);
-
-    return temp; 
-  }
-
-  /// ditto
-  @property size_t length(){return _end - _start;}
-
-  /// ditto
-  typeof(this) opSlice(size_t start, size_t end)
-  {
-    assert(start <= end, "Range Error, start must be less than end.");
-    assert(start >= 0, "No negative indicies allowed!");
-
-    // Create a copy
-    auto temp = this; // via postblit constructor
-
-    // Update the start position
-    temp._start = _next + start;
-    temp._next  = _next + start;
-    temp._end   = _next + end;
-
-    assert(temp._start <= this._data.nPoints);
-    assert(temp._end   <= this._data.nPoints);
-
-    // It seems wierd to randomize again here, so don't.
-
-    return temp;
-  }
-
-  /// ditto
-  @property size_t opDollar(){return _end - _start;}
+  @property auto save() { return this; }
 }
-static assert(isDataRangeType!(RandomDataRange!(5,2)));
+static assert( isForwardRange!(RandomDataRange!(immutable Data)) );
+static assert( isInfinite!(RandomDataRange!(immutable Data)) );
 
 /**
- * Breaks a range of points into smaller ranges for doing batches of data.
+ * Infinite ForwardRange for iterating a data set over and over in the same 
+ * order.
  */
-public struct BatchRange(DR) if(isDataRangeType!DR)
+public struct InfiniteDataRange(DataType)
 {
-  private size_t _nextBatch;
-  private size_t _lastBatch;
-  private size_t _numBatches;
-  private const size_t[] _starts;
-  private const size_t[] _ends;
-  private DR _allData;
+  private size_t next_;
+  private const size_t end_;
+  private DataType dataObject_;
 
   /**
-   * Construct a RandomAccessRange that returns ranges of DataPoints.
+   * Params: 
+   * d = The Data object you wish to iterate over.
    */
-  this(DR allData, size_t numBatches)
+  this(DataType d)
   {
-    _allData = allData.save;
-    _nextBatch = 0;
-    _lastBatch = _numBatches - 1;
-    _numBatches = numBatches;
-    
-    size_t[] tempStarts = new size_t[numBatches];
-    size_t[] tempEnds = new size_t[numBatches];
-
-    foreach(size_t i; 0 .. numBatches)
-    {
-      if( i == 0) tempStarts[0] = 0;
-      else tempStarts[i] = tempEnds[i - 1];
-
-      size_t batchSize = allData.length / numBatches;
-      if( i < allData.length % numBatches) batchSize++;
-
-      tempEnds[i] = tempStarts[i] + batchSize;
-    }
-
-    _starts = tempStarts;
-    _ends = tempEnds;
+    this.next_ = 0;
+    this.end_ = d.nPoints;
+    this.dataObject_ = d;
   }
-
-  /// Properties/methods to make this a RandomAccessRange.
-  @property bool empty(){return _nextBatch > _lastBatch;}
+  
+  /// Properties/methods to make this a RandomAccessRange with slicing.
+  public enum bool empty = false; 
 
   /// ditto
-  @property auto front()
-  {
-    // Return a slice of the original data
-    return _allData[_starts[_nextBatch] .. _ends[_nextBatch]];
+  @property auto ref front(){ return this.dataObject_[next_]; }
+
+  /// ditto
+  void popFront()
+  { 
+    ++next_;
+    if(next_ >= end_) next_ = 0;
   }
-
-  /// ditto
-  @property auto back()
-  {
-    // Return a slice of the original data
-    return _allData[_starts[_lastBatch] .. _ends[_lastBatch]];
-  }
-
-  /// ditto
-  void popFront(){++_nextBatch;}
-
-  /// ditto
-  void popBack(){--_lastBatch;}
 
   /// ditto
   // Since this is a struct, return copies all values! Easy.
   @property auto save(){ return this; }
-
-  /// ditto
-  auto ref opIndex(size_t idx)
-  {
-    return _allData[_starts[idx] .. _ends[idx]];
-  }
-
-  /// Length property for the range. This was easy, so why not!
-  @property size_t length(){return _lastBatch - _nextBatch + 1;}
 }
-static assert(isRandomAccessRange!(BatchRange!(DataRange!(5,2))));
-static assert(isRandomAccessRange!(BatchRange!(RandomDataRange!(5,2))));
-static assert(hasLength!(BatchRange!(DataRange!(5,2))));
-
+static assert( isForwardRange!(InfiniteDataRange!(immutable Data)) );
+static assert( isInfinite!(InfiniteDataRange!(immutable Data)) );
+/+
 /*==============================================================================
  *                                Normalizations
  *==============================================================================
@@ -1280,6 +880,119 @@ static assert(hasLength!(BatchRange!(DataRange!(5,2))));
  * with non-binary data. This is handled at the constructor level when loading
  * the data with the use of filters to determine if a column is binary.
  */
+   /**
+   * Normalizes the array dt in place, returning the shift and scale of the
+   * normalization in the so-named arrays. Filters are used to mark binary 
+   * inputs and automatically set their shift to 0 and scale to 1.
+   */
+  private final void normalize(DP[] dt, 
+                         ref double[numVals] shift, 
+                         ref double[numVals] scale,
+                         in bool[] filters) const
+  {
+
+    /*==========================================================================
+      Nested struct to hold results of summing over a batch
+    ==========================================================================*/
+    struct BatchResults {
+      public double[numVals] batchSum;
+      public double[numVals] batchSumSquares;
+
+      public this(const double[numVals] sum, const double[numVals] sumSq)
+      {
+        this.batchSum = sum;
+        this.batchSumSquares = sumSq;
+      }
+    }
+
+    /*==========================================================================
+      Nested function to calculate a batch of stats.
+    ==========================================================================*/
+    BatchResults sumChunk(DP[] chunk, in bool[] filters) pure
+    {
+      double[numVals] sm = 0.0;
+      double[numVals] smSq = 0.0;
+
+      // Calculate the sum and sumsq
+      foreach(d; chunk){
+        for(size_t i = 0; i < numVals; ++i)
+        {
+          if(!filters[i])
+          {
+            sm[i] += d.data[i];
+            smSq[i] += d.data[i] * d.data[i];
+          }
+        }
+      }
+
+      return BatchResults(sm, smSq);
+    }
+
+    /*==========================================================================
+      Now do the summations in parallel.
+    ==========================================================================*/
+    double[numVals] sum = 0.0;
+    double[numVals] sumsq = 0.0;
+
+    // How many threads to use?
+    size_t numThreads = totalCPUs - 1;
+    if(numThreads < 1) numThreads = 1;
+
+    BatchResults[] reses = new BatchResults[numThreads];
+    const size_t chunkSize = dt.length / numThreads;
+    size_t[] starts = new size_t[numThreads];
+    size_t[] ends = new size_t[numThreads];
+    foreach(i; 0 .. numThreads)
+    {
+      if( i == 0)
+      {
+        starts[i] = 0;
+      } 
+      else
+      {
+        starts[i] = ends[i - 1];
+      }
+      ends[i] = starts[i] + chunkSize + (i < (dt.length % numThreads) ? 1 : 0);
+    }
+
+    foreach(i, ref res; parallel(reses))
+    {
+      res = sumChunk(dt[starts[i] .. ends[i]] , filters);
+    }
+
+    // Initialize
+    shift[] = 0.0;
+    scale[] = 1.0;
+    sum[] = 0.0;
+    sumsq[] = 0.0;
+
+    foreach(i, res; reses)
+    {
+      sum[] += res.batchSum[];
+      sumsq[] += res.batchSumSquares[];
+    }
+    
+    // Calculate the mean (shift) and standard deviation (scale)
+    size_t nPoints = dt.length;
+    for(size_t i = 0; i < numVals; ++i)
+    {
+      if(!filters[i])
+      {
+        shift[i] = sum[i] / nPoints;
+        scale[i] = sqrt((sumsq[i] / nPoints - shift[i] * shift[i]) * 
+          nPoints / (nPoints - 1));
+      }
+    }
+    
+    // Now use these to normalize the data
+    foreach(ref d; parallel(dt)){
+      for(size_t j = 0; j < numVals; ++j)
+        d.data[j] = (d.data[j] - shift[j]) / scale[j];
+    }
+    
+    // All done, now return.
+  }
+
 struct Normalization
 {
 
@@ -1495,3 +1208,4 @@ unittest
   assert(approxEqual(norm.shift,loadedNorm.shift));
   assert(approxEqual(norm.scale,loadedNorm.scale)); 
 }
++/
