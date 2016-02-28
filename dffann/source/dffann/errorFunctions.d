@@ -244,7 +244,7 @@ if(isDataRangeType!DR)
    */
   public final override @property double[] gradient(){ return grad.dup; }
 }
-
+/+
 version(unittest)
 {
   import dffann.linearnetworks;
@@ -310,7 +310,7 @@ unittest
   assert(ef_S.grad is null, format("%s",ef_S.grad));
   assert(ef_P.grad is null, format("%s",ef_P.grad));
 }
-
++/
 /**
  * An abstract class for Regulizers. It includes methods for manipulating the
  * hyper-parameters so the training process itself can be optimized.
@@ -408,7 +408,7 @@ class WeightDecayRegulizer: Regulizer
     this.nu = hParms[0];
   }
 }
-
+/+
 ///
 unittest
 {
@@ -430,7 +430,7 @@ unittest
   // Test the hyper-parameters
   assert(wdr.hyperParameters == [0.1]);
 }
-
++/
 /**
  * Similar to weight decay Regularization, except when weights are much less
  * than nuRef they are driven to zero, and are thus effectively eliminated.
@@ -494,7 +494,7 @@ class WeightEliminationRegulizer: Regulizer
     this.nuRef = hParms[1];
   }
 }
-
+/+
 ///
 unittest
 {
@@ -555,3 +555,4 @@ unittest
   assert(ef_S.grad is null, format("%s",ef_S.grad));
   assert(ef_P.grad is null, format("%s",ef_P.grad));
 }
++/

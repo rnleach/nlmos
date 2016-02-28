@@ -439,7 +439,7 @@ alias Lin2ClsNet = LinearNetwork!SigmoidAF;
 * on ouput nodes.
 */
 alias LinClsNet = LinearNetwork!SoftmaxAF;
-
+/+
 unittest
 {
 
@@ -588,3 +588,4 @@ unittest{
   assert(approxEqual(slpcn.weights, loaded.weights));
   assert(approxEqual(slpcn.biases, loaded.biases));
 }
++/

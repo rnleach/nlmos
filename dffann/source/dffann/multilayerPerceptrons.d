@@ -655,7 +655,7 @@ alias MLP2ClsNet = MultiLayerPerceptronNetwork!(TanhAF, SigmoidAF);
  * on ouput nodes.
  */
 alias MLPClsNet = MultiLayerPerceptronNetwork!(TanhAF, SoftmaxAF);
-
+/+
 unittest
 {
   // MLP2ClsNet eval(double)
@@ -761,3 +761,4 @@ unittest
   assert(approxEqual(slpcn.W, loaded.W));
   assert(approxEqual(slpcn.B, loaded.B));
 }
++/

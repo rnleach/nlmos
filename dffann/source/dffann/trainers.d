@@ -177,7 +177,7 @@ public class LinearTrainer(size_t nInputs, size_t nTargets): AbstractTrainer!(nI
     this._error = ef.value;
   }
 }
-
+/+
 ///
 unittest
 {
@@ -217,7 +217,7 @@ unittest
     assert(approxEqual(trainedNet.eval(dp.inputs),dp.targets));
   }
 }
-
++/
 /**
  * TODO
  * 
@@ -329,7 +329,7 @@ AbstractTrainer!(nInputs, nTargets)
     _net.parameters = bestParms;
   }
 }
-
+/+
 ///
 unittest
 {
@@ -381,3 +381,4 @@ unittest
     writefln("Inputs: %5s    Evaluated: %5s   Targets: %5s", dp.inputs, trainedNet.eval(dp.inputs), dp.targets);
   }
 }
++/

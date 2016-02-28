@@ -44,10 +44,8 @@ public class TestUtilityException: Exception
  *
  * Returns: An array filled with random values.
  */
-public double[][] makeRandomArray(in size_t numPoints, in bool[] binaryFlags)
+public double[][] makeRandomArray(in size_t numPoints, in uint numVals)
 {
-  // The number of columns
-  immutable size_t numVals = binaryFlags.length;
 
   double[][] toRet = new double[][](numPoints, numVals);
 
@@ -55,14 +53,7 @@ public double[][] makeRandomArray(in size_t numPoints, in bool[] binaryFlags)
   {
     foreach(j; 0 .. numVals)
     {
-      if( binaryFlags[j])
-      {
-        toRet[i][j] = gasdev() > 0.0 ? 1.0 : 0.0;
-      }
-      else
-      {
-        toRet[i][j] = gasdev();
-      }
+      toRet[i][j] = gasdev();
     }
   }
 
@@ -213,10 +204,10 @@ public double[][] makeNonlinearRegressionData(in size_t numPoints,
  *               column will always be zero or 1.
  * fileName    = The name of the file to create.
  */
-public void makeRandomCSVFile(in size_t numPoints, in bool[] binaryFlags, 
+public void makeRandomCSVFile(in size_t numPoints, in uint numVals, 
   in string fileName)
 {
-  double[][] testData = makeRandomArray(numPoints, binaryFlags);
+  double[][] testData = makeRandomArray(numPoints, numVals);
 
   auto f = File(fileName, "w");
 
