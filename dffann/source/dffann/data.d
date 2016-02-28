@@ -45,7 +45,9 @@ version(unittest)
 public struct DataPoint
 {
 
+  /// Inputs and targets view.
   public double[] inputs;
+  /// ditto
   public double[] targets;
 
   /**
@@ -59,6 +61,14 @@ public struct DataPoint
     targets = trgts;
   }
 
+  /// ditto
+  this(const double[] inpts, const double[] trgts) const
+  {
+    inputs = inpts;
+    targets = trgts;
+  }
+
+  /// ditto
   this(immutable double[] inpts, immutable double[] trgts) immutable
   {
     inputs = inpts;
@@ -84,7 +94,7 @@ public struct DataPoint
 version(unittest)
 {
   // Some values to keep around for testing DataPoint objects.
-  double[7] vals  = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+  enum vals  = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
   double[] inpts = vals[0 .. 5];
   double[] trgts = vals[5 .. $];
 }
@@ -143,7 +153,7 @@ public class Data
   }
 
   /**
-   * Basic constructor
+   * Basic constructor.
    *
    * Params: 
    * nInputs = The number of values in a point that are inputs. This class 
@@ -174,7 +184,7 @@ public class Data
     //
     // list has scope only in this constructor, so when it exits there is no 
     // other reference to the newly copied data, except the immutable ones!
-    this.data_ = new double[](data.length);
+    this.data_ = new double[](data.length * numVals);
     
     for(size_t i = 0; i < data.length; ++i)
     {
@@ -228,7 +238,7 @@ public class Data
   /**
    * Returns: The DataPoint object at the given position in this collection.
    */
-  public final inout (DataPoint) opIndex(size_t index) inout 
+  public final auto opIndex(size_t index)
   {
     const size_t start = index * numVals;
     const size_t end = start + numVals;
@@ -236,254 +246,28 @@ public class Data
     return DataPoint(data_[start .. brk], data_[brk .. end]);
   }
 
+  public final auto opIndex(size_t index) const
+  {
+    const size_t start = index * numVals;
+    const size_t end = start + numVals;
+    const size_t brk = start + numInputs;
+    return const DataPoint(data_[start .. brk], data_[brk .. end]);
+  }
+
+  /// ditto
+  public final auto opIndex(size_t index) immutable
+  {
+    const size_t start = index * numVals;
+    const size_t end = start + numVals;
+    const size_t brk = start + numInputs;
+    return immutable DataPoint(data_[start .. brk], data_[brk .. end]);
+  }
+
+  /// Override of $ operator
   public final size_t opDollar(size_t pos)() const
   {
     return this.data_.length;
   }
-
-  /+
-
-  /**
-   * Load data from a file and create a Data object.
-   *
-   * Params:  
-   * filename   = Path to the data to load
-   * filters    = Sometimes inputs/targets are binary, and  you don't want 
-   *              them to be normalized. For each input/target column that 
-   *              is binary the corresponding value in the filters array is true.
-   *              The length of the filters array must be numInputs + numTargets.
-   */
-  public static final Data loadDataFromCSVFile
-                                      (const string filename, bool[] filters)
-  {
-
-    // Compile time value, convenient to keep around.
-    enum numVals = numInputs + numTargets;
-    
-    // Open the file
-    File f = File(filename, "r");
-
-    // Read the file line by line
-    auto app = appender!(double[][])();
-    auto sepRegEx = ctRegex!r",";
-    foreach(char[] line; f.byLine)
-    {
-      
-      // Split the line on commas
-      char[][] tokens = split(line,sepRegEx);
-      
-      // Ensure we have enough tokens to do the job, and that the line is
-      // numeric. This should skip any kind of 'comment' line or column headers
-      // that start with non-numeric strings.
-      if(tokens.length != numVals || !isNumeric(tokens[0])) continue;
-      
-      // Parse the doubles from the strings
-      double[] lineValues = new double[](numVals);
-      for(size_t i = 0; i < numVals; ++i)
-        lineValues[i] = to!double(tokens[i]);
-      
-      // Add them to my array
-      app.put(lineValues);
-    }
-    
-    // Return the new Data instance
-    return new Data(app.data, filters);
-  }
-
-  /** 
-   * Save normalized data in a pre-determined format so that it 
-   * can be loaded quickly without the need to re-calculate the normalization.
-   * 
-   * Params: 
-   * pData    = The data object to save.
-   * filename = The path to save the data.
-   */
-  public static final void saveProcessedData
-             (const Data pData, const string filename)
-  {
-    /*
-     * File format:
-     * NormalizedData
-     * nPoints = val
-     * nInputs = val
-     * nTargets = val
-     * inputFilter = bool,bool,bool,bool,...
-     * inputShift = val,val,val,val,val,...
-     * inputScale = val,val,val,val,val,...
-     * targetFilter = bool,bool,...
-     * targetShift = val,val,...
-     * targetScale = val,val,...
-     * data =
-     * inputVal,inputVal,inputVal,inputVal,.....targetVal,targetVal,...
-     */
-
-    // Open the file
-    File fl = File(filename, "w");
-
-    // Put a header to identify it as NormalizedData
-    fl.writefln("NormalizedData");
-
-    // Save the variables
-    fl.writefln("nPoints = %d",pData.nPoints);
-    fl.writefln("nInputs = %d",pData.nInputs);
-    fl.writefln("nTargets = %d",pData.nTargets);
-
-    // Nested function for mixin - compile time evaluated to write code
-    // Params: vname  - the variable name to use in this code
-    //         format - A format specifier for writing array elements, e.g. "%d"
-    //         prcis - A precision specifier, use blank "" if a string
-    string insertWriteArray(string vname, string format, string precis = "")
-    {
-      return "
-        fl.writef(\"" ~ vname ~ " = \");
-        for(int i = 0; i < pData." ~ vname ~ ".length - 1; ++i)
-          fl.writef(\"" ~ format ~ ",\"" ~ precis ~ ", pData." ~ vname ~ "[i]);
-        fl.writef(\"" ~ format ~ "\n\"" ~ precis ~ ", pData." ~ vname ~ "[$ - 1]);
-      ";
-    }
-
-    // Save the filters and normalizations 
-    mixin(insertWriteArray("dataFilter","%s"));
-    mixin(insertWriteArray("shift","%.*f",",double.dig"));
-    mixin(insertWriteArray("scale","%.*f",",double.dig"));
-
-    // Now write the data points
-    fl.writefln("data = ");
-    foreach(dp; pData.list)
-      fl.writefln(dp.stringRep);
-  }
-
-  /** 
-   * Load data that has been pre-processed and normalized into a
-   * data array quickly.
-   * 
-   * Params: 
-   * filename = The path to the file to load.
-   * 
-   * Returns: An immutable Data object.
-   */
-  public static final Data loadProcessedData(const string filename)
-  {
-
-    // See comments in SaveProcessedData for file and header formats.
-
-    // Open the file, read in the contents
-    string text = readText(filename);
-
-    // Split into lines as header and data sections
-    string[] lines = split(text, regex("\n"));
-    string[] header = lines[0 .. 8];
-    string[] dataLines = lines[8 .. $];
-
-    // clean up the header lines
-    foreach(ref line; header) line = strip(line);
-
-    // Parse some variables out of the header section
-    size_t nmPoints = to!size_t(header[1][10 .. $]);
-    size_t nmInputs = to!size_t(header[2][10 .. $]);
-    size_t nmTargets = to!size_t(header[3][11 .. $]);
-    size_t totalVals = numInputs + numTargets;
-
-    // Check that this file matches the kind of Data object we are loading.
-    enforce(header[0] == "NormalizedData");
-    enforce(nmInputs == numInputs, "File number of inputs does not match.");
-    enforce(nmTargets == numTargets, "File number of targets does not match.");
-
-    // set up some variables, define nested function for mixin to
-    // parse arrays.
-    string[] tokens;
-    // Parms: vname  - e.g. "dataFilter"
-    //        elType - e.g. "bool", "double"
-    //        row    - e.g. "4", row number of header array to parse.
-    string insertParseArray(string vname, string elType, string row)
-    {
-      string startCol = to!string(vname.length + 2);
-
-      return "tokens = split(header["~row~"]["~startCol~" .. $],regex(\",\"));
-        "~vname~" = new "~elType~"[](numVals);
-        for(int i = 0; i < numVals; ++i) 
-          "~vname~"[i] = to!"~elType~"(strip(tokens[i]));";
-    }
-
-    bool[] lDataFilter;
-    mixin(insertParseArray("lDataFilter","bool","4"));
-
-    double[] lShift;
-    mixin(insertParseArray("lShift","double","5"));
-
-    double[] lScale;
-    mixin(insertParseArray("lScale","double","6"));
-
-    // Now parse each row
-    enforce(dataLines.length >= nmPoints,
-      "Malformed data file, not enough input points.");
-
-    double[][] tmp = new double[][](nmPoints,numVals);
-    
-    foreach(i; 0 ..nmPoints)
-    {
-
-      tokens = split(dataLines[i], regex(","));
-
-      enforce(tokens.length >= totalVals,
-        "Malformed data file, not enought points on line.");
-
-      foreach(j; 0 .. numVals)
-        tmp[i][j] = to!double(strip(tokens[j]));
-
-    }
-
-    return new Data(tmp,  lDataFilter,  lShift, lScale);
-  }
-
-  /**
-   * Check if the supplied path is to a data file that has been pre-processed or
-   * not.
-   * 
-   * Params: 
-   * filename = The path to the file to check.
-   * 
-   * Returns: true if the file is laid out as expected for something that has
-   * been saved with SaveProcessedData.
-   * 
-   */
-  public static final bool isProcessedDataFile(const string filename)
-  {
-
-    // See comments in SaveProcessedData for file and header formats.
-
-    // Open the file, read in the contents
-    try{
-
-      string text = readText(filename);
-
-      // Split into lines as header and data sections
-      string[] lines = split(text, regex("\n"));
-      string[] header = lines[0 .. 8];
-      const string[] dataLines = lines[8 .. $];
-
-      // clean up the header lines
-      foreach(ref line; header) line = strip(line);
-
-      // Parse some variables out of the header section
-      const size_t nmPoints = to!size_t(header[1][10 .. $]);
-      const size_t nmInputs = to!size_t(header[2][10 .. $]);
-      const size_t nmTargets = to!size_t(header[3][11 .. $]);
-
-      // Check that this file matches the kind of Data object we are loading.
-      if(header[0] != "NormalizedData") return false;
-      if(nmInputs != numInputs) return false;
-      if(nmTargets != numTargets) return false;
-      if(dataLines.length < nmPoints) return false;
-
-    }
-    catch(Exception e){
-      return false;
-    }
-
-    return true;
-  }
-  +/
 }
 
 /*==============================================================================
@@ -504,182 +288,222 @@ version(unittest)
      [1.7, 2.7, 3.7, 4.7, 5.7, 6.7, 7.7],
      [1.8, 2.8, 3.8, 4.8, 5.8, 6.8, 7.8],
      [1.9, 2.9, 3.9, 4.9, 5.9, 6.9, 7.9]];
-  
-  // Values for all normalized values in each row of the test data.
-  double[] normalizedRowValues = 
-   [-1.486301082920590,
-    -1.156011953382680,
-    -0.825722823844772,
-    -0.495433694306863,
-    -0.165144564768954,
-     0.165144564768954,
-     0.495433694306863,
-     0.825722823844772,
-     1.156011953382680,
-     1.486301082920590];
-
-  double scalePar = 0.302765035409750;
-  double[] shiftPar = [1.45, 2.45, 3.45, 4.45, 5.45, 6.45, 7.45];
-  
-  // None of these values are binary, so all flags are false
-  bool[] flags = [false, false, false, false, false, false, false]; 
 }
 
-/+
 unittest
-{
-  // Short-hand for dealing with immutable data
-  alias iData = immutable(Data!(5,2));
-  
-  iData d = new iData(testData, flags);
+{ 
+  Data d = new Data(5, 2, testData);
   
   // Check the number of points
-  assert(d.numPoints == 10);
+  assert( d.nPoints  == 10 );
+  assert( d.nInputs  ==  5 );
+  assert( d.nTargets ==  2 );
 
-  // Check the shift and scale - to be used later to create Normalizations.
-  foreach(sc; d.scale) 
-    assert(approxEqual(sc, scalePar),format("%f != %f", sc, scalePar));
-
-  foreach(i; 0 .. d.numVals) 
-    assert(approxEqual(shiftPar[i], d.shift[i]));
-
-  // Test normalization of data points
-  for(size_t i = 0; i < d.numPoints; ++i)
+  foreach( i; 0 .. testData.length)
   {
-    for(size_t j = 0; j < d.numVals; ++j) 
-      assert(approxEqual(d.list[i].data[j], normalizedRowValues[i]));
+    assert( d[i] == DataPoint(testData[i][0 .. 5], testData[i][5 .. $]) );
   }
 }
+
 unittest
 {
   // Short-hand for dealing with immutable data
-  alias iData = immutable(Data!(5,2));
+  alias iData = immutable(Data);
   
-  iData d = Data!(5,2).createImmutableData(testData, flags, false);
+  iData d = Data.createImmutableData(5, 2, testData);
   
   // Check the number of points
-  assert(d.numPoints == 10);
-
-  // Check the shift and scale - to be used later to create Normalizations.
-  foreach(sc; d.scale) 
-    assert(sc == 1.0);
-
-  foreach(sh; d.shift) 
-    assert(sh == 0.0);
-
-  // Test normalization of data points
-  for(size_t i = 0; i < d.numPoints; ++i)
-  {
-    for(size_t j = 0; j < d.numVals; ++j) 
-      assert(d.list[i].data[j] == testData[i][j]);
-  }
-}
-unittest
-{
-  // Short-hand for dealing with immutable data
-  alias iData = immutable(Data!(5,2));
-
-  double[][] normTestData = new double[][](10, 7);
-  foreach(i; 0 .. 10){
-      normTestData[i][] = normalizedRowValues[i];
-  }
-  const double[7] scaleArr = scalePar;
-
-  iData d = new iData(normTestData, flags, shiftPar, scaleArr);
-
-  // Check the number of points
-  assert(d.numPoints == 10);
-
-  // Check the shift and scale - to be used later to create Normalizations.
-  foreach(sc; d.scale) 
-    assert(approxEqual(sc, scalePar));
-
-  foreach(i; 0 .. d.numVals) 
-    assert(approxEqual(shiftPar[i], d.shift[i]));
-
-  // Test normalization of data points
-  for(size_t i = 0; i < d.numPoints; ++i)
-  {
-    for(size_t j = 0; j < d.numVals; ++j) 
-      assert(approxEqual(d.list[i].data[j], normalizedRowValues[i]));
-  }
-}
-unittest
-{
-  // Short-hand for dealing with immutable data
-  alias iData = immutable(Data!(5,2));
-  
-  const iData d = Data!(5,2).createImmutableData(testData, flags);
-  
   assert(d.nPoints == 10);
-  assert(d.nInputs == 5);
-  assert(d.nTargets == 2);
-}
-unittest
-{
-  // Short-hand for dealing with immutable data
-  alias iData = immutable(Data!(5,2));
-  alias iDataPoint = immutable(DataPoint!(5,2));
-  
-  iData d = Data!(5,2).createImmutableData(testData, flags);
 
-  foreach(i; 0 .. d.nPoints)
+  foreach( i; 0 .. testData.length)
   {
-    iDataPoint dp = d.getPoint(i);
-    foreach(j; 0 .. dp.data.length)
-      assert(approxEqual(dp.data[j], normalizedRowValues[i]));
+    foreach( j; 0 .. d[i].inputs.length)
+    {
+      assert( d[i].inputs[j] == testData[i][j]);
+    }
   }
 }
+
+/*==============================================================================
+ *                         Helper Functions for Data class.
+ *============================================================================*/
+/**
+ * Load data from a file and create a Data object.
+ *
+ * Params:
+ * nInputs    = number of inputs.
+ * nTgts      = number of targets.
+ * filename   = Path to the data to load.
+ */
+public Data loadDataFromCSVFile (uint nInputs, uint nTgts, const string fname)
+{ 
+  const size_t numVals = nInputs + nTgts;
+
+  // Open the file
+  File f = File(fname, "r");
+  scope(exit){ f.close; }
+
+  // Read the file line by line
+  auto app = appender!(double[][])();
+  auto sepRegEx = ctRegex!r",";
+  foreach(char[] line; f.byLine)
+  {
+    
+    // Split the line on commas
+    char[][] tokens = split(line,sepRegEx);
+    
+    // Ensure we have enough tokens to do the job, and that the line is
+    // numeric. This should skip any kind of 'comment' line or column headers
+    // that start with non-numeric strings.
+    if(tokens.length != numVals || !isNumeric(tokens[0])) continue;
+    
+    // Parse the doubles from the strings
+    double[] lineValues = new double[](numVals);
+    for(size_t i = 0; i < numVals; ++i)
+      lineValues[i] = to!double(tokens[i]);
+    
+    // Add them to my array
+    app.put(lineValues);
+  }
+  
+  // Return the new Data instance
+  return new Data(nInputs, nTgts, app.data);
+}
+///
 unittest
 {
-  alias iData = immutable(Data!(21,1));
-
-  bool[] filters2 = [false,false,false,false,false,false,false,
-                     false,false,false,false,false,false,false,
-                     false,false,false,false,false,false,false,
-                     false];
-
-  makeRandomCSVFile(222, filters2,"TestData.csv");
+  makeRandomCSVFile(100, 22,"TestData.csv");
   scope(exit) std.file.remove("TestData.csv");
 
-  Data!(21,1).loadDataFromCSVFile("TestData.csv", filters2);
+  auto d = loadDataFromCSVFile(21, 1, "TestData.csv");
 
-  // If no exceptions are thrown, this unit test passes for now. More tests
-  // will be done in later unit tests.
+  // Check the number of points
+  assert( d.nPoints  == 100 );
+  assert( d.nInputs  ==  21 );
+  assert( d.nTargets ==   1 );
 }
+/** 
+ * Save data in a pre-determined format so that it  can be loaded quickly. 
+ * 
+ * Params: 
+ * pData    = The data object to save.
+ * filename = The path to save the data.
+ */
+public void saveData(const Data pData, const string filename)
+{
+  /*
+   * File format:
+   * Data
+   * nPoints = val
+   * nInputs = val
+   * nTargets = val
+   * data =
+   * inputVal,inputVal,inputVal,inputVal,.....targetVal,targetVal,...
+   */
+
+  // Open the file
+  File fl = File(filename, "w");
+  scope(exit) { fl.close; }
+
+  // Put a header to identify it as NormalizedData
+  fl.writefln("Data");
+
+  // Save the variables
+  fl.writefln("nPoints = %d",pData.nPoints);
+  fl.writefln("nInputs = %d",pData.nInputs);
+  fl.writefln("nTargets = %d",pData.nTargets);
+
+  // Now write the data points
+  fl.writefln("data = ");
+  foreach(dp; pData.simpleRange)
+    fl.writefln(dp.stringRep);
+}
+
+/** 
+ * Load data that was saved via saveData.
+ * 
+ * Params: 
+ * filename = The path to the file to load.
+ * 
+ * Returns: A Data object.
+ */
+public Data loadData(const string filename)
+{
+
+  // See comments in saveData for file and header formats.
+
+  // Open the file, read in the contents
+  string text = readText(filename);
+
+  // Split into lines as header and data sections
+  string[] lines = split(text, regex("\n"));
+  string[] header = lines[0 .. 5];
+  string[] dataLines = lines[5 .. $];
+
+  // clean up the header lines
+  foreach(ref line; header) line = strip(line);
+
+  // Parse some variables out of the header section
+  const size_t nmPoints = to!size_t(header[1][10 .. $]);
+  const uint nmInputs = to!uint(header[2][10 .. $]);
+  const uint nmTargets = to!uint(header[3][11 .. $]);
+  const size_t numVals = nmInputs + nmTargets;
+
+  // Check that this file matches the kind of Data object we are loading.
+  enforce(header[0] == "Data");
+
+  // set up some variables, define nested function for mixin to
+  // parse arrays.
+  string[] tokens;
+  
+  // Now parse each row
+  enforce(dataLines.length >= nmPoints,
+    "Malformed data file, not enough input points.");
+
+  double[][] tmp = new double[][](nmPoints,numVals);
+  
+  foreach(i; 0 ..nmPoints)
+  {
+
+    tokens = split(dataLines[i], regex(","));
+
+    enforce(tokens.length >= numVals,
+      "Malformed data file, not enought points on line.");
+
+    foreach(j; 0 .. numVals)
+      tmp[i][j] = to!double(strip(tokens[j]));
+
+  }
+
+  return new Data( nmInputs, nmTargets, tmp);
+}
+
 unittest
 {
-  alias Data21 = Data!(21,1);
 
   enum string testFileName = "TestData.csv";
-  enum string testFileNameForNormalizedData = "TestDataNrm.csv";
-
-  // Not a good unittest, it relies on an external file.
-  bool[] filters2 = [false,false,false,false,false,false,false,
-                     false,false,false,false,false,false,false,
-                     false,false,false,false,false,false,false,
-                     false];
-
-  makeRandomCSVFile(222, filters2, testFileName);
+  enum string testSaveName = "TestSaveData.csv"; 
+  
+  makeRandomCSVFile(222, 22, testFileName);
   scope(exit) std.file.remove(testFileName);
-  
-  assert(exists(testFileName));
-  assert(!Data21.isProcessedDataFile(testFileName));
 
-  Data21 d2 = Data21.loadDataFromCSVFile(testFileName, filters2);
+  Data d = loadDataFromCSVFile(21, 1, testFileName);
   
-  Data21.saveProcessedData(d2, testFileNameForNormalizedData);
-  scope(exit) std.file.remove(testFileNameForNormalizedData);
-  assert(Data21.isProcessedDataFile(testFileNameForNormalizedData));
+  saveData(d, testSaveName);
+  scope(exit) std.file.remove(testSaveName);
   
-  auto d3 = Data21.loadProcessedData(testFileNameForNormalizedData);
-  assert(d2.nPoints == d3.nPoints);
-  assert(d2.nInputs == d3.nInputs);
+  auto d2 = loadData(testSaveName);
+
+  assert( d2.nPoints == d.nPoints   );
+  assert( d2.nInputs == d.nInputs   );
+  assert( d2.nTargets == d.nTargets );
   
-  foreach(k; 0 .. d3.nPoints)
-    assert(approxEqual(d2.getPoint(k).data[],d3.getPoint(k).data[]));
+  foreach(k; 0 .. d.nPoints)
+  {
+    assert( approxEqual(d2[k].inputs, d[k].inputs) );
+    assert( approxEqual(d2[k].targets, d[k].targets) );
+  }
 }
-+/
 /*==============================================================================
  *                                   DataRange
  *============================================================================*/
@@ -732,10 +556,9 @@ public struct DataRange(DataType)
   /// ditto
   @property size_t length(){return end_ - start_;}
 
+  /+
+  // Never have been able to get this to work with the hasSlicing! test.
   /// ditto
-  /*
-  Never have been able to get this to work with the hasSlicing! test.
-  */
   typeof(this) opSlice(size_t start, size_t end)
   {
     assert(start <= end, "Range Error, start must be less than end.");
@@ -754,6 +577,7 @@ public struct DataRange(DataType)
 
     return temp;
   }
+  +/
 
   /// ditto
   @property size_t opDollar(){ return this.length; }
@@ -770,17 +594,30 @@ unittest
   // Create a data set to test on.
   auto d = Data.createImmutableData(5, 2, testData);
 
+  alias DR = DataRange!(typeof(d));
+
   // Create a range to test
-  auto r = DataRange(d);
+  auto r = DR(d);
+  auto r2 = r.save;
+  auto r3 = r.save;
 
   // Check length
   assert(testData.length == r.length);
 
   // Test that the elements line up.
   size_t i = 0;
-  foreach(t; r) assert( t == d[i++]);
+  foreach(t; r) assert( t == d[i++] );
   
-  // TODO a lot more tests on this range!
+  i = d.nPoints - 1;
+  while(!r2.empty)
+  {
+    auto t = r2.back;
+    r2.popBack();
+
+    assert( t == d[i] );
+    assert( r2.length == i );
+    i--;
+  }
 }
 
 /**
@@ -820,6 +657,22 @@ public struct RandomDataRange(DataType)
 }
 static assert( isForwardRange!(RandomDataRange!(immutable Data)) );
 static assert( isInfinite!(RandomDataRange!(immutable Data)) );
+
+///
+unittest
+{
+  // Create a data set to test on.
+  auto d = Data.createImmutableData(5, 2, testData);
+
+  alias DR = RandomDataRange!(typeof(d));
+
+  // Create a range to test
+  auto r = DR(d);
+
+  // Test if take works -  if no exceptions, call it good for now. Can make a
+  // better test for this.
+  auto r2 = take(r, d.nPoints * 100);
+}
 
 /**
  * Infinite ForwardRange for iterating a data set over and over in the same 
@@ -861,6 +714,26 @@ public struct InfiniteDataRange(DataType)
 }
 static assert( isForwardRange!(InfiniteDataRange!(immutable Data)) );
 static assert( isInfinite!(InfiniteDataRange!(immutable Data)) );
+///
+unittest
+{
+  // Create a data set to test on.
+  Data d = new Data(5, 2, testData);
+
+  alias DR = InfiniteDataRange!(typeof(d));
+
+  // Create a range to test
+  auto r = DR(d);
+
+  size_t i = 0;
+  foreach(t; take(r, d.nPoints * 100))
+  {
+    size_t idx = i % d.nPoints;
+    assert( t == d[idx] );
+    i++;
+  }
+}
+
 /+
 /*==============================================================================
  *                                Normalizations
@@ -1193,6 +1066,27 @@ Normalization loadNormalization(const string fileName)
   return Normalization(tmpShift, tmpScale);
 }
 
+version(unittest)
+{
+  // Values for all normalized values in each row of the test data.
+  double[] normalizedRowValues = 
+   [-1.486301082920590,
+    -1.156011953382680,
+    -0.825722823844772,
+    -0.495433694306863,
+    -0.165144564768954,
+     0.165144564768954,
+     0.495433694306863,
+     0.825722823844772,
+     1.156011953382680,
+     1.486301082920590];
+
+  double scalePar = 0.302765035409750;
+  double[] shiftPar = [1.45, 2.45, 3.45, 4.45, 5.45, 6.45, 7.45];
+  
+  // None of these values are binary, so all flags are false
+  bool[] flags = [false, false, false, false, false, false, false]; 
+}
 ///
 unittest
 {
