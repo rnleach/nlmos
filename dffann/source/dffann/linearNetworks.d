@@ -439,7 +439,7 @@ alias Lin2ClsNet = LinearNetwork!SigmoidAF;
 * on ouput nodes.
 */
 alias LinClsNet = LinearNetwork!SoftmaxAF;
-/+
+
 unittest
 {
 
@@ -448,25 +448,13 @@ unittest
                          [  1.0,   3.0,   5.0,   7.0,  55.0,  47.0],
                          [  1.0,   1.0,   1.0,   1.0,  15.0,  15.0],
                          [ -1.0,   4.0,   2.0,  -2.0,  10.0,  14.0]];
-
-  // All binary flags are false, because none of the data is binary!
-  bool[] binaryFlags = [false, false, false, false, false, false];
   
   // Number of inputs and outputs
   enum numIn = 4;
   enum numOut = 2;
   
-  // Normalize the data set (NO!, the predetermined weights for this data set 
-  // don't allow it.)
-  enum normalize = false;
-
-  // short hand for dealing with data
-  alias DataType = Data!(numIn, numOut);
-  alias iData = immutable(Data!(numIn, numOut));
-  alias DP = immutable(DataPoint!(numIn, numOut));
-  
   // Make a data set
-  iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
+  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
@@ -511,25 +499,13 @@ unittest{
       [ 1.0, 0.0, 1.0 ],
       [ 1.0, 1.0, 1.0 ]
   ];
-
-  // All binary flags are true, because all of the data is binary!
-  bool[] binaryFlags = [true , true, true];
   
   // Number of inputs and outputs
   enum numIn = 2;
   enum numOut = 1;
   
-  // Normalize the data set (NO!, the predetermined weights for this data set
-  // don't allow it.)
-  enum normalize = false;
-
-  // short hand for dealing with data
-  alias DataType = Data!(numIn, numOut);
-  alias iData = immutable(Data!(numIn, numOut));
-  alias DP = immutable(DataPoint!(numIn, numOut));
-  
   // Make a data set
-  iData d1 = DataType.createImmutableData(andDataArr, binaryFlags, normalize);
+  auto d1 = Data.createImmutableData(numIn, numOut, andDataArr);
 
   // Now, build a network.
   double[] wts = [1000.0, 1000.0, -1500.0];
@@ -542,7 +518,7 @@ unittest{
       format("%s => %s == %s", dp.inputs, slpcn.eval(dp.inputs), dp.targets));
 
   // Make a data set
-  iData d2 = DataType.createImmutableData(orDataArr, binaryFlags, normalize);
+  auto d2 = Data.createImmutableData(numIn, numOut, orDataArr);
 
   // Now, build a network.
   wts = [1000.0, 1000.0, -500.0];
@@ -588,4 +564,3 @@ unittest{
   assert(approxEqual(slpcn.weights, loaded.weights));
   assert(approxEqual(slpcn.biases, loaded.biases));
 }
-+/
