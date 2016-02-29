@@ -216,6 +216,11 @@ public class Data
   {
     return DataRange!(typeof(this))(this);
   }
+  /// ditto
+  @property final auto simpleRange()
+  {
+    return DataRange!(typeof(this))(this);
+  }
 
   /**
    * Returns: a range that iterates over the points in this collection in
@@ -734,15 +739,9 @@ unittest
   }
 }
 
-/+
 /*==============================================================================
  *                                Normalizations
- *==============================================================================
- * Will use a struct for this, but considered using closures. I foresee 
- * situations where this is called a lot, so a closure might be pretty 
- * inefficient considering a struct can be allocated on the stack, whereas a
- * closure would necessarily be allocated on the heap.
- */
+ *============================================================================*/
 
 /**
  * A normalization is used to force data to have certain statistical properties,
@@ -753,131 +752,18 @@ unittest
  * with non-binary data. This is handled at the constructor level when loading
  * the data with the use of filters to determine if a column is binary.
  */
-   /**
-   * Normalizes the array dt in place, returning the shift and scale of the
-   * normalization in the so-named arrays. Filters are used to mark binary 
-   * inputs and automatically set their shift to 0 and scale to 1.
-   */
-  private final void normalize(DP[] dt, 
-                         ref double[numVals] shift, 
-                         ref double[numVals] scale,
-                         in bool[] filters) const
-  {
-
-    /*==========================================================================
-      Nested struct to hold results of summing over a batch
-    ==========================================================================*/
-    struct BatchResults {
-      public double[numVals] batchSum;
-      public double[numVals] batchSumSquares;
-
-      public this(const double[numVals] sum, const double[numVals] sumSq)
-      {
-        this.batchSum = sum;
-        this.batchSumSquares = sumSq;
-      }
-    }
-
-    /*==========================================================================
-      Nested function to calculate a batch of stats.
-    ==========================================================================*/
-    BatchResults sumChunk(DP[] chunk, in bool[] filters) pure
-    {
-      double[numVals] sm = 0.0;
-      double[numVals] smSq = 0.0;
-
-      // Calculate the sum and sumsq
-      foreach(d; chunk){
-        for(size_t i = 0; i < numVals; ++i)
-        {
-          if(!filters[i])
-          {
-            sm[i] += d.data[i];
-            smSq[i] += d.data[i] * d.data[i];
-          }
-        }
-      }
-
-      return BatchResults(sm, smSq);
-    }
-
-    /*==========================================================================
-      Now do the summations in parallel.
-    ==========================================================================*/
-    double[numVals] sum = 0.0;
-    double[numVals] sumsq = 0.0;
-
-    // How many threads to use?
-    size_t numThreads = totalCPUs - 1;
-    if(numThreads < 1) numThreads = 1;
-
-    BatchResults[] reses = new BatchResults[numThreads];
-    const size_t chunkSize = dt.length / numThreads;
-    size_t[] starts = new size_t[numThreads];
-    size_t[] ends = new size_t[numThreads];
-    foreach(i; 0 .. numThreads)
-    {
-      if( i == 0)
-      {
-        starts[i] = 0;
-      } 
-      else
-      {
-        starts[i] = ends[i - 1];
-      }
-      ends[i] = starts[i] + chunkSize + (i < (dt.length % numThreads) ? 1 : 0);
-    }
-
-    foreach(i, ref res; parallel(reses))
-    {
-      res = sumChunk(dt[starts[i] .. ends[i]] , filters);
-    }
-
-    // Initialize
-    shift[] = 0.0;
-    scale[] = 1.0;
-    sum[] = 0.0;
-    sumsq[] = 0.0;
-
-    foreach(i, res; reses)
-    {
-      sum[] += res.batchSum[];
-      sumsq[] += res.batchSumSquares[];
-    }
-    
-    // Calculate the mean (shift) and standard deviation (scale)
-    size_t nPoints = dt.length;
-    for(size_t i = 0; i < numVals; ++i)
-    {
-      if(!filters[i])
-      {
-        shift[i] = sum[i] / nPoints;
-        scale[i] = sqrt((sumsq[i] / nPoints - shift[i] * shift[i]) * 
-          nPoints / (nPoints - 1));
-      }
-    }
-    
-    // Now use these to normalize the data
-    foreach(ref d; parallel(dt)){
-      for(size_t j = 0; j < numVals; ++j)
-        d.data[j] = (d.data[j] - shift[j]) / scale[j];
-    }
-    
-    // All done, now return.
-  }
-
 struct Normalization
 {
 
-  private double[] shift;
-  private double[] scale;
+  public const double[] shift;
+  public const double[] scale;
   
   /**
   * Params: 
   * shift = array of shifts to subtract from each point to be normalized.
   * scale = array of scales to divide each point by.
   */
-  private this(const double[] shift, const double[] scale)
+  public this(const double[] shift, const double[] scale)
   {
     enforce(shift.length == scale.length, 
       "Shift and scale array lengths differ.");
@@ -887,96 +773,226 @@ struct Normalization
   }
 
   /**
-   * Given a normalized input/target set of values, unnormalize them.
+   * Normalizes the Data dt in place.
    */
-  void unnormalize(T)(ref T d) if(T.stringof.find("DataPoint"))
+  public void normalizeInPlace(Data dt)
   {
-    assert(d.data.length <= shift.length && d.data.length <= scale.length);
+    assert( dt.numVals == shift.length );
 
-    d.data[] = d.data[] * scale[0 .. d.data.length] + shift[0 .. d.data.length];
+    const double[] inShift = shift[0 .. dt.nInputs];
+    const double[] inScale = scale[0 .. dt.nInputs];
+    const double[] tgtShift = shift[dt.nInputs .. dt.numVals];
+    const double[] tgtScale = scale[dt.nInputs .. dt.numVals];
+
+    auto rng = dt.simpleRange;
+
+    foreach(dp; rng)
+    {
+      dp.inputs[] = (dp.inputs[] - inShift[]) / inScale[];
+      dp.targets[] = (dp.targets[] - tgtShift[]) / tgtScale[];
+    }
   }
 
   /**
-   * Given a normalized output (from a network) unnormalize the outputs. Assume
-   * these are outputs, so unnormalize against the end of the shift and scale
-   * arrays, since arrays are packed [inputs, targets]. So this if for 
-   * unnormalizing the outputs of a network.
+   *  Un-normalize a single point with nTgtVals number of target values.
    */
-  void unnormalize(double[] d)
+  public void unNormalizeTarget(double[] tgt)
   {
-    d[] = d[] * scale[($ - d.length) .. $] + shift[($ - d.length) .. $];
+    tgt[] = tgt[] * scale[($ - tgt.length) .. $] + shift[($ - tgt.length) .. $];
+  }
+
+}
+
+version(unittest)
+{
+  // Values for all normalized values in each row of the test data.
+  double[] normalizedRowValues = 
+   [-1.486301082920590,
+    -1.156011953382680,
+    -0.825722823844772,
+    -0.495433694306863,
+    -0.165144564768954,
+     0.165144564768954,
+     0.495433694306863,
+     0.825722823844772,
+     1.156011953382680,
+     1.486301082920590];
+
+  enum double[] shiftPar = [1.45, 2.45, 3.45, 4.45, 5.45, 6.45, 7.45];
+  double[] scalePar = new double[](shiftPar.length);
+  double scaleVal = 0.302765035409750;
+}
+///
+unittest
+{
+  Data d = new Data(5, 2, testData);
+  scalePar[] = scaleVal;
+
+  Normalization norm = Normalization(shiftPar, scalePar);
+
+  norm.normalizeInPlace(d);
+
+  size_t i = 0;
+  foreach(dp; d.simpleRange)
+  {
+    foreach(ival; dp.inputs)
+    {
+      assert( approxEqual(ival, normalizedRowValues[i]) );
+    }
+    foreach(ival; dp.targets)
+    {
+      assert( approxEqual(ival, normalizedRowValues[i]) );
+    }
+    i++;
+  }
+
+  foreach(dp; d.simpleRange)
+  {
+    norm.unNormalizeTarget(dp.targets);
+  }
+
+  i = 0;
+  foreach(dp; d.simpleRange)
+  {
+    assert( approxEqual(dp.targets, testData[i][5 .. $]) );
+    i++;
+  }
+}
+
+Normalization calcNormalization(Data dt, bool[] binaryFilter)
+{
+  assert( binaryFilter.length == dt.numVals );
+
+  const size_t numVals = dt.nInputs + dt.nTargets;
+  const size_t nInputs = dt.nInputs;
+  const size_t nTargets = dt.nTargets;
+
+  /*==========================================================================
+    Nested struct to hold results of summing over a batch
+  ==========================================================================*/
+  struct BatchResults {
+    public double[] batchSum;
+    public double[] batchSumSquares;
+
+    public this(double[] sum, double[] sumSq)
+    {
+      this.batchSum = sum;
+      this.batchSumSquares = sumSq;
+    }
+  }
+
+  /*==========================================================================
+    Nested function to calculate a batch of stats.
+  ==========================================================================*/
+  BatchResults sumChunk(DR)(DR chunk)
+  {
+    double[] sm = new double[](numVals);
+    double[] smSq = new double[](numVals);
+    sm[] = 0.0;
+    smSq[] = 0.0;
+
+    // Calculate the sum and sumsq
+    foreach(d; chunk){
+      sm[0 .. nInputs] += d.inputs[];
+      sm[nInputs .. numVals] += d.targets[];
+      smSq[0 .. nInputs] += d.inputs[] * d.inputs[];
+      smSq[nInputs .. numVals] += d.targets[] * d.targets[];
+    }
+
+    return BatchResults(sm, smSq);
+  }
+
+  /*==========================================================================
+    Now do the summations in parallel.
+  ==========================================================================*/
+  double[] sum = new double[](numVals);
+  double[] sumsq = new double[](numVals);
+  double[] shift = new double[](numVals);
+  double[] scale = new double[](numVals);
+
+  // How many threads to use?
+  size_t numThreads = totalCPUs - 1;
+  if(numThreads < 1) numThreads = 1;
+
+  BatchResults[] reses = new BatchResults[numThreads];
+  
+  auto drs = evenChunks(dt.simpleRange, numThreads);
+
+  alias Rng = typeof(drs.front);
+  Rng[] dra = new Rng[](numThreads);
+  foreach(i; 0 .. numThreads)
+  {
+    dra[i] = drs.front;
+    drs.popFront();
+  }
+
+  foreach(i, ref res; parallel(reses))
+  {
+    res = sumChunk(dra[i]);
+  }
+
+  // Initialize
+  shift[] = 0.0;
+  scale[] = 1.0;
+  sum[] = 0.0;
+  sumsq[] = 0.0;
+
+  foreach(res; reses)
+  {
+    sum[] += res.batchSum[];
+    sumsq[] += res.batchSumSquares[];
   }
   
-  /**
-   * Given an unormalized input/output set of values, normalize them.
-   */
-  void normalize(T)(ref T d) if(T.stringof.find("DataPoint")) 
+  // Calculate the mean (shift) and standard deviation (scale)
+  size_t nPoints = dt.nPoints;
+  for(size_t i = 0; i < numVals; ++i)
   {
-    assert(d.data.length <= shift.length && d.data.length <= scale.length);
-
-    d.data[] = 
-            (d.data[] - shift[0 .. d.data.length]) / scale[0 .. d.data.length];
+    shift[i] = sum[i] / nPoints;
+    scale[i] = sqrt((sumsq[i] / nPoints - shift[i] * shift[i]) * 
+      nPoints / (nPoints - 1));
   }
+  
+  // All done, now return.
+  return Normalization(shift, scale);
 }
-
 ///
 unittest
 {
-  Data!(5, 2) d = new Data!(5,2)(testData, flags);
+  // None of these values are binary, so all flags are false
+  bool[] flags = [false, false, false, false, false, false, false]; 
 
-  Normalization norm = Normalization(d.shift, d.scale);
+  Data d = new Data(5, 2, testData);
+  Normalization norm = calcNormalization(d, flags);
 
-  foreach(i; 0 .. d.nPoints)
+  norm.normalizeInPlace(d);
+
+  size_t i = 0;
+  foreach(dp; d.simpleRange)
   {
-    DataPoint!(5,2) tmp = d.getPoint(i);
-    norm.unnormalize(tmp);
-    assert(approxEqual(tmp.data[], testData[i]));
-    norm.normalize(tmp);
-    assert(approxEqual(tmp.data[], d.getPoint(i).data[]));
+    foreach(ival; dp.inputs)
+    {
+      assert( approxEqual(ival, normalizedRowValues[i]) );
+    }
+    foreach(ival; dp.targets)
+    {
+      assert( approxEqual(ival, normalizedRowValues[i]) );
+    }
+    i++;
   }
 
-  // Test unnormalizing targets only
-  foreach(i; 0 .. d.nPoints)
+  foreach(dp; d.simpleRange)
   {
-    double[] tmp = d.getPoint(i).data[($ - 2) .. $];
-    norm.unnormalize(tmp);
-    assert(approxEqual(tmp, testData[i][($ - 2) .. $]),
-      format("\n%s\n%s",tmp,testData[i]));
+    norm.unNormalizeTarget(dp.targets);
   }
 
-  // Test again, but this time with an inputs only data set.
-  Data!(7, 0) d2 = new Data!(7,0)(testData, flags);
-  // Add a few points on the end (that would be for targets, 
-  // but they're not in this data set.)
-  Normalization norm2 = 
-              Normalization(d2.shift[] ~ [1.0, 2.0], d2.scale[] ~ [1.0, 2.0]);
-
-  foreach(i; 0 .. d2.nPoints)
+  i = 0;
+  foreach(dp; d.simpleRange)
   {
-    DataPoint!(7,0) tmp = d2.getPoint(i);
-    norm2.unnormalize(tmp);
-    assert(approxEqual(tmp.data[], testData[i]));
-    norm2.normalize(tmp);
-    assert(approxEqual(tmp.data[], d.getPoint(i).data[]));
+    assert( approxEqual(dp.targets, testData[i][5 .. $]) );
+    i++;
   }
 }
 
-///
-unittest
-{
-  Data!(5, 2) d = new Data!(5,2)(testData, flags);
-
-  Normalization norm = d.normalization;
-
-  foreach(i; 0 .. d.nPoints)
-  {
-    DataPoint!(5,2) tmp = d.getPoint(i);
-    norm.unnormalize(tmp);
-    assert(approxEqual(tmp.data[], testData[i]));
-    norm.normalize(tmp);
-    assert(approxEqual(tmp.data[], d.getPoint(i).data[]));
-  }
-}
 /**
  * Save a normalization to a file so it can be loaded back in later.
  * Useful for associating with a trained network, send the normalizations
@@ -1065,34 +1081,12 @@ Normalization loadNormalization(const string fileName)
 
   return Normalization(tmpShift, tmpScale);
 }
-
-version(unittest)
-{
-  // Values for all normalized values in each row of the test data.
-  double[] normalizedRowValues = 
-   [-1.486301082920590,
-    -1.156011953382680,
-    -0.825722823844772,
-    -0.495433694306863,
-    -0.165144564768954,
-     0.165144564768954,
-     0.495433694306863,
-     0.825722823844772,
-     1.156011953382680,
-     1.486301082920590];
-
-  double scalePar = 0.302765035409750;
-  double[] shiftPar = [1.45, 2.45, 3.45, 4.45, 5.45, 6.45, 7.45];
-  
-  // None of these values are binary, so all flags are false
-  bool[] flags = [false, false, false, false, false, false, false]; 
-}
 ///
 unittest
 {
-  const Data!(5, 2) d = new Data!(5,2)(testData, flags);
+  scalePar[] = scaleVal;
 
-  Normalization norm = d.normalization;
+  Normalization norm = Normalization(shiftPar, scalePar);
 
   saveNormalization(norm, "norm.csv");
   scope(exit) std.file.remove("norm.csv");
@@ -1102,4 +1096,3 @@ unittest
   assert(approxEqual(norm.shift,loadedNorm.shift));
   assert(approxEqual(norm.scale,loadedNorm.scale)); 
 }
-+/
