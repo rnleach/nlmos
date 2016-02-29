@@ -655,7 +655,7 @@ alias MLP2ClsNet = MultiLayerPerceptronNetwork!(TanhAF, SigmoidAF);
  * on ouput nodes.
  */
 alias MLPClsNet = MultiLayerPerceptronNetwork!(TanhAF, SoftmaxAF);
-/+
+
 unittest
 {
   // MLP2ClsNet eval(double)
@@ -665,26 +665,14 @@ unittest
                          [ 0.0, 1.0, 1.0],
                          [ 1.0, 0.0, 1.0],
                          [ 0.0, 0.0, 0.0]];
-
-  // All binary flags are true, because all of the data is binary!
-  bool[] binaryFlags = [true, true, true];
   
   // Number of inputs and outputs
   enum uint numIn = 2;
   enum uint numOut = 1;
   enum uint[] numNodes = [numIn, 2, numOut];
   
-  // Normalize the data set (NO!, the predetermined weights for this data set
-  // don't allow it.)
-  enum normalize = false;
-
-  // short hand for dealing with data
-  alias DataType = Data!(numIn, numOut);
-  alias iData = immutable(Data!(numIn, numOut));
-  alias DP =immutable(DataPoint!(numIn, numOut));
-  
   // Make a data set
-  iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
+  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
 
 
   // Now, build a network.
@@ -761,4 +749,3 @@ unittest
   assert(approxEqual(slpcn.W, loaded.W));
   assert(approxEqual(slpcn.B, loaded.B));
 }
-+/
