@@ -223,7 +223,8 @@ unittest
  * TODO - consider adding contract checks to ensure error function types and
  *        output activation functions are properly matched.
  */
-public class BFGSTrainer(EFType erf): AbstractTrainer
+public class BFGSTrainer(EFType erf, bool parStrategy=false, 
+  bool useMinibatches=false): AbstractTrainer
 {
 
   // Parameters for tuning the optimization
@@ -232,10 +233,16 @@ public class BFGSTrainer(EFType erf): AbstractTrainer
   public size_t maxIt = 1_000;
 
   /// Maximum number of times to try.
-  public uint maxTries = 2;
+  public uint maxTries = 1;
 
   /// A stopping criterion for changes in the error function.
   public double minDeltaE = 2.0 * sqrt(double.min_normal) + double.min_normal;
+
+  static if(useMinibatches)
+  {
+    /// A batch size to use when evaluating the error function with mini-batches.
+    public uint batchSize = 10;
+  }
 
   /**
    * A regulizer to use while training. May be null, defaults to null.
@@ -264,7 +271,9 @@ public class BFGSTrainer(EFType erf): AbstractTrainer
   {
 
     // Make an error function
-    auto ef = new ErrorFunction!(erf)(_net, _tData, regulizer);
+    alias ErrFunType = ErrorFunction!(erf, parStrategy, useMinibatches);
+    auto ef = new ErrFunType(_net, _tData, regulizer);
+    static if(useMinibatches) ef.batchSize = batchSize;
 
     // Try several times
     double[] bestParms = _net.parameters.dup;
@@ -359,6 +368,27 @@ unittest
   // so the error should be zero!
   writefln("Error = %s ", bfgs_t.error);
   assert(approxEqual(bfgs_t.error,0.0), format("Error is %s.", bfgs_t.error));
+  // The network should perfectly map the inputs to the targets.
+  foreach(dp; d1.simpleRange)
+  {
+    assert(approxEqual(trainedNet.eval(dp.inputs),dp.targets));
+    writefln("Inputs: %5s    Evaluated: %5s   Targets: %5s", dp.inputs, trainedNet.eval(dp.inputs), dp.targets);
+  }
+
+  auto bfgs_t2 = new BFGSTrainer!(EFType.CrossEntropy2C, false, true)(net, d1);
+  bfgs_t2.minDeltaE = 1.0e-20;
+  bfgs_t2.maxIt = 1_000_000;
+  bfgs_t2.maxTries = 5;
+  bfgs_t2.batchSize = 3;
+
+  // Train the network and retrieve the newly trained network.
+  bfgs_t2.train;
+  trainedNet = bfgs_t2.net;
+
+  // Since we supplied data with no noise added, it should be a perfect fit,
+  // so the error should be zero!
+  writefln("Error = %s ", bfgs_t2.error);
+  assert(approxEqual(bfgs_t2.error,0.0), format("Error is %s.", bfgs_t2.error));
   // The network should perfectly map the inputs to the targets.
   foreach(dp; d1.simpleRange)
   {
