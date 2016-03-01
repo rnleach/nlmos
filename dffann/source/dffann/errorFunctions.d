@@ -11,11 +11,18 @@ module dffann.errorfunctions;
 
 import std.array;
 import std.math;
+import std.range;
 
 import numeric.func;
 
 import dffann.data;
 import dffann.feedforwardnetwork;
+
+version(unitttest)
+{
+  import std.stdio;
+  import std.string;
+}
 
 /**
  * Different types of error functions are used to parameterize the error 
@@ -47,19 +54,14 @@ enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
  *               parallelize at a higher level construct.
  *
  */
-class ErrorFunction(EFType errFuncType, DR, bool par=true): Func 
-if(isDataRangeType!DR)
+class ErrorFunction(EFType errFuncType, bool par=true): Func 
 {
-
-  /*
-   * Keep data immutable as it may be shared across threads.
-   */
-  alias iDataPoint = typeof(DR.front);
+  alias iData = immutable(Data);
 
   private FeedForwardNetwork net;
   private Regulizer reg;
   private immutable size_t numParms;
-  private DR data;
+  private iData data;
   private double error = double.max;
   private double[] grad = null;
 
@@ -70,11 +72,11 @@ if(isDataRangeType!DR)
    * reg   = The Regulizer to apply to the network. This can be null if no
    *         regularization is desired.
    */
-  public this(FeedForwardNetwork inNet, DR data, Regulizer reg = null)
+  public this(FeedForwardNetwork inNet, iData data, Regulizer reg = null)
   {
     this.net = inNet.dup;
     this.reg = reg;
-    this.data = data.save;
+    this.data = data;
 
     this.numParms = net.parameters.length;
   }
@@ -127,7 +129,7 @@ if(isDataRangeType!DR)
     /*==========================================================================
       Nested function to calculate the error over a range.
     ==========================================================================*/
-    results doErrorChunk(DR dr, FeedForwardNetwork nt)
+    results doErrorChunk(DR)(DR dr, FeedForwardNetwork nt)
     {
       // Set up return variables
       size_t d_count = 0;
@@ -194,11 +196,15 @@ if(isDataRangeType!DR)
       if(numThreads < 1) numThreads = 1;
 
       results[] reses = new results[numThreads];
-      auto ranges = BatchRange!DR(data, numThreads);
+
+      auto drs = evenChunks(data.simpleRange, numThreads);
+
+      alias Rng = typeof(drs.front);
+      Rng[] dra = array(drs);
 
       foreach(i, ref res; parallel(reses))
       {
-        res = doErrorChunk(ranges[i], net.dup);
+        res = doErrorChunk(dra[i], net.dup);
       }
 
       foreach(i, res; reses)
@@ -211,7 +217,7 @@ if(isDataRangeType!DR)
     
     else // Serial Code
     {
-      results res = doErrorChunk(data, net);
+      results res = doErrorChunk(data.simpleRange, net);
 
       count = res.r_count;
       error = res.r_error;
@@ -244,7 +250,7 @@ if(isDataRangeType!DR)
    */
   public final override @property double[] gradient(){ return grad.dup; }
 }
-/+
+
 version(unittest)
 {
   import dffann.linearnetworks;
@@ -256,20 +262,9 @@ version(unittest)
                          [  1.0,   1.0,   1.0,   1.0,  15.0,  15.0],
                          [ -1.0,   4.0,   2.0,  -2.0,  10.0,  14.0]];
 
-  // All binary flags are false, because none of the data is binary!
-  bool[] binaryFlags = [false, false, false, false, false, false];
-
   // Number of inputs and outputs
   enum numIn = 4;
   enum numOut = 2;
-  
-  // Normalize the data set (NO!, the predetermined weights for this data set 
-  // don't allow it.)
-  enum normalize = false; 
-
-  // short hand for dealing with data
-  alias iData = immutable(Data!(numIn, numOut));
-  alias DataType = Data!(numIn, numOut);
 
 }
 
@@ -279,19 +274,18 @@ unittest
   // ChiSquareEF
 
   // Make a data set
-  const iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
-  alias DRType = typeof(d1.simpleRange);
+  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, DRType, false);
-  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare, DRType);
+  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, false);
+  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare);
 
-  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1.simpleRange);
-  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1.simpleRange);
+  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1);
+  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1);
 
   // Test without regularization - evaluate the gradient
   ef_S.evaluate(slprn.parameters);
@@ -310,7 +304,7 @@ unittest
   assert(ef_S.grad is null, format("%s",ef_S.grad));
   assert(ef_P.grad is null, format("%s",ef_P.grad));
 }
-+/
+
 /**
  * An abstract class for Regulizers. It includes methods for manipulating the
  * hyper-parameters so the training process itself can be optimized.
@@ -408,7 +402,7 @@ class WeightDecayRegulizer: Regulizer
     this.nu = hParms[0];
   }
 }
-/+
+
 ///
 unittest
 {
@@ -430,7 +424,7 @@ unittest
   // Test the hyper-parameters
   assert(wdr.hyperParameters == [0.1]);
 }
-+/
+
 /**
  * Similar to weight decay Regularization, except when weights are much less
  * than nuRef they are driven to zero, and are thus effectively eliminated.
@@ -494,7 +488,7 @@ class WeightEliminationRegulizer: Regulizer
     this.nuRef = hParms[1];
   }
 }
-/+
+
 ///
 unittest
 {
@@ -525,20 +519,19 @@ unittest
   // ErrorFunction with Regulizer
 
   // Make a data set
-  const iData d1 = DataType.createImmutableData(fakeData, binaryFlags, normalize);
-  alias DRType = typeof(d1.simpleRange);
+  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, DRType, false);
-  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare, DRType);
+  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, false);
+  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare);
 
   auto wdr = new WeightDecayRegulizer(0.01);
-  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1.simpleRange, wdr);
-  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1.simpleRange, wdr);
+  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1, wdr);
+  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1, wdr);
 
   ef_S.evaluate(slprn.parameters);
   ef_P.evaluate(slprn.parameters);
@@ -555,4 +548,3 @@ unittest
   assert(ef_S.grad is null, format("%s",ef_S.grad));
   assert(ef_P.grad is null, format("%s",ef_P.grad));
 }
-+/
