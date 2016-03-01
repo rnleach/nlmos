@@ -47,14 +47,15 @@ enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
  * minimization tools in the numeric package during training.
  *
  * Params:
- * errFuncType = The specific error function to calculate.
- * DR          = An instantiation of a DataRange template as a type.
- * par         = true if you want to use the parallel (concurrent) code in the
- *               evaluate method. You may want to use false if you plan to 
- *               parallelize at a higher level construct.
+ * eft        = The specific error function to calculate.
+ * par        = true if you want to use the parallel (concurrent) code in the 
+ *              evaluate method. You may want to use false if you plan to 
+ *              parallelize at a higher level construct.
+ * useBatches = true if you want to use mini-batches, or a subset of the data
+ *              for each iteration.
  *
  */
-class ErrorFunction(EFType errFuncType, bool par=true): Func 
+class ErrorFunction(EFType eft, bool par=true, bool useBatches=false): Func 
 {
   alias iData = immutable(Data);
 
@@ -64,6 +65,18 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
   private iData data;
   private double error = double.max;
   private double[] grad = null;
+
+  
+  static if(useBatches)
+  {
+    /**
+     * Set and use the batch size when useBatches = true
+     */
+    public uint batchSize = 10;
+
+    private typeof(data.infiniteRange) infRange;
+  }
+
 
   /**
    * Params:
@@ -79,6 +92,8 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
     this.data = data;
 
     this.numParms = net.parameters.length;
+
+    static if(useBatches) this.infRange = data.infiniteRange;
   }
 
   /**
@@ -147,7 +162,7 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
         const(double[]) y = nt.eval(dp.inputs);
 
         // Calculate the error for the given point.
-        static if(errFuncType == EFType.ChiSquare)
+        static if(eft == EFType.ChiSquare)
         {
           double err = 0.0;
           foreach(i; 0 .. y.length)
@@ -158,13 +173,13 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
           d_error += 0.5 * err;
         }
 
-        else static if(errFuncType == EFType.CrossEntropy2C)
+        else static if(eft == EFType.CrossEntropy2C)
         {
           d_error -= dp.targets[0] * log(y[0]) + 
                                         (1.0 - dp.targets[0]) * log(1.0 - y[0]);
         }
 
-        else static if(errFuncType == EFType.CrossEntropy)
+        else static if(eft == EFType.CrossEntropy)
         {
           foreach(i; 0 .. y.length)
             d_error -= dp.targets[i] * log(y[i]);
@@ -197,7 +212,16 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
 
       results[] reses = new results[numThreads];
 
-      auto drs = evenChunks(data.simpleRange, numThreads);
+      static if(!useBatches)
+      {
+        auto myRange = this.data.simpleRange;
+      }
+      else
+      {
+        auto myRange = take(infRange, batchSize);
+      }
+
+      auto drs = evenChunks(myRange, numThreads);
 
       alias Rng = typeof(drs.front);
       Rng[] dra = array(drs);
@@ -217,7 +241,16 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
     
     else // Serial Code
     {
-      results res = doErrorChunk(data.simpleRange, net);
+      static if(!useBatches)
+      {
+        auto myRange = this.data.simpleRange;
+      }
+      else
+      {
+        auto myRange = take(infRange, batchSize);
+      }
+
+      results res = doErrorChunk(myRange, net);
 
       count = res.r_count;
       error = res.r_error;
@@ -281,28 +314,50 @@ unittest
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, false);
-  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare);
+  alias ChiSquareEF_P  = ErrorFunction!(EFType.ChiSquare);
+  alias ChiSquareEF_PC = ErrorFunction!(EFType.ChiSquare, true, true);
+  alias ChiSquareEF_S  = ErrorFunction!(EFType.ChiSquare, false);
+  alias ChiSquareEF_SC = ErrorFunction!(EFType.ChiSquare, false, true);
 
-  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1);
-  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1);
+  ChiSquareEF_S ef_S  = new ChiSquareEF_S(slprn, d1);
+  ChiSquareEF_P ef_P  = new ChiSquareEF_P(slprn, d1);
+  ChiSquareEF_SC ef_SC = new ChiSquareEF_SC(slprn, d1);
+  ChiSquareEF_PC ef_PC = new ChiSquareEF_PC(slprn, d1);
+  ef_SC.batchSize = ef_PC.batchSize = 2;
 
   // Test without regularization - evaluate the gradient
   ef_S.evaluate(slprn.parameters);
   ef_P.evaluate(slprn.parameters);
+  ef_SC.evaluate(slprn.parameters);
+  ef_PC.evaluate(slprn.parameters);
 
   assert(approxEqual(ef_S.value, ef_P.value));
   assert(approxEqual(ef_S.grad, ef_P.grad));
+  assert(approxEqual(ef_SC.value, ef_PC.value));
+  assert(approxEqual(ef_SC.grad, ef_PC.grad));
+  assert(approxEqual(ef_SC.value, ef_P.value));
+  assert(approxEqual(ef_SC.grad, ef_P.grad));
+  assert(approxEqual(ef_S.value, ef_PC.value));
+  assert(approxEqual(ef_S.grad, ef_PC.grad));
   assert(ef_S.grad !is null);
   assert(ef_P.grad !is null);
+  assert(ef_SC.grad !is null);
+  assert(ef_PC.grad !is null);
 
   // Test without regularization - do not evaluate the gradient
   ef_S.evaluate(slprn.parameters, false);
   ef_P.evaluate(slprn.parameters, false);
+  ef_SC.evaluate(slprn.parameters, false);
+  ef_PC.evaluate(slprn.parameters, false);
 
   assert(approxEqual(ef_S.value, ef_P.value));
+  assert(approxEqual(ef_SC.value, ef_PC.value));
+  assert(approxEqual(ef_S.value, ef_PC.value));
+  assert(approxEqual(ef_SC.value, ef_P.value));
   assert(ef_S.grad is null, format("%s",ef_S.grad));
   assert(ef_P.grad is null, format("%s",ef_P.grad));
+  assert(ef_SC.grad is null, format("%s",ef_SC.grad));
+  assert(ef_PC.grad is null, format("%s",ef_PC.grad));
 }
 
 /**
