@@ -54,9 +54,9 @@ public interface Trainer
 /**
  * Common functionality for Linear and BFGS trainers. Others may be added later.
  */
-private abstract class AbstractTrainer(size_t nInputs, size_t nTargets): Trainer
+private abstract class AbstractTrainer: Trainer
 {
-  alias iData = immutable(Data!(nInputs,nTargets));
+  alias iData = immutable(Data);
 
   protected double _error = double.max;
   protected FeedForwardNetwork _net = null;
@@ -70,6 +70,9 @@ private abstract class AbstractTrainer(size_t nInputs, size_t nTargets): Trainer
    */
   public this(FeedForwardNetwork inNet, iData trainingData)
   {
+    assert( inNet.numInputs  == trainingData.nInputs  );
+    assert( inNet.numOutputs == trainingData.nTargets );
+
     this._net = inNet.dup;
     this._tData = trainingData;
   }
@@ -96,7 +99,7 @@ private abstract class AbstractTrainer(size_t nInputs, size_t nTargets): Trainer
 /**
  * Only trains linear networks.
  */
-public class LinearTrainer(size_t nInputs, size_t nTargets): AbstractTrainer!(nInputs, nTargets)
+public class LinearTrainer: AbstractTrainer
 {
   
   /**
@@ -172,12 +175,12 @@ public class LinearTrainer(size_t nInputs, size_t nTargets): AbstractTrainer!(nI
     _net.parameters = p;
 
     // Calculate the error.
-    auto ef = new ErrorFunction!(EFType.ChiSquare, typeof(_tData.simpleRange))(_net, _tData.simpleRange);
+    auto ef = new ErrorFunction!(EFType.ChiSquare)(_net, _tData);
     ef.evaluate(p, false);
     this._error = ef.value;
   }
 }
-/+
+
 ///
 unittest
 {
@@ -187,9 +190,7 @@ unittest
   enum numOut = 2;
 
   // short hand for dealing with data
-  alias DataType = Data!(numIn, numOut);
-  alias iData = immutable(DataType);
-  alias DP = immutable(DataPoint!(numIn, numOut));
+  alias iData = immutable(Data);
 
   // Generate some raw test data and binary flags to match it.
   double[][] testData = makeLinearRegressionData(numPoints, numIn, numOut, 0.0);
@@ -197,12 +198,10 @@ unittest
   foreach(i; 1 .. (numIn + numOut)){ binFlags ~= false; }
   
   // Make a data set
-  iData d1 = DataType.createImmutableData(testData, binFlags);
-
+  iData d1 = Data.createImmutableData(numIn, numOut, testData);
 
   // Make a trainer, and supply it with a network to train.
-  LinearTrainer!(numIn, numOut) lt = 
-            new LinearTrainer!(numIn, numOut)(new LinRegNet(numIn,numOut), d1);
+  LinearTrainer lt = new LinearTrainer(new LinRegNet(numIn,numOut), d1);
 
   // Train the network and retrieve the newly trained network.
   lt.train;
@@ -217,15 +216,14 @@ unittest
     assert(approxEqual(trainedNet.eval(dp.inputs),dp.targets));
   }
 }
-+/
+
 /**
  * TODO
  * 
  * TODO - consider adding contract checks to ensure error function types and
  *        output activation functions are properly matched.
  */
-public class BFGSTrainer(size_t nInputs, size_t nTargets, EFType erf, bool randomOrder = false): 
-AbstractTrainer!(nInputs, nTargets)
+public class BFGSTrainer(EFType erf): AbstractTrainer
 {
 
   // Parameters for tuning the optimization
@@ -234,13 +232,13 @@ AbstractTrainer!(nInputs, nTargets)
   public size_t maxIt = 1_000;
 
   /// Maximum number of times to try.
-  public uint maxTries = 1;
+  public uint maxTries = 2;
 
   /// A stopping criterion for changes in the error function.
   public double minDeltaE = 2.0 * sqrt(double.min_normal) + double.min_normal;
 
   /**
-   * A regulizer to use while training. May be null, defualts to null.
+   * A regulizer to use while training. May be null, defaults to null.
    *
    * See_Also: dffan.errorfunctions.Regulizer
    */
@@ -265,17 +263,8 @@ AbstractTrainer!(nInputs, nTargets)
   override public void train()
   {
 
-    static if(randomOrder)
-    {
-      auto dataRange = _tData.randomRange;
-    }
-    else
-    {
-      auto dataRange = _tData.simpleRange;
-    }
-
     // Make an error function
-    auto ef = new ErrorFunction!(erf, typeof(dataRange))(_net, dataRange, regulizer);
+    auto ef = new ErrorFunction!(erf)(_net, _tData, regulizer);
 
     // Try several times
     double[] bestParms = _net.parameters.dup;
@@ -329,7 +318,7 @@ AbstractTrainer!(nInputs, nTargets)
     _net.parameters = bestParms;
   }
 }
-/+
+
 ///
 unittest
 {
@@ -339,9 +328,7 @@ unittest
   const uint[] numNodes = [numIn, 2, numOut];
 
   // short hand for dealing with data
-  alias DataType = Data!(numIn, numOut);
-  alias iData = immutable(DataType);
-  alias DP = immutable(DataPoint!(numIn, numOut));
+  alias iData = immutable(Data);
 
   // Generate some raw test data and binary flags to match it.
   double[][] testData = [[0.0, 0.0, 0.0],
@@ -352,16 +339,14 @@ unittest
   foreach(i; 1 .. (numIn + numOut)){ binFlags ~= true; }
   
   // Make a data set
-  iData d1 = DataType.createImmutableData(testData, binFlags);
-
+  iData d1 = Data.createImmutableData(numIn, numOut, testData);
 
   // Make a trainer, and supply it with a network to train.
   auto net = new MLP2ClsNet(numNodes);
   net.parameters = [ 50.0, -50.0, -25, 
                     -50.0,  50.0, -25, 
                      50.0,  50.0, 25];
-  auto bfgs_t = 
-            new BFGSTrainer!(numIn, numOut, EFType.CrossEntropy2C)(net, d1);
+  auto bfgs_t = new BFGSTrainer!(EFType.CrossEntropy2C)(net, d1);
   bfgs_t.minDeltaE = 1.0e-20;
   bfgs_t.maxIt = 1_000_000;
   bfgs_t.maxTries = 5;
@@ -381,4 +366,3 @@ unittest
     writefln("Inputs: %5s    Evaluated: %5s   Targets: %5s", dp.inputs, trainedNet.eval(dp.inputs), dp.targets);
   }
 }
-+/
