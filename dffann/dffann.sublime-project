@@ -25,7 +25,14 @@
       "cmd":["dub","test",
              "--config=lib-release",
              "--compiler=dmd",
+             "--arch=x86_64"],
+      "osx":
+        {
+          "cmd": ["dub","test",
+             "--config=lib-release",
+             "--compiler=/usr/local/bin/dmd",
              "--arch=x86_64"]
+        }
     }
   ]
 }
