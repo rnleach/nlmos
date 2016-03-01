@@ -859,6 +859,9 @@ unittest
   }
 }
 
+/**
+ * TODO
+ */
 Normalization calcNormalization(Data dt, bool[] binaryFilter)
 {
   assert( binaryFilter.length == dt.numVals );
@@ -919,12 +922,7 @@ Normalization calcNormalization(Data dt, bool[] binaryFilter)
   auto drs = evenChunks(dt.simpleRange, numThreads);
 
   alias Rng = typeof(drs.front);
-  Rng[] dra = new Rng[](numThreads);
-  foreach(i; 0 .. numThreads)
-  {
-    dra[i] = drs.front;
-    drs.popFront();
-  }
+  Rng[] dra = array(drs);
 
   foreach(i, ref res; parallel(reses))
   {
