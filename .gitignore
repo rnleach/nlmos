@@ -4,3 +4,9 @@ dffann/.dub/
 __test__*
 dffann.sublime-workspace
 *.a
+numericD.sublime-workspace
+SyncToy_*.dat
+dffann/dffann.sln
+dffann/dffann.visualdproj
+dffann/numeric.visualdproj
+dffann/source-dffann-data.exe.syntax.cmd

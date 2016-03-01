@@ -3,11 +3,9 @@
  *
  * Author: Ryan Leach
  */
-module dffann.linearNetworks;
+module dffann.linearnetworks;
 
-public import dffann.dffann;
-
-import dffann.activationFunctions;
+import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
 import numeric.random: gasdev;
@@ -21,30 +19,50 @@ import std.string;
 
 version(unittest) import dffann.data;
 
-
-public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
+/**
+ * Linear Network.
+ *
+ * Params:
+ * OAF = the type of the output activation function.
+ *
+ * See_Also: dffann.activationfunctions
+ */
+public class LinearNetwork(OAF) : FeedForwardNetwork 
+if(isOAF!OAF)
 {
 
   private double[] weights;
   private double[] biases;
-  private double[] inputNodes;
+  private const(double)[] inputNodes;
   private double[] outputActivationNodes;
-  static if(!is(OAF == linearAF))  private double[] outputNodes;
+  static if(!is(OAF == LinearAF))  private double[] outputNodes;
 
   private immutable uint nInputs;
   private immutable uint nOutputs;
   private immutable uint numParameters;
 
+  // Only initialize these if training
+  private double[] backPropResults = null;
+  private double[] flatParms = null;
+  private double[] nonBiasParms = null;
+
+  /** 
+   * Create a new linear network.
+   *
+   * Params:
+   * nInputs = The number of inputs for the network, not including biases.
+   * nOutputs = The number of outputs for the network.
+   */
   public this(uint nInputs, uint nOutputs)
   {
 
-    static if(is(OAF == sigmoidAF))
+    static if(is(OAF == SigmoidAF))
     {
       enforce(nOutputs == 1,"Only 1 output allowed for 2-class linear " ~
         "classification network. This error was generated to ensure the " ~
         "proper functioning of backpropagation.");
     }
-    static if(is(OAF == softmaxAF))
+    static if(is(OAF == SoftmaxAF))
     {
       enforce(nOutputs > 1,"More than 1 output required for general linear " ~
         "classification network. This error was generated to ensure the " ~
@@ -52,7 +70,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     }
     else
     {
-      enforce(nOutputs > 0,"Number of output nodes must be greater thatn 1!");
+      enforce(nOutputs > 0,"Number of output nodes must be greater than 1!");
     }
     
     this.nInputs = nInputs;
@@ -61,7 +79,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
 
     this.inputNodes = new double[](nInputs);
     this.outputActivationNodes = new double[](nOutputs);
-    static if(!is(OAF == linearAF)) this.outputNodes = new double[](nOutputs);
+    static if(!is(OAF == LinearAF)) this.outputNodes = new double[](nOutputs);
 
     this.biases = new double[](nOutputs);
     this.weights = new double[](nOutputs * nInputs);
@@ -72,13 +90,16 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
 
   private this(uint nIn, uint nOut, double[] weights, double[] biases)
   {
-    this.nInputs = nInputs;
-    this.nOutputs = nOutputs;
+    this.nInputs = nIn;
+    this.nOutputs = nOut;
     this.numParameters = this.nOutputs * ( 1 + this.nInputs);
 
+    // Set up nodes.
     this.inputNodes = new double[](nInputs);
     this.outputActivationNodes = new double[](nOutputs);
-    static if(!is(OAF == linearAF)) this.outputNodes = new double[](nOutputs);
+    static if(!is(OAF == LinearAF)) this.outputNodes = new double[](nOutputs);
+
+    // Copy in weights and biases.
     this.biases = biases.dup;
     this.weights = weights.dup;
   }
@@ -116,7 +137,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     // Set up the nodes
     this.inputNodes = new double[](this.nInputs);
     this.outputActivationNodes = new double[](this.nOutputs);
-    static if(!is(OAF == linearAF)) this.outputNodes = new double[](nOutputs);
+    static if(!is(OAF == LinearAF)) this.outputNodes = new double[](nOutputs);
 
     // Parse the weights
     string data = lines[4][13 .. $];
@@ -154,24 +175,34 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
    *          or weights. This array is parallel to the array returned by
    *          the parameters property.
    */
-  override double[] backProp(in double[] targets)
+  override ref const(double[]) backProp(in double[] targets)
   {
     assert(targets.length == nOutputs, 
       "targets.length doesn't equal the number of network outputs.");
 
-    static if(is(OAF == linearAF)) alias outputNodes = outputActivationNodes;
+    static if(is(OAF == LinearAF)) alias outputNodes = outputActivationNodes;
     
-    double[] toRet = new double[numParameters];
+    // Initialize if needed.
+    if(backPropResults is null)
+    {
+      backPropResults = new double[numParameters];
+    }
+
+    // Reset to zero
+    backPropResults[] = 0.0;
     
     size_t j = 0;
     foreach(o; 0 .. nOutputs)
     {
       foreach(i; 0 .. nInputs)
-        toRet[j++] = -(targets[o] - outputNodes[o]) * inputNodes[i];
-      toRet[j++] = -(targets[o] - outputNodes[o]);
+      {
+        backPropResults[j++] = -(targets[o] - outputNodes[o]) * inputNodes[i];
+      }
+
+      backPropResults[j++] = -(targets[o] - outputNodes[o]);
     }
     
-    return toRet;
+    return backPropResults;
   }
 
   /**
@@ -185,9 +216,27 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
    *
    * Returns: the network outputs.
    */
-  override double[] eval(in double[] inputs) {
+  override ref const(double[]) eval(in double[] inputs) {
     assert(inputs.length == this.inputNodes.length);
-    this.inputNodes = inputs.dup;
+
+    /* Do I really need to copy, I could just use these as input ranges to 
+       speed things up. For example...
+
+       this.inputNodes = inputs
+
+       This method should be called a lot, so not saving a copy might be worth 
+       the efficiency increase. Espiecially when dealing with very large 
+       networks.
+
+       The downside of this is that the inputs array may be modified after
+       the call to eval, and the network won't accurately remember its state.
+
+       Of course, one should not assume the accuracy of the state anyway unless
+       the last call on the network was eval, as other calls may update the
+       weights, putting the network in an inconsistent internal state.
+      */
+    //this.inputNodes = inputs.dup;
+    this.inputNodes = inputs;
     
     foreach(o; 0 .. nOutputs)
     {
@@ -202,7 +251,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     }
 
     // Apply the output activation function.
-    static if(is(OAF == linearAF))
+    static if(is(OAF == LinearAF))
     {
       alias outputNodes = outputActivationNodes;
     }
@@ -211,7 +260,9 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
       OAF.eval(outputActivationNodes, outputNodes);
     }
     
-    return outputNodes.dup;
+    /* Do not worry about 
+     */
+    return outputNodes;
   }
 
   /**
@@ -219,29 +270,33 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
    */
   override LinearNetwork!OAF dup()
   {
+    // Check to make sure this is a copying constructor
     return new 
       LinearNetwork!OAF(this.nInputs,this.nOutputs,this.weights, this.biases);
   }
 
   /**
    * Params:
-   * newParms = the new parameters, or weights, to use in the network,
-   *            typically called in a trainer.
+   * parms = the new parameters, or weights, to use in the network,
+   *         typically called in a trainer.
    *
    * Returns: the weights of the network organized as a 1-d array.
    */
-  override @property double[] parameters()
+  public override @property ref const(double[]) parameters()
   {
-    double[] toRet = new double[numParameters];
+    // Initialize if needed
+    if(flatParms is null)
+    {
+      flatParms = new double[numParameters];
+    }
 
-    // It seems there would be a better way to do this using slices, that may 
-    // be more efficient, but is surely easier to code. I did it this we in
-    // order to keep the packing in a certain format so that I could use an 
-    // SVD to train the linear network via least squares. The way I would prefer
-    // to do it is...
+    // It seems there would be a better way to do this using slices that may 
+    // be more efficient and is easier to code. I did it this way in order to 
+    // keep the packing in a certain format so that I could use an SVD to train
+    // the linear network via least squares. The way I would prefer to do it is:
     //
-    // toRet[0 .. (nInputs * nOutputs)] = weights.dup;
-    // toRet[(nInputs * nOutputs) .. $] = biases.dup;
+    // flatParms[0 .. (nInputs * nOutputs)] = weights.dup;
+    // flatParms[(nInputs * nOutputs) .. $] = biases.dup;
     //
     // But I need the biases packed next to their weights, so I can treat the
     // biases with good old linear algebra later, much more efficiently.
@@ -250,17 +305,17 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
     {
       size_t offset = o * nInputs;
       foreach(i; 0 .. nInputs)
-        toRet[j++] = weights[offset + i];
-      toRet[j++] = biases[o];
+        flatParms[j++] = weights[offset + i];
+      flatParms[j++] = biases[o];
     }
     
-    return toRet;
+    return flatParms;
   }
 
   /**
    * ditto
    */
-  override @property double[] parameters(double[] parms)
+  public override @property void parameters(const double[] parms)
   {
     assert(parms.length == numParameters, 
       "Supplied array different size than number of parameters in network.");
@@ -273,8 +328,6 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
         weights[offset + i] = parms[j++];
       biases[o] = parms[j++];
     }
-    
-    return parms;
   }
 
   /**
@@ -284,41 +337,45 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
    * Returns: the weights of the network with those corresponding to biases set 
    *          to zero.
    */
-  override @property double[] nonBiasParameters()
+  public override @property ref const(double[]) nonBiasParameters()
   {
-    double[] toRet = new double[this.numParameters];
+    // Initialize if needed
+    if(nonBiasParms is null)
+    {
+      nonBiasParms = new double[this.numParameters];
+    }
     
     size_t j = 0;
     foreach(o; 0 .. nOutputs)
     {
       size_t offset = o * nInputs;
       foreach(i; 0 .. nInputs)
-        toRet[j++] = weights[offset + i];
-      toRet[j++] = 0.0; // biases[o]; in the case of parameters above.
+        nonBiasParms[j++] = weights[offset + i];
+      nonBiasParms[j++] = 0.0; // biases[o]; in the case of parameters above.
     }
     
-    return toRet;
+    return nonBiasParms;
   }
 
   /**
    * Initialize the network weights to random values.
    */
-  override void setRandom()
+  public override void setRandom()
   {
+    
     // Initalize weights with small random values
-    long seed = -Clock.currStdTime;
-    double scaleFactor = sqrt(1.0 / nInputs);
+    const double scaleFactor = sqrt(1.0 / nInputs);
     foreach(j; 0 .. (numInputs * numOutputs))
     {
-      weights[j] = gasdev(seed) * scaleFactor;
-      if(j < nOutputs) biases[j] = gasdev(seed) * scaleFactor;
+      weights[j] = gasdev() * scaleFactor;
+      if(j < nOutputs) biases[j] = gasdev() * scaleFactor;
     }
   }
 
   /**
    * The number of inputs for the network.
    */
-  @property uint numInputs()
+  public @property uint numInputs()
   {
     return nInputs;
   }
@@ -326,7 +383,7 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
   /**
    * The number of outputs for the network.
    */
-  @property uint numOutputs()
+  public @property uint numOutputs()
   {
     return nOutputs;
   }
@@ -335,7 +392,8 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
    * Returns: The weights, biases, and configuration of the network as
    *          a string that can be saved to a file.
    */
-  @property string stringForm(){
+  public @property string stringForm()
+  {
     /*
      * File format:
      * FeedForwardNetwork
@@ -348,23 +406,23 @@ public class LinearNetwork(OAF) : feedforwardnetwork if(isOAF!OAF)
      * 
      * parameters are as returned by the parameters property
      */
-     // Add headers
-     string toRet = "FeedForwardNetwork\n";
-     toRet ~= "LinearNetwork!" ~ OAF.stringof ~ "\n";
-     toRet ~= format("nInputs = %d\nnOutputs = %d\n", nInputs, nOutputs);
-     // Save parameters
-     toRet ~= "parameters = ";
-     foreach(parm; parameters) toRet ~= format("%.*e,", double.dig, parm);
-     toRet = toRet[0 .. $ - 1] ~ "\n"; // Replace last comma with new-line
+    // Add headers
+    string toRet = "FeedForwardNetwork\n";
+    toRet ~= "LinearNetwork!" ~ OAF.stringof ~ "\n";
+    toRet ~= format("nInputs = %d\nnOutputs = %d\n", nInputs, nOutputs);
+    // Save parameters
+    toRet ~= "parameters = ";
+    foreach(parm; parameters) toRet ~= format("%.*e,", double.dig, parm);
+    toRet = toRet[0 .. $ - 1] ~ "\n"; // Replace last comma with new-line
 
-     return toRet;
+    return toRet;
   }
 }
 
 /**
  * Linear Regression Network.
  */
-alias LinearNetwork!linearAF LinRegNet;
+alias LinRegNet = LinearNetwork!LinearAF;
 
 /**
  * Linear Classification Network. 
@@ -372,7 +430,7 @@ alias LinearNetwork!linearAF LinRegNet;
  * 2 classes only, 1 output only, 0-1 coding to tell the difference between
  * classes.
  */
-alias LinearNetwork!sigmoidAF Lin2ClsNet;
+alias Lin2ClsNet = LinearNetwork!SigmoidAF;
 
 /**
 * Linear Classification Network.
@@ -380,37 +438,26 @@ alias LinearNetwork!sigmoidAF Lin2ClsNet;
 * Any number of classes, but must have at least 2 outputs. Uses 1 of N coding
 * on ouput nodes.
 */
-alias LinearNetwork!softmaxAF LinClsNet;
+alias LinClsNet = LinearNetwork!SoftmaxAF;
 
 unittest
 {
-  mixin(announceTest("LinRegNet eval(double)"));
 
   // Make a fake data set
   double[][] fakeData = [[  1.0,   2.0,   3.0,   4.0,  35.0,  31.0],
                          [  1.0,   3.0,   5.0,   7.0,  55.0,  47.0],
                          [  1.0,   1.0,   1.0,   1.0,  15.0,  15.0],
                          [ -1.0,   4.0,   2.0,  -2.0,  10.0,  14.0]];
-
-  // All binary flags are false, because none of the data is binary!
-  bool[] binaryFlags = [false, false, false, false, false, false];
   
   // Number of inputs and outputs
   enum numIn = 4;
   enum numOut = 2;
   
-  // Normalize the data set (NO!, the predetermined weights for this data set don't allow it.)
-  enum normalize = false;
-
-  // short hand for dealing with data
-  alias immutable(Data!(numIn, numOut)) iData;
-  alias immutable(DataPoint!(numIn, numOut)) DP;
-  
   // Make a data set
-  iData d1 = new iData(fakeData, binaryFlags, normalize);
+  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
 
   // Now, build a network.
-  double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
@@ -419,10 +466,7 @@ unittest
     assert(approxEqual(slprn.eval(dp.inputs), dp.targets));
 }
 
-
 unittest{
-  mixin(announceTest("LinRegNet stringForm and this(string)"));
-  
   // Number of inputs and outputs
   enum numIn = 2;
   enum numOut = 1;
@@ -430,8 +474,6 @@ unittest{
   // Now, build a network.
   LinRegNet slpcn = new LinRegNet(numIn,numOut);
   LinRegNet loaded = new LinRegNet(slpcn.stringForm);
-
-  write(LinRegNet.stringof,"....");
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);
@@ -441,10 +483,7 @@ unittest{
   assert(approxEqual(slpcn.biases, loaded.biases));
 }
 
-
 unittest{
-  mixin(announceTest("Lin2ClsNet eval(double)"));
-
   // Make a fake data set, this is an AND network
   double[][] andDataArr = [
       [ 0.0, 0.0, 0.0 ],
@@ -460,23 +499,13 @@ unittest{
       [ 1.0, 0.0, 1.0 ],
       [ 1.0, 1.0, 1.0 ]
   ];
-
-  // All binary flags are true, because all of the data is binary!
-  bool[] binaryFlags = [true , true, true];
   
   // Number of inputs and outputs
   enum numIn = 2;
   enum numOut = 1;
   
-  // Normalize the data set (NO!, the predetermined weights for this data set don't allow it.)
-  enum normalize = false;
-
-  // short hand for dealing with data
-  alias immutable(Data!(numIn, numOut)) iData;
-  alias immutable(DataPoint!(numIn, numOut)) DP;
-  
   // Make a data set
-  iData d1 = new iData(andDataArr, binaryFlags, normalize);
+  auto d1 = Data.createImmutableData(numIn, numOut, andDataArr);
 
   // Now, build a network.
   double[] wts = [1000.0, 1000.0, -1500.0];
@@ -486,10 +515,10 @@ unittest{
   // Now, lets test some numbers
   foreach(dp; d1.simpleRange)
     assert(approxEqual(slpcn.eval(dp.inputs), dp.targets),
-      format("%s == %s", slpcn.eval(dp.inputs), dp.targets));
+      format("%s => %s == %s", dp.inputs, slpcn.eval(dp.inputs), dp.targets));
 
   // Make a data set
-  iData d2 = new iData(orDataArr, binaryFlags, normalize);
+  auto d2 = Data.createImmutableData(numIn, numOut, orDataArr);
 
   // Now, build a network.
   wts = [1000.0, 1000.0, -500.0];
@@ -501,7 +530,6 @@ unittest{
 }
 
 unittest{
-  mixin(announceTest("Lin2ClsNet stringForm and this(string)"));
   
   // Number of inputs and outputs
   enum numIn = 2;
@@ -510,8 +538,6 @@ unittest{
   // Now, build a network.
   Lin2ClsNet slpcn = new Lin2ClsNet(numIn,numOut);
   Lin2ClsNet loaded = new Lin2ClsNet(slpcn.stringForm);
-
-  write(Lin2ClsNet.stringof,"....");
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);
@@ -522,7 +548,6 @@ unittest{
 }
 
 unittest{
-  mixin(announceTest("LinClsNet stringForm and this(string)"));
   
   // Number of inputs and outputs
   enum numIn = 4;
@@ -531,8 +556,6 @@ unittest{
   // Now, build a network.
   LinClsNet slpcn = new LinClsNet(numIn,numOut);
   LinClsNet loaded = new LinClsNet(slpcn.stringForm);
-
-  write(LinClsNet.stringof,"....");
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);

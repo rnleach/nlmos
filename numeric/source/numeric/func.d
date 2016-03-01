@@ -7,7 +7,8 @@ module numeric.func;
 
 public import numeric.numeric;
 
-version(unittest){
+version(unittest)
+{
   import std.math;
 }
 
@@ -15,7 +16,8 @@ version(unittest){
  * Basic interface for a function that will be manipulated by other numeric
  * routines.
  */
-interface func{
+interface Func
+{
 
   /**
    * Evaluate the function with the given inputs, saving the
@@ -24,7 +26,7 @@ interface func{
    * Params:
    * inputs = postition to evaluate at, e.g. inputs = [x,y] for f(x,y).
    */
-  public void evaluate(double[] inputs, bool grad = false);
+  public void evaluate(in double[] inputs, bool grad = false);
   
   /**
    * Returns: the value that resulted from the last call to 
@@ -40,15 +42,18 @@ interface func{
   public @property double[] gradient();
   
 }
-version(unittest){
+
+version(unittest)
+{
   // Some functions to test on.
   import std.algorithm: reduce;
 
-  class SquareMachine: func{
+  class SquareMachine: Func{
     double result;
     double[] lgradient = null;
 
-    override final void evaluate(double[] inputs, bool grad = false){
+    override final void evaluate(in double[] inputs, bool grad = false)
+    {
       this.result = reduce!"a + b * b"(0.0,inputs);
 
       if(grad){
@@ -65,18 +70,20 @@ version(unittest){
    * Function of 3 independent variables, evaluates to 
    * f = (x - 1)^2 + (y - 2)^2 + (z - 3)^2
    */
-  class AnotherFunction: func{
+  class AnotherFunction: Func
+  {
     double result;
     double[3] lgradient = double.nan;
 
-    override final void evaluate(double[] inputs, bool grad = false){
+    override final void evaluate(in double[] inputs, bool grad = false){
       assert(inputs.length == 3);
 
       this.result = pow(inputs[0] - 1.0,2) + 
                     pow(inputs[1] - 2.0,2) + 
                     pow(inputs[2] - 3.0,2);
 
-      if(grad){
+      if(grad)
+      {
         lgradient = new double[](3);
         lgradient[0] = 2.0* (inputs[0] - 1.0);
         lgradient[1] = 2.0* (inputs[1] - 2.0);
@@ -95,18 +102,20 @@ version(unittest){
    * This function has no local minima, and the global minima is at infinity,
    * so it is nice for testing the failure of minimization routines!
    */
-  class ANegativeFunction: func{
+  class ANegativeFunction: Func
+  {
     double result;
     double[3] lgradient = double.nan;
 
-    override final void evaluate(double[] inputs, bool grad = false){
+    override final void evaluate(in double[] inputs, bool grad = false){
       assert(inputs.length == 3);
 
       this.result = -(pow(inputs[0] - 1.0,2) + 
                       pow(inputs[1] - 2.0,2) + 
                       pow(inputs[2] - 3.0,2));
 
-      if(grad){
+      if(grad)
+      {
         lgradient = new double[](3);
         lgradient[0] = -2.0* (inputs[0] - 1.0);
         lgradient[1] = -2.0* (inputs[1] - 2.0);
@@ -119,8 +128,9 @@ version(unittest){
   }
 }
 
-unittest{
-  mixin(announceTest("func"));
+unittest
+{
+  // Func
 
   SquareMachine sm = new SquareMachine;
   sm.evaluate([0.0,1.0,2.0],true);

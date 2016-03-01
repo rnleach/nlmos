@@ -1,0 +1,22 @@
+{
+	"name": "solar",
+	"description": "Tools for calculating the position and angles of the sun.",
+	"copyright": "Copyright © 2015, Ryan",
+	"authors": ["Ryan"],
+  "version":"1.0.0",
+	"dependencies": {
+	},
+  "configurations": [
+    {
+      "name":"lib-release",
+      "targetType":"library",
+      "versions":[]
+    },
+    {
+      "name": "Profile",
+      "targetType": "executable",
+      "versions": ["prof"],
+      "mainSourceFile":"source/numeric/matrix.d"
+    }
+  ]
+}

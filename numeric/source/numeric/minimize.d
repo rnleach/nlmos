@@ -27,7 +27,8 @@ import std.string;
  * 
  * Returns: start + scale * dir
  */
-private double[] delta(double[] start, double[] dir, double scale){
+private double[] delta(double[] start, double[] dir, double scale)
+{
   assert(start.length == dir.length);
 
   double[] toRet = start.dup;
@@ -36,12 +37,14 @@ private double[] delta(double[] start, double[] dir, double scale){
   
   return toRet;
 }
-unittest{
-  mixin(announceTest("delta"));
+///
+unittest
+{
+  // delta
 
   double[] x = [1.0, 2.0, 3.0, 4.0];
   double[] dir = [1.0, 2.0, 3.0, 4.0];
-  double scale = 0.1;
+  const double scale = 0.1;
 
   assert(delta(x, dir, scale) == [1.1, 2.2, 3.3, 4.4]);
 }
@@ -50,11 +53,24 @@ unittest{
  * Convenient and more expressive way to represent results of a bracketing 
  * operation compared to an array.
  */
-public struct bracketResults{
+public struct BracketResults
+{
+  /// Abisca points bracketing a minimum and function values at those points.
   public double ax, bx, cx;
+  /// ditto
   public double fa, fb, fc;
 
-  public this(double a, double b, double c, double fax, double fbx, double fcx){
+  /**
+   * Params:
+   * a = abisca value bracketing a minimum from the low side
+   * b = abisca value between the brackets, with function value lower than a and c
+   * c = abisca value bracketing a minimum from the high side
+   * fa = function value at a
+   * fb = function value at b
+   * fc = function value at c
+   */
+  public this(double a, double b, double c, double fax, double fbx, double fcx)
+  {
     ax = a;   bx = b;   cx = c; 
     fa = fax; fb = fbx; fc = fcx;
   }
@@ -63,7 +79,8 @@ public struct bracketResults{
    * Returns: false if any members are NaN or infinity, which is the signal for 
    *          a failed attempt to bracket.
    */
-  public @property bool bracketFound(){
+  public @property bool bracketFound() const
+  {
     if(isNaN(ax) || isNaN(bx) || isNaN(cx) || 
        isNaN(fa) || isNaN(fb) || isNaN(fc)) return false;
 
@@ -73,11 +90,12 @@ public struct bracketResults{
     return true;
   }
 
-  public string toString(){
-    return format("bracketResults[found=%s, ax=%f, bx=%f, cx=%f, fa=%f, fb=%f, fc=%f]",
+  public string toString() const
+  {
+    return format("BracketResults[found=%s, ax=%f, bx=%f, cx=%f, fa=%f, fb=%f, fc=%f]",
                   this.bracketFound, ax, bx, cx, fa, fb, fc);
   }
- }
+}
 
 /**
  * Bracket a minimum along a given direction.
@@ -94,13 +112,14 @@ public struct bracketResults{
  * direction     = the direction to search along a line.
  * f             = the function to evaluate when bracketing a minimum.
  *
- * Returns: a bracketResults struct with the minimum along the line bracketed
+ * Returns: a BracketResults struct with the minimum along the line bracketed
  *          by the ax and ac members. The middle location bx is included along
  *          the function values at all of those locations. If the routine was
  *          unable to bracket a minimum, all the valuse of the return will be
  *          double.nan and this can be checked for with the bracketFound method.
  */
-public bracketResults bracketMinimum(double[] startingPoint, double[] direction, func f){
+public BracketResults bracketMinimum(double[] startingPoint, double[] direction, Func f)
+{
 
   assert(startingPoint.length == direction.length);
   
@@ -120,7 +139,7 @@ public bracketResults bracketMinimum(double[] startingPoint, double[] direction,
   while(isNaN(fb) || isInfinity(fb)){
     bx /= 10.0;
     if(abs(bx) < TINY) {
-      return bracketResults();
+      return BracketResults();
     }
     f.evaluate(delta(startingPoint, direction, bx));
     fb = f.value;
@@ -136,14 +155,14 @@ public bracketResults bracketMinimum(double[] startingPoint, double[] direction,
   double fc = f.value;
   
   while(fb > fc){
-    double r = (bx - ax) * (fb - fc);
-    double q = (bx - cx) * (fb - fa);
+    const double r = (bx - ax) * (fb - fc);
+    const double q = (bx - cx) * (fb - fa);
     double u = bx - ((bx - cx) * q - (bx - ax) * r) / 
               (2.0 * ((max(abs(q - r), TINY) >= 0.0) ? 
                 (abs(q - r)) : (-abs(q - r))));
 
     double fu;
-    double ulim = bx + GLIMIT * (cx - bx);
+    const double ulim = bx + GLIMIT * (cx - bx);
     if((bx - u) * (u - cx) > 0.0){
       f.evaluate(delta(startingPoint, direction, u));
       fu = f.value;
@@ -152,12 +171,12 @@ public bracketResults bracketMinimum(double[] startingPoint, double[] direction,
         fa = fb;
         bx = u; 
         fb = fu;
-        return bracketResults(ax, bx, cx, fa, fb, fc);
+        return BracketResults(ax, bx, cx, fa, fb, fc);
       }
       else if(fu > fb){
         cx = u; 
         fc = fu;
-        return bracketResults(ax, bx, cx, fa, fb, fc);
+        return BracketResults(ax, bx, cx, fa, fb, fc);
       }
       u = cx + GOLD * (cx - bx);
       f.evaluate(delta(startingPoint, direction, u));
@@ -193,10 +212,13 @@ public bracketResults bracketMinimum(double[] startingPoint, double[] direction,
     fc = fu;
   }
   
-  return bracketResults(ax, bx, cx, fa, fb, fc);
+  return BracketResults(ax, bx, cx, fa, fb, fc);
 }
-unittest{
-  mixin(announceTest("bracketMinimum"));
+
+///
+unittest
+{
+  // bracketMinimum
 
   /*
    * Imported function in the unittest version of func.d with an absolute 
@@ -215,7 +237,7 @@ unittest{
    * Normally you would multiply by the direction, but here the direction values
    * are all 1!
    */
-  bracketResults results = bracketMinimum(startPoint, [0.0,1.0,0.0], af);
+  BracketResults results = bracketMinimum(startPoint, [0.0,1.0,0.0], af);
   assert(results.bracketFound);
   // These look complicated because of assumptions about derivatives and 
   // function smoothness, two of the values can be equal if the third is greater
@@ -270,7 +292,6 @@ unittest{
   ANegativeFunction nf = new ANegativeFunction;
   results = bracketMinimum(startPoint, [0.0,1.0,0.0], nf);
   assert(!results.bracketFound);
-  
 }
 
 /**
@@ -283,7 +304,8 @@ unittest{
  * the value member, and the gradient is the gradient member. The gradient
  * member may be null if the gradient was not requested during minimization.
  */
-public struct LineMinimizationResults{
+public struct LineMinimizationResults
+{
   /**
    * Assuming the line minimization was done with a starting point sp and
    * direction dr, alpah is the distance along that direction to get to the 
@@ -310,14 +332,16 @@ public struct LineMinimizationResults{
    * sp = the starting point used to do the line minimization.
    * dr = the direction used in the line minimization.
    */
-  public this(double a, double v, double[] g, double[] sp, double[] dr){
+  public this(double a, double v, double[] g, double[] sp, double[] dr)
+  {
     this.alpha = a;
     this.value = v;
     this.gradient = g;
     this.pos = delta(sp, dr, a);
   }
 
-  public string toString(){
+  public string toString() const 
+  {
     return format("\nLineMinimizationResults:\nalpha = %f,\nvalue = %f,\ngradient = %s,\npos = %s\n",
       alpha, value, gradient, pos);
   }
@@ -332,18 +356,14 @@ public struct LineMinimizationResults{
  * direction     = the direction to search along a line
  * brackets      = as returned from bracketMinimum
  * f             = the function to evaluate when minimizing.
- * getGrad       = true if you want the gradient at the minimum returned as 
- *                 as well. This may be useful to save some function evaluations
- *                 when using the line minimization as part of a another
- *                 algoritm to find the minimum of a multidimensional function.
  * 
  * Returns: an object with public access to the results.
  */
 public LineMinimizationResults lineMinimize(double[] startingPoint, 
                                             double[] direction, 
-                                            bracketResults brackets, 
-                                            func f,
-                                            bool getGrad = true){
+                                            BracketResults brackets, 
+                                            Func f)
+{
 
   assert(brackets.bracketFound);
   
@@ -355,11 +375,11 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
   double e = 0.0;
   
   // unpack the brackets
-  double ax = brackets.ax;
+  const double ax = brackets.ax;
   //double fa = brackets.fa;
-  double bx = brackets.bx;
-  double fb = brackets.fb;
-  double cx = brackets.cx;
+  const double bx = brackets.bx;
+  const double fb = brackets.fb;
+  const double cx = brackets.cx;
   //double fc = brackets.fc;
   
   double a = (ax < cx ? ax : cx);
@@ -454,8 +474,10 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
   gmin = gx; 
   return LineMinimizationResults(xmin, fxmin, gmin, startingPoint, direction);
 }
-unittest{
-  mixin(announceTest("lineMinimize"));
+
+unittest
+{
+  // lineMinimize
 
   /*
    * Imported function in the unittest version of func.d with an absolute 
@@ -473,7 +495,7 @@ unittest{
    * (1,2,1)
    */
   double[] dr = [0.0,1.0,0.0];
-  bracketResults bres = bracketMinimum(startPoint, dr, af);
+  BracketResults bres = bracketMinimum(startPoint, dr, af);
   assert(bres.bracketFound);
 
   LineMinimizationResults lres = lineMinimize(startPoint, dr, bres, af);
@@ -521,7 +543,8 @@ unittest{
  *             last several iterations is smaller than this, stop!
  *
  */
-public void BFGSMinimize(func f, ref double[] startPos, size_t maxIt, double minDeltaV){
+public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt, double minDeltaV)
+{
   
   // These variables used to remember last XX iterations and average error to 
   // test stopping conditions.
@@ -549,10 +572,10 @@ public void BFGSMinimize(func f, ref double[] startPos, size_t maxIt, double min
     
     // NOT A PART OF INTERFACE YET, MAYBE FOR ERROR FUNCTIONS IN DFFANN
     // Select a mini-batch of data
-//    f.nextBatch(batchSize);
+    //f.nextBatch(batchSize);
     
     // Copy variables so new ones can be calculated.
-    Matrix oldg = g;
+    const Matrix oldg = g;
     
     // Calculate the direction to search
     Matrix d = G * g;
@@ -561,7 +584,7 @@ public void BFGSMinimize(func f, ref double[] startPos, size_t maxIt, double min
     double[] dA = d.m;
     
     // Bracket the minimum
-    bracketResults brackets = bracketMinimum(wA, dA, f);
+    BracketResults brackets = bracketMinimum(wA, dA, f);
     
     // Failure to bracket indicates already at minimum, or none exists, so quit!
     if(!brackets.bracketFound) {
@@ -598,7 +621,7 @@ public void BFGSMinimize(func f, ref double[] startPos, size_t maxIt, double min
     if(avgDeltaV < minDeltaV) break; // Convergence!!!
     
     // Get some info from line minimization results
-    double alpha = res.alpha;
+    const double alpha = res.alpha;
     gA = res.gradient;
     g = CVector(gA);
     
@@ -612,19 +635,22 @@ public void BFGSMinimize(func f, ref double[] startPos, size_t maxIt, double min
     else{
       Matrix p = d * alpha; // equals w - oldw from equations
       Matrix v = g - oldg;
-      double tmp = ((v.Tv * G * v)[0,0]);
+      const double tmp = ((v.Tv * G * v)[0,0]);
       Matrix u = p / ((p.Tv * v)[0,0]) - G * v / tmp;
-      Matrix term1 = p.Tv % p / ((p.Tv * v)[0,0]);
-      Matrix term2 = ((G * v) % v.Tv) * G / tmp;
-      Matrix term3 = tmp * (u % u.Tv);
+      const Matrix term1 = p.Tv % p / ((p.Tv * v)[0,0]);
+      const Matrix term2 = ((G * v) % v.Tv) * G / tmp;
+      const Matrix term3 = tmp * (u % u.Tv);
       G += term1 - term2 + term3;
     }
   }
 
   startPos = wA;
 }
-unittest{
-  mixin(announceTest("BFGSMinimize"));
+
+///
+unittest
+{
+  // bfgsMinimize
 
   /*
    * Imported function in the unittest version of func.d with an absolute 
@@ -634,17 +660,17 @@ unittest{
 
   // Start at point (-10,100,1000), just cause
   double[] startPoint = [-10.0, 100.0, 1000.0];
-  BFGSMinimize(af, startPoint, 1000, 1.0e-12);
+  bfgsMinimize(af, startPoint, 1000, 1.0e-12);
   assert(approxEqual(startPoint, [1.0, 2.0, 3.0]));
 
   /*
    * Imported function in the unittest version of func.d with an absolute 
    * minimum at (x=0, y=0, z=0, .....).
    */
-  func sm = new SquareMachine;
+  Func sm = new SquareMachine;
   startPoint = [-10.0, 100.0, 100.0, 1.0, 20.0, 567.88888];
   try{
-    BFGSMinimize(sm, startPoint, 1000, 1.0e-12);
+    bfgsMinimize(sm, startPoint, 1000, 1.0e-12);
     assert(approxEqual(startPoint, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,]));
   }
   catch(FailureToConverge e){
@@ -657,8 +683,7 @@ unittest{
    * Imported function in the unittest version of func.d with an absolute 
    * minimum at (x=0, y=0, z=0, .....).
    */
-  func nf = new ANegativeFunction;
+  Func nf = new ANegativeFunction;
   startPoint = [-0.01, 0.01, 0.02];
-  assertThrown!FailureToConverge(BFGSMinimize(nf, startPoint, 1000, 1.0e-12));
-
+  assertThrown!FailureToConverge(bfgsMinimize(nf, startPoint, 1000, 1.0e-12));
 }
