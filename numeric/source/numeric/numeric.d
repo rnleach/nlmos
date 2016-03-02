@@ -47,12 +47,19 @@ public class FailureToConverge: Exception{
   public size_t iterations;
   /// Tolerance that was not reached.
   public double tolerance;
+  /// Best set of paramters reached so fare
+  public double[] bestParms;
+  /// Lowest function value acheived so far
+  public double minSoFar;
 
-  public this(string message = "", size_t its = 0, double tol = double.nan){
+  public this(string message = "", size_t its = 0, double tol = double.nan,
+    double[] bParms = null, double minVal = double.nan){
     super(msg);
     this.msg = message;
     this.iterations = its;
     this.tolerance = tol;
+    this.bestParms = bParms;
+    this.minSoFar = minVal;
   }
 }
 

@@ -635,38 +635,51 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
     BracketResults brackets = bracketMinimum(wA, dA, f);
     
     // Failure to bracket indicates already at minimum, or none exists, so quit!
-    if(!brackets.bracketFound) {
+    bool foundBracket = brackets.bracketFound;
+    if(!foundBracket) {
       // If the gradient is too small, assume we failed to bracket because we
       // are at a minimum.
       if(approxEqual(gA, 0.0)) break;
 
-      // I tried to drop the minimum value in brackets.ax, 
-      // try it to get the best so far.
-      if(!isNaN(brackets.ax))
+      // Bracket tries to return the lowest value found so far, if it can't
+      // then give up.
+      if(isNaN(brackets.ax))
       {
-        wA = delta(wA, dA, brackets.ax);
-
-        /+
-        version(unittest)
-        {
-          writeln(brackets.toString);
-        }
-        +/
-
-        break;
+        // Throw the best we've got so far in there
+        startPos = wA;
+        
+        throw new FailureToConverge(
+          format("Bracket Failure: %d of max %d.  " ~ 
+               "Bracket Results = %s", iter, maxIt, brackets.toString()),
+          iter, avgDeltaV, wA, val);
       }
 
-      // Else, throw an exception, due to the failure to converge.
-      throw new FailureToConverge(
-        format("Bracket Failure after %d iterations of maximum %d." ~ 
-               "\nBracket Results = %s", iter, maxIt, brackets.toString()));
+      // I tried to drop the minimum value in brackets.ax, 
+      // try it to get the best so far.
+      wA = delta(wA, dA, brackets.ax);
     }
-    
-    // Minimize along the line.
-    LineMinimizationResults res = lineMinimize(wA, dA, brackets, f);
-    oldV = val;
-    val = res.value;
-    wA = res.pos;
+
+    double alpha;    
+    if(foundBracket)
+    {
+      // Minimize along the line.
+      LineMinimizationResults res = lineMinimize(wA, dA, brackets, f);
+      oldV = val;
+      val = res.value;
+      wA = res.pos;
+
+      // Get some info from line minimization results
+      alpha = res.alpha;
+      gA = res.gradient;
+    }
+    else // Couldn't bracket, but use the best value we got from trying.
+    {
+      f.evaluate(wA, true);
+      oldV = val;
+      val = f.value;
+      gA = f.gradient;
+      alpha = 0.0;
+    }
     
     /+
     version(unittest)
@@ -684,18 +697,19 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
     
     // Check stopping criteria
     if(iter >= maxIt){
+      // throw the best we have so far in there
+      startPos = wA;
+
+      // Get out of here and signal failure!
       throw new FailureToConverge(
-        format("Failure to converge to %f tolerance after %d iteratons" ~
-               " of %d maximum, tolerance goal was %f.", 
+        format("Failure to converge: achieved %g tol after %d iteratons" ~
+               " of %d max, goal was %g.", 
                avgDeltaV, iter, maxIt, minDeltaV),
-        iter);
+        iter, avgDeltaV, wA, val);
     }
     
     if(avgDeltaV < minDeltaV) break; // Convergence!!!
-    
-    // Get some info from line minimization results
-    const double alpha = res.alpha;
-    gA = res.gradient;
+
     g = CVector(gA);
     
     // Update parameters for calculating new G
@@ -747,14 +761,6 @@ unittest
     writeln(e.msg);
     assert(0);
   }
-  
-
-  /+
-
-   This test is no longer valid. After the latest upgrades to bracket, it seems
-   like an extreme case to get inifinity or NaN. The bracket funtion, even when
-   it fails yeilds the smallest value it was able to find before reaching 
-   infinity.
 
   /*
    * Imported function in the unittest version of func.d with an absolute 
@@ -763,5 +769,4 @@ unittest
   Func nf = new ANegativeFunction;
   startPoint = [-0.01, 0.01, 0.02];
   assertThrown!FailureToConverge(bfgsMinimize(nf, startPoint, 1000, 1.0e-12));
-  +/
 }
