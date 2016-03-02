@@ -261,7 +261,6 @@ class ErrorFunction(EFType eft, bool par=true, bool useBatches=false): Func
     error /= count;
     if(evalGrad) grad[] /= count;
 
-
     // Add in the regularization error
     if(reg)
     {
