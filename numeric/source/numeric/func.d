@@ -69,6 +69,8 @@ version(unittest)
   /*
    * Function of 3 independent variables, evaluates to 
    * f = (x - 1)^2 + (y - 2)^2 + (z - 3)^2
+   *
+   * with a minimum at (1,2,3).
    */
   class AnotherFunction: Func
   {

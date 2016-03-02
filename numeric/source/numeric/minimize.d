@@ -6,9 +6,9 @@
  * Version: 1.0.0
  * Date: January 23, 2015
  */
- module numeric.minimize;
+module numeric.minimize;
 
- public import numeric.numeric;
+public import numeric.numeric;
 
 import numeric.func;
 import numeric.matrix;
@@ -16,6 +16,12 @@ import numeric.matrix;
 import std.algorithm;
 import std.math;
 import std.string;
+
+version(unittest)
+{
+  import std.stdio;
+
+}
 
 /**
  * Shift a point.
@@ -52,6 +58,9 @@ unittest
 /**
  * Convenient and more expressive way to represent results of a bracketing 
  * operation compared to an array.
+ *
+ * If there was a failure to bracket, then the minimum value of the function
+ * found during the proces should be returned via parameter ax.
  */
 public struct BracketResults
 {
@@ -90,6 +99,7 @@ public struct BracketResults
     return true;
   }
 
+  /// Create a string of these values.
   public string toString() const
   {
     return format("BracketResults[found=%s, ax=%f, bx=%f, cx=%f, fa=%f, fb=%f, fc=%f]",
@@ -101,11 +111,14 @@ public struct BracketResults
  * Bracket a minimum along a given direction.
  *
  * For doing a line minimization given a starting point and a direction,
- * return 3 values to bracket the minimum along the line through the starting 
+ * return 3 values to bracket a minimum along the line through the starting 
  * point in the direction given.
  * 
  * Based on routine mnbrak from Numerical Recipes in C, Second Edition, 
- * section 10.1, pg 400.
+ * section 10.1, pg 400. However, I've added a feature.
+ *
+ * If a bracket cannot be found, this routine will return the location of the 
+ * lowest function value found so far in the 'ax' field of the returned struct.
  * 
  * Params:
  * startingPoint = the starting point.
@@ -118,14 +131,15 @@ public struct BracketResults
  *          unable to bracket a minimum, all the valuse of the return will be
  *          double.nan and this can be checked for with the bracketFound method.
  */
-public BracketResults bracketMinimum(double[] startingPoint, double[] direction, Func f)
+public BracketResults bracketMinimum(double[] startingPoint, 
+  double[] direction, Func f)
 {
 
   assert(startingPoint.length == direction.length);
   
   enum GOLD = 1.618034;
   enum GLIMIT = 100.0;
-  enum TINY = 1.0e-50;
+  enum TINY = 1.0e-20;
   
   double ax = -0.1;
   f.evaluate(delta(startingPoint, direction, ax));
@@ -136,6 +150,14 @@ public BracketResults bracketMinimum(double[] startingPoint, double[] direction,
   double fb = f.value;
   
   // Check for NaN
+  while(isNaN(fa) || isInfinity(fa)){
+    ax /= 10.0;
+    if(abs(ax) < TINY) {
+      return BracketResults();
+    }
+    f.evaluate(delta(startingPoint, direction, ax));
+    fa = f.value;
+  }
   while(isNaN(fb) || isInfinity(fb)){
     bx /= 10.0;
     if(abs(bx) < TINY) {
@@ -153,6 +175,20 @@ public BracketResults bracketMinimum(double[] startingPoint, double[] direction,
   double cx = bx + GOLD * (bx - ax);
   f.evaluate(delta(startingPoint, direction, cx));
   double fc = f.value;
+  
+  // Check for NaN
+  double scale = GOLD * (bx - ax);
+  while(isNaN(fc))
+  {
+    if(abs(scale) < TINY) {
+      cx = bx < ax ? bx : ax;
+      return BracketResults(cx, double.nan, double.nan, double.nan, double.nan, double.nan);
+    }
+    scale /= 10.0;
+    cx = bx + scale;
+    f.evaluate(delta(startingPoint, direction, cx));
+    fc = f.value;
+  }
   
   while(fb > fc){
     const double r = (bx - ax) * (fb - fc);
@@ -210,6 +246,13 @@ public BracketResults bracketMinimum(double[] startingPoint, double[] direction,
     fa = fb; 
     fb = fc; 
     fc = fu;
+  }
+
+  // Maybe fc is NaN, make sure smallest value is in ax, fa pair
+  if((isNaN(fc) || isInfinity(fc)) && fa > fb)
+  {
+    swap(ax, bx);
+    swap(fa, fb);
   }
   
   return BracketResults(ax, bx, cx, fa, fb, fc);
@@ -321,6 +364,8 @@ public struct LineMinimizationResults
   public double[] gradient;
   /// The coordinates of the minimum after the line minimization.
   public double[] pos;
+  /// The number of iterations it took to get there.
+  public uint iterations;
   
   /**
    * Params:
@@ -331,19 +376,22 @@ public struct LineMinimizationResults
    * g  = the gradient of the function at the minimum, and may be null.
    * sp = the starting point used to do the line minimization.
    * dr = the direction used in the line minimization.
+   * it = the number of iterations it took to reach the minimum.
    */
-  public this(double a, double v, double[] g, double[] sp, double[] dr)
+  public this(double a, double v, double[] g, double[] sp, double[] dr, uint it)
   {
     this.alpha = a;
     this.value = v;
     this.gradient = g;
     this.pos = delta(sp, dr, a);
+    this.iterations = it;
   }
 
   public string toString() const 
   {
-    return format("\nLineMinimizationResults:\nalpha = %f,\nvalue = %f,\ngradient = %s,\npos = %s\n",
-      alpha, value, gradient, pos);
+    return format("\nLineMinimizationResults:\niterations = %d, alpha = %f,\n" ~
+      "value = %f,\ngradient = %s,\npos = %s\n", iterations, alpha, value, 
+      gradient, pos);
   }
 }
 
@@ -397,7 +445,8 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
   double[] gmin, gu;
   double tol1, tol2, xm, r, q, p, etemp, d = 0.0, u, fu;
   
-  for(size_t iter = 0; iter < ITMAX; ++iter){
+  uint iter = 0;
+  for(; iter < ITMAX; ++iter){
     xm = 0.5 * (a + b);
     
     tol1 = TOL * abs(x) + ZEPS;
@@ -413,7 +462,8 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
       }
       fxmin = fx; 
       gmin = gx; 
-      return LineMinimizationResults(xmin, fxmin, gmin, startingPoint, direction);
+      return LineMinimizationResults(xmin, fxmin, gmin, startingPoint, 
+        direction, iter);
     }
     if(abs(e) > tol1 ){
       r = (x - w) * (fx -fv);
@@ -472,7 +522,8 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
   }
   fxmin = fx; 
   gmin = gx; 
-  return LineMinimizationResults(xmin, fxmin, gmin, startingPoint, direction);
+  return LineMinimizationResults(xmin, fxmin, gmin, startingPoint, 
+    direction, iter);
 }
 
 unittest
@@ -543,7 +594,8 @@ unittest
  *             last several iterations is smaller than this, stop!
  *
  */
-public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt, double minDeltaV)
+public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt, 
+  double minDeltaV)
 {
   
   // These variables used to remember last XX iterations and average error to 
@@ -570,10 +622,6 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt, double min
     
     ++iter;
     
-    // NOT A PART OF INTERFACE YET, MAYBE FOR ERROR FUNCTIONS IN DFFANN
-    // Select a mini-batch of data
-    //f.nextBatch(batchSize);
-    
     // Copy variables so new ones can be calculated.
     const Matrix oldg = g;
     
@@ -591,6 +639,23 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt, double min
       // If the gradient is too small, assume we failed to bracket because we
       // are at a minimum.
       if(approxEqual(gA, 0.0)) break;
+
+      // I tried to drop the minimum value in brackets.ax, 
+      // try it to get the best so far.
+      if(!isNaN(brackets.ax))
+      {
+        wA = delta(wA, dA, brackets.ax);
+
+        /+
+        version(unittest)
+        {
+          writeln(brackets.toString);
+        }
+        +/
+
+        break;
+      }
+
       // Else, throw an exception, due to the failure to converge.
       throw new FailureToConverge(
         format("Bracket Failure after %d iterations of maximum %d." ~ 
@@ -601,7 +666,15 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt, double min
     LineMinimizationResults res = lineMinimize(wA, dA, brackets, f);
     oldV = val;
     val = res.value;
+    wA = res.pos;
     
+    /+
+    version(unittest)
+    {
+      writeln(res.toString);
+    }
+    +/
+
     // Update the error averages to check stopping criteria
     deltaV[idx] = abs(val - oldV);
     idx = idx < XX - 1 ? idx + 1 : 0; // cycle through this array
@@ -624,9 +697,6 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt, double min
     const double alpha = res.alpha;
     gA = res.gradient;
     g = CVector(gA);
-    
-    // Weights already updated by line minimization, so get a local copy
-    wA = res.pos;
     
     // Update parameters for calculating new G
     if(alpha == 0.0) {
@@ -679,11 +749,19 @@ unittest
   }
   
 
+  /+
+
+   This test is no longer valid. After the latest upgrades to bracket, it seems
+   like an extreme case to get inifinity or NaN. The bracket funtion, even when
+   it fails yeilds the smallest value it was able to find before reaching 
+   infinity.
+
   /*
    * Imported function in the unittest version of func.d with an absolute 
-   * minimum at (x=0, y=0, z=0, .....).
+   * minimum at infinity and no local minima.
    */
   Func nf = new ANegativeFunction;
   startPoint = [-0.01, 0.01, 0.02];
   assertThrown!FailureToConverge(bfgsMinimize(nf, startPoint, 1000, 1.0e-12));
+  +/
 }
