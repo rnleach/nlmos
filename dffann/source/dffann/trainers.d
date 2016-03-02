@@ -271,6 +271,10 @@ public class BFGSTrainer(EFType erf, bool parStrategy=false,
    */
   override public void train()
   {
+    version(unittest)
+    {
+      uint failCount = 0;
+    }
 
     // Make an error function
     alias ErrFunType = ErrorFunction!(erf, parStrategy, useMinibatches);
@@ -302,18 +306,15 @@ public class BFGSTrainer(EFType erf, bool parStrategy=false,
       }
       catch(FailureToConverge fc)
       {
-        /*
-          This is really hard to do. In the bracketing stage of finding the
-          minimum, if it fails to find a bracket, it tries very hard to return
-          the lowest value found so far in the search for a bracket. There is
-          no gurantee this will be the minimum however. So even upon 'failue' it
-          returns something most of the time. This is sort of a best attempt 
-          that doesn't report failure. Should be changed I guess.
-         */
+        // Ignore this error, the minimization did everything it could to get
+        // the best result, just live with what we got. It should have left
+        // parms at the best value it has achieved so far.
         /+
         version(unittest)
         {
-          writefln("   Failed to converge...%s", fc.msg);
+          writefln("%d Failed to converge...iterations = %d, tolerance = %g, " ~
+            "best error = %g.", ++failCount, fc.iterations, fc.tolerance, 
+            fc.minSoFar);
         }
         +/
       }
@@ -378,7 +379,7 @@ unittest
   // minima, so try lots of times.
   auto net = new MLP2ClsNet(numNodes);
   auto bfgs_t = new BFGSTrainer!(EFType.CrossEntropy2C, false, false)(net, d1);
-  bfgs_t.minDeltaE = 1.0e-8;
+  bfgs_t.minDeltaE = 1.0e-6;
   bfgs_t.maxIt = 10_000;
   bfgs_t.maxTries = 200; // Should be more than enough attempts
 
