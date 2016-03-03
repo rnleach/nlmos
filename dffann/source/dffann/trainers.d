@@ -15,6 +15,7 @@ import numeric.minimize;
 import dffann.data;
 import dffann.feedforwardnetwork;
 import dffann.errorfunctions;
+import dffann.strategy;
 
 version(unittest)
 {
@@ -218,14 +219,32 @@ unittest
 /**
  * BFGS Minization trainer.
  *
- * Params: TODO
+ * Params:
+ * erf       = The specific error function type to use.
+ * para      = ParallelStrategy.parallel if you want to use the parallel 
+ *             (concurrent) code in the evaluation of the error function.
+ * batchMode = BatchStrategy.minibatch if you want to use mini-batches, or a 
+ *             subset of the data for each iteration. Otherwise the default is
+ *             BatchStrategy.batch to use the whole data set.
+ * randomize = RandomStrategy.inOrder if you want to go through all the points
+ *             in a data set in order. This is ignored (defaults to inOrder)
+ *             UNLESS mini-batches are used. Then the extra effort is worth it 
+ *             to default to using a random strategy to prevent odd cycles in 
+ *             the data.
  * 
  * TODO - consider adding contract checks to ensure error function types and
  *        output activation functions are properly matched.
  */
-public class BFGSTrainer(EFType erf, bool parStrategy=false, 
-  bool useMinibatches=false, bool randomize=true): AbstractTrainer
+public class BFGSTrainer(EFType erf,
+                         ParallelStrategy para   = ParallelStrategy.parallel,
+                         BatchStrategy batchMode = BatchStrategy.batch, 
+                         RandomStrategy random   = RandomStrategy.random
+              ): AbstractTrainer
 {
+
+  enum par = para == ParallelStrategy.parallel;
+  enum useMinibatches = batchMode == BatchStrategy.minibatch;
+  enum randomize = random == RandomStrategy.random;
 
   // Parameters for tuning the optimization
 
@@ -275,7 +294,7 @@ public class BFGSTrainer(EFType erf, bool parStrategy=false,
     }
 
     // Make an error function
-    alias ErrFunType = ErrorFunction!(erf, parStrategy, useMinibatches, randomize);
+    alias ErrFunType = ErrorFunction!(erf, para, batchMode, random);
     auto ef = new ErrFunType(_net, _tData, regulizer);
     
 
@@ -286,7 +305,7 @@ public class BFGSTrainer(EFType erf, bool parStrategy=false,
 
       // Keep this around to evaluate the total error after the minimization,
       // which only uses mini-batches.
-      alias TotalErrFun = ErrorFunction!(erf, parStrategy, false);
+      alias TotalErrFun = ErrorFunction!(erf, para, BatchStrategy.batch);
       auto totalErrFun = new TotalErrFun(_net, _tData, regulizer);
     }
 
@@ -374,7 +393,9 @@ unittest
   // trying to explode the weights to large values. Also has lots of local 
   // minima, so try lots of times.
   auto net = new MLP2ClsNet(numNodes);
-  auto bfgs_t = new BFGSTrainer!(EFType.CrossEntropy2C, false, false, false)(net, d1);
+
+  auto bfgs_t = new BFGSTrainer!(EFType.CrossEntropy2C,  
+                                 ParallelStrategy.serial)(net, d1);
   bfgs_t.minDeltaE = 1.0e-6;
   bfgs_t.maxIt = 10_000;
   bfgs_t.maxTries = 100; // Should be more than enough attempts
@@ -400,12 +421,12 @@ unittest
   // Try again, this time with random batches of 2.
   enum inNum = 5;
   enum outNum = 2;
+
   auto net2 = new LinClsNet(inNum, outNum);
   iData d2 = Data.createImmutableData(inNum, outNum, 
     makeLinearClassificationData(2000, inNum, outNum, 0.0));
 
-  auto bfgs_tbr = new BFGSTrainer!(EFType.CrossEntropy, true, false)(
-    net2, d2);
+  auto bfgs_tbr = new BFGSTrainer!(EFType.CrossEntropy)(net2, d2);
 
   bfgs_tbr.minDeltaE = 1.0e-6;
   bfgs_tbr.maxIt = 1_000;

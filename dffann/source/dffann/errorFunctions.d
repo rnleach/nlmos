@@ -17,6 +17,7 @@ import numeric.func;
 
 import dffann.data;
 import dffann.feedforwardnetwork;
+import dffann.strategy;
 
 version(unitttest)
 {
@@ -47,18 +48,31 @@ enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
  * minimization tools in the numeric package during training.
  *
  * Params:
- * eft        = The specific error function to calculate.
- * par        = true if you want to use the parallel (concurrent) code in the 
- *              evaluate method. You may want to use false if you plan to 
- *              parallelize at a higher level construct.
- * useBatches = true if you want to use mini-batches, or a subset of the data
- *              for each iteration.
+ * eft       = The specific error function to calculate.
+ * para      = ParallelStrategy.parallel if you want to use the parallel 
+ *             (concurrent) code in the evaluate method. You may want to use 
+ *             ParallelStrategy.serial if you plan to parallelize at a higher 
+ *             level construct.
+ * batchMode = BatchStrategy.minibatch if you want to use mini-batches, or a 
+ *             subset of the data for each iteration. Otherwise the default is
+ *             BatchStrategy.batch to use the whole data set.
+ * randomize = RandomStrategy.inOrder if you want to go through all the points
+ *             in a data set in order. This is ignored (defaults to inOrder)
+ *             UNLESS mini-batches are used. Then the extra effort is worth it 
+ *             to default use a random strategy to prevent odd cycles in the 
+ *             data.
  *
  */
-class ErrorFunction(EFType eft, bool par=true, bool useBatches=false, 
-  bool randomize=true): Func 
+class ErrorFunction(EFType eft, 
+                    ParallelStrategy para    = ParallelStrategy.parallel,
+                    BatchStrategy batchMode  = BatchStrategy.batch, 
+                    RandomStrategy random    = RandomStrategy.random): Func 
 {
   alias iData = immutable(Data);
+
+  enum par = para == ParallelStrategy.parallel;
+  enum useBatches = batchMode == BatchStrategy.minibatch;
+  enum randomize = random == RandomStrategy.random;
 
   private FeedForwardNetwork net;
   private Regulizer reg;
@@ -337,9 +351,19 @@ unittest
   slprn.parameters = wts;
 
   alias ChiSquareEF_P  = ErrorFunction!(EFType.ChiSquare);
-  alias ChiSquareEF_PC = ErrorFunction!(EFType.ChiSquare, true, true, false);
-  alias ChiSquareEF_S  = ErrorFunction!(EFType.ChiSquare, false);
-  alias ChiSquareEF_SC = ErrorFunction!(EFType.ChiSquare, false, true, false);
+
+  alias ChiSquareEF_PC = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.parallel, 
+                                        BatchStrategy.minibatch, 
+                                        RandomStrategy.inOrder);
+  
+  alias ChiSquareEF_S  = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.serial);
+
+  alias ChiSquareEF_SC = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.serial, 
+                                        BatchStrategy.minibatch, 
+                                        RandomStrategy.inOrder);
 
   ChiSquareEF_S ef_S  = new ChiSquareEF_S(slprn, d1);
   ChiSquareEF_P ef_P  = new ChiSquareEF_P(slprn, d1);
@@ -357,8 +381,8 @@ unittest
   assert(approxEqual(ef_S.grad, ef_P.grad));
   assert(approxEqual(ef_SC.value, ef_PC.value));
   assert(approxEqual(ef_SC.grad, ef_PC.grad));
-  assert(ef_S.grad !is null);
-  assert(ef_P.grad !is null);
+  assert(ef_S.grad  !is null);
+  assert(ef_P.grad  !is null);
   assert(ef_SC.grad !is null);
   assert(ef_PC.grad !is null);
 
@@ -379,36 +403,43 @@ unittest
   const double[] wts2 = [-1.0, 2.0, -3.0, 4.0, -5.0, 5.0, -4.0, 3.0, -2.0, 1.0];
   slprn.parameters = wts2;
 
-  alias ChiSquareEF_PCR = ErrorFunction!(EFType.ChiSquare, true, true, true);
-  alias ChiSquareEF_SCR = ErrorFunction!(EFType.ChiSquare, false, true, true);
+  alias ChiSquareEF_PCR = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.parallel, 
+                                        BatchStrategy.minibatch, 
+                                        RandomStrategy.random);
+
+  alias ChiSquareEF_SCR = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.serial, 
+                                        BatchStrategy.minibatch, 
+                                        RandomStrategy.random);
 
   ChiSquareEF_SCR ef_SCR = new ChiSquareEF_SCR(slprn, d1);
   ChiSquareEF_PCR ef_PCR = new ChiSquareEF_PCR(slprn, d1);
-  ef_SCR.batchSize = ef_PCR.batchSize = 2;
+  ef_SCR.batchSize = ef_PCR.batchSize = ef_SC.batchSize = ef_PC.batchSize;
 
   // Test without regularization - evaluate the gradient
-  ef_S.evaluate(slprn.parameters);
-  ef_P.evaluate(slprn.parameters);
-  ef_SC.evaluate(slprn.parameters);
-  ef_PC.evaluate(slprn.parameters);
-  ef_SCR.evaluate(slprn.parameters);
-  ef_PCR.evaluate(slprn.parameters);
+  ef_S.evaluate(   slprn.parameters );
+  ef_P.evaluate(   slprn.parameters );
+  ef_SC.evaluate(  slprn.parameters );
+  ef_PC.evaluate(  slprn.parameters );
+  ef_SCR.evaluate( slprn.parameters );
+  ef_PCR.evaluate( slprn.parameters );
 
-  assert(approxEqual(ef_S.value, ef_P.value));
-  assert(approxEqual(ef_S.grad, ef_P.grad));
-  assert(approxEqual(ef_SC.value, ef_PC.value));
-  assert(approxEqual(ef_SC.grad, ef_PC.grad));
+  assert( approxEqual( ef_S.value,  ef_P.value  ));
+  assert( approxEqual( ef_S.grad,   ef_P.grad   ));
+  assert( approxEqual( ef_SC.value, ef_PC.value ));
+  assert( approxEqual( ef_SC.grad,  ef_PC.grad  ));
 
   // Test without regularization - do not evaluate the gradient
-  ef_S.evaluate(slprn.parameters, false);
-  ef_P.evaluate(slprn.parameters, false);
-  ef_SC.evaluate(slprn.parameters, false);
-  ef_PC.evaluate(slprn.parameters, false);
-  ef_SCR.evaluate(slprn.parameters, false);
-  ef_PCR.evaluate(slprn.parameters, false);
+  ef_S.evaluate(   slprn.parameters, false );
+  ef_P.evaluate(   slprn.parameters, false );
+  ef_SC.evaluate(  slprn.parameters, false );
+  ef_PC.evaluate(  slprn.parameters, false );
+  ef_SCR.evaluate( slprn.parameters, false );
+  ef_PCR.evaluate( slprn.parameters, false );
 
-  assert(approxEqual(ef_S.value, ef_P.value));
-  assert(approxEqual(ef_SC.value, ef_PC.value));
+  assert( approxEqual( ef_S.value,  ef_P.value  ));
+  assert( approxEqual( ef_SC.value, ef_PC.value ));
 }
 
 /**
@@ -632,7 +663,9 @@ unittest
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, false);
+  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, 
+                                       ParallelStrategy.serial);
+
   alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare);
 
   auto wdr = new WeightDecayRegulizer(0.01);
