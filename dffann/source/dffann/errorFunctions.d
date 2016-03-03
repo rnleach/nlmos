@@ -55,7 +55,8 @@ enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
  *              for each iteration.
  *
  */
-class ErrorFunction(EFType eft, bool par=true, bool useBatches=false): Func 
+class ErrorFunction(EFType eft, bool par=true, bool useBatches=false, 
+  bool randomize=true): Func 
 {
   alias iData = immutable(Data);
 
@@ -74,7 +75,19 @@ class ErrorFunction(EFType eft, bool par=true, bool useBatches=false): Func
      */
     public uint batchSize = 10;
 
-    private typeof(data.infiniteRange) infRange;
+    /*
+      Choose the range type if doing batches, a randomized order is better to
+      avoid cycles developing during training. If using an infinite range it 
+      needs to be persistent between calls to evaluate.
+     */
+    static if(randomize)
+    {
+      private typeof(data.randomRange) infRange;
+    }
+    else
+    {
+      private typeof(data.infiniteRange) infRange;
+    }
   }
 
 
@@ -93,7 +106,17 @@ class ErrorFunction(EFType eft, bool par=true, bool useBatches=false): Func
 
     this.numParms = net.parameters.length;
 
-    static if(useBatches) this.infRange = data.infiniteRange;
+    static if(useBatches) 
+    {
+      static if(randomize)
+      {
+        this.infRange = data.randomRange;
+      }
+      else
+      {
+        this.infRange = data.infiniteRange;
+      }
+    }
   }
 
   /**
@@ -314,9 +337,9 @@ unittest
   slprn.parameters = wts;
 
   alias ChiSquareEF_P  = ErrorFunction!(EFType.ChiSquare);
-  alias ChiSquareEF_PC = ErrorFunction!(EFType.ChiSquare, true, true);
+  alias ChiSquareEF_PC = ErrorFunction!(EFType.ChiSquare, true, true, false);
   alias ChiSquareEF_S  = ErrorFunction!(EFType.ChiSquare, false);
-  alias ChiSquareEF_SC = ErrorFunction!(EFType.ChiSquare, false, true);
+  alias ChiSquareEF_SC = ErrorFunction!(EFType.ChiSquare, false, true, false);
 
   ChiSquareEF_S ef_S  = new ChiSquareEF_S(slprn, d1);
   ChiSquareEF_P ef_P  = new ChiSquareEF_P(slprn, d1);
@@ -334,10 +357,6 @@ unittest
   assert(approxEqual(ef_S.grad, ef_P.grad));
   assert(approxEqual(ef_SC.value, ef_PC.value));
   assert(approxEqual(ef_SC.grad, ef_PC.grad));
-  assert(approxEqual(ef_SC.value, ef_P.value));
-  assert(approxEqual(ef_SC.grad, ef_P.grad));
-  assert(approxEqual(ef_S.value, ef_PC.value));
-  assert(approxEqual(ef_S.grad, ef_PC.grad));
   assert(ef_S.grad !is null);
   assert(ef_P.grad !is null);
   assert(ef_SC.grad !is null);
@@ -351,12 +370,45 @@ unittest
 
   assert(approxEqual(ef_S.value, ef_P.value));
   assert(approxEqual(ef_SC.value, ef_PC.value));
-  assert(approxEqual(ef_S.value, ef_PC.value));
-  assert(approxEqual(ef_SC.value, ef_P.value));
   assert(ef_S.grad is null, format("%s",ef_S.grad));
   assert(ef_P.grad is null, format("%s",ef_P.grad));
   assert(ef_SC.grad is null, format("%s",ef_SC.grad));
   assert(ef_PC.grad is null, format("%s",ef_PC.grad));
+
+  // Try again, this time with an error function that is not zero!
+  const double[] wts2 = [-1.0, 2.0, -3.0, 4.0, -5.0, 5.0, -4.0, 3.0, -2.0, 1.0];
+  slprn.parameters = wts2;
+
+  alias ChiSquareEF_PCR = ErrorFunction!(EFType.ChiSquare, true, true, true);
+  alias ChiSquareEF_SCR = ErrorFunction!(EFType.ChiSquare, false, true, true);
+
+  ChiSquareEF_SCR ef_SCR = new ChiSquareEF_SCR(slprn, d1);
+  ChiSquareEF_PCR ef_PCR = new ChiSquareEF_PCR(slprn, d1);
+  ef_SCR.batchSize = ef_PCR.batchSize = 2;
+
+  // Test without regularization - evaluate the gradient
+  ef_S.evaluate(slprn.parameters);
+  ef_P.evaluate(slprn.parameters);
+  ef_SC.evaluate(slprn.parameters);
+  ef_PC.evaluate(slprn.parameters);
+  ef_SCR.evaluate(slprn.parameters);
+  ef_PCR.evaluate(slprn.parameters);
+
+  assert(approxEqual(ef_S.value, ef_P.value));
+  assert(approxEqual(ef_S.grad, ef_P.grad));
+  assert(approxEqual(ef_SC.value, ef_PC.value));
+  assert(approxEqual(ef_SC.grad, ef_PC.grad));
+
+  // Test without regularization - do not evaluate the gradient
+  ef_S.evaluate(slprn.parameters, false);
+  ef_P.evaluate(slprn.parameters, false);
+  ef_SC.evaluate(slprn.parameters, false);
+  ef_PC.evaluate(slprn.parameters, false);
+  ef_SCR.evaluate(slprn.parameters, false);
+  ef_PCR.evaluate(slprn.parameters, false);
+
+  assert(approxEqual(ef_S.value, ef_P.value));
+  assert(approxEqual(ef_SC.value, ef_PC.value));
 }
 
 /**

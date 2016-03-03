@@ -192,10 +192,8 @@ unittest
   // short hand for dealing with data
   alias iData = immutable(Data);
 
-  // Generate some raw test data and binary flags to match it.
+  // Generate some raw test data for regression.
   double[][] testData = makeLinearRegressionData(numPoints, numIn, numOut, 0.0);
-  bool[] binFlags = [false];
-  foreach(i; 1 .. (numIn + numOut)){ binFlags ~= false; }
   
   // Make a data set
   iData d1 = Data.createImmutableData(numIn, numOut, testData);
@@ -226,7 +224,7 @@ unittest
  *        output activation functions are properly matched.
  */
 public class BFGSTrainer(EFType erf, bool parStrategy=false, 
-  bool useMinibatches=false): AbstractTrainer
+  bool useMinibatches=false, bool randomize=true): AbstractTrainer
 {
 
   // Parameters for tuning the optimization
@@ -277,7 +275,7 @@ public class BFGSTrainer(EFType erf, bool parStrategy=false,
     }
 
     // Make an error function
-    alias ErrFunType = ErrorFunction!(erf, parStrategy, useMinibatches);
+    alias ErrFunType = ErrorFunction!(erf, parStrategy, useMinibatches, randomize);
     auto ef = new ErrFunType(_net, _tData, regulizer);
     
 
@@ -367,8 +365,6 @@ unittest
                          [0.0, 1.0, 1.0],
                          [1.0, 0.0, 1.0],
                          [1.0, 1.0, 0.0]];
-  bool[] binFlags = [true];
-  foreach(i; 1 .. (numIn + numOut)){ binFlags ~= true; }
   
   // Make a data set
   iData d1 = Data.createImmutableData(numIn, numOut, testData);
@@ -378,10 +374,10 @@ unittest
   // trying to explode the weights to large values. Also has lots of local 
   // minima, so try lots of times.
   auto net = new MLP2ClsNet(numNodes);
-  auto bfgs_t = new BFGSTrainer!(EFType.CrossEntropy2C, false, false)(net, d1);
+  auto bfgs_t = new BFGSTrainer!(EFType.CrossEntropy2C, false, false, false)(net, d1);
   bfgs_t.minDeltaE = 1.0e-6;
   bfgs_t.maxIt = 10_000;
-  bfgs_t.maxTries = 200; // Should be more than enough attempts
+  bfgs_t.maxTries = 100; // Should be more than enough attempts
 
   // Train the network and retrieve the newly trained network.
   bfgs_t.train;
@@ -395,6 +391,38 @@ unittest
 
   // The network should perfectly map the inputs to the targets.
   foreach(dp; d1.simpleRange)
+  {
+    assert(approxEqual(trainedNet.eval(dp.inputs),dp.targets, 1.0e-1, 1.0e-1));
+    //writefln("Inputs: %5s    Evaluated: %5s   Targets: %5s", dp.inputs, 
+    //  trainedNet.eval(dp.inputs), dp.targets);
+  }
+
+  // Try again, this time with random batches of 2.
+  enum inNum = 5;
+  enum outNum = 2;
+  auto net2 = new LinClsNet(inNum, outNum);
+  iData d2 = Data.createImmutableData(inNum, outNum, 
+    makeLinearClassificationData(2000, inNum, outNum, 0.0));
+
+  auto bfgs_tbr = new BFGSTrainer!(EFType.CrossEntropy, true, false)(
+    net2, d2);
+
+  bfgs_tbr.minDeltaE = 1.0e-6;
+  bfgs_tbr.maxIt = 1_000;
+  bfgs_tbr.maxTries = 1;
+  
+  // Train the network and retrieve the newly trained network.
+  bfgs_tbr.train;
+  trainedNet = bfgs_tbr.net;
+
+  // This is probability, and not perfect, but it should be close.
+  //writefln("Error = %s ", bfgs_tbr.error);
+  assert(approxEqual(bfgs_tbr.error, 0.0, 1.0e-1, 1.0e-1), 
+    format("Error is %s. IF IT FAILS, RUN TEST AGAIN. "~
+      "SOME CHANCE IT WILL LEGITIMATELY FAIL.", bfgs_tbr.error));
+
+  // The network should perfectly map the inputs to the targets.
+  foreach(dp; d2.simpleRange)
   {
     assert(approxEqual(trainedNet.eval(dp.inputs),dp.targets, 1.0e-1, 1.0e-1));
     //writefln("Inputs: %5s    Evaluated: %5s   Targets: %5s", dp.inputs, 
