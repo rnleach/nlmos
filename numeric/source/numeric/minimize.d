@@ -141,7 +141,7 @@ public BracketResults bracketMinimum(double[] startingPoint,
   enum GLIMIT = 100.0;
   enum TINY = 1.0e-20;
   
-  double ax = -0.1;
+  double ax = 0.0;
   f.evaluate(delta(startingPoint, direction, ax));
   double fa = f.value;
   
@@ -150,14 +150,6 @@ public BracketResults bracketMinimum(double[] startingPoint,
   double fb = f.value;
   
   // Check for NaN
-  while(isNaN(fa) || isInfinity(fa)){
-    ax /= 10.0;
-    if(abs(ax) < TINY) {
-      return BracketResults();
-    }
-    f.evaluate(delta(startingPoint, direction, ax));
-    fa = f.value;
-  }
   while(isNaN(fb) || isInfinity(fb)){
     bx /= 10.0;
     if(abs(bx) < TINY) {
@@ -182,7 +174,8 @@ public BracketResults bracketMinimum(double[] startingPoint,
   {
     if(abs(scale) < TINY) {
       cx = bx < ax ? bx : ax;
-      return BracketResults(cx, double.nan, double.nan, double.nan, double.nan, double.nan);
+      return BracketResults(cx, double.nan, double.nan, double.nan, 
+        double.nan, double.nan);
     }
     scale /= 10.0;
     cx = bx + scale;
@@ -671,6 +664,13 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
       // Get some info from line minimization results
       alpha = res.alpha;
       gA = res.gradient;
+
+      /+
+      version(unittest)
+      {
+        writeln(res.toString);
+      }
+      +/
     }
     else // Couldn't bracket, but use the best value we got from trying.
     {
@@ -679,14 +679,15 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
       val = f.value;
       gA = f.gradient;
       alpha = 0.0;
+
+      /+
+      version(unittest)
+      {
+        write("Failed to bracket - so -");
+        writeln(brackets.toString);
+      }
+      +/
     }
-    
-    /+
-    version(unittest)
-    {
-      writeln(res.toString);
-    }
-    +/
 
     // Update the error averages to check stopping criteria
     deltaV[idx] = abs(val - oldV);
