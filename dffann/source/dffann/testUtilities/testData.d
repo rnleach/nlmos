@@ -235,7 +235,7 @@ public void makeRandomCSVFile(in size_t numPoints, in uint numVals,
  * Returns: An array of data that can be used to train a linear network. The
  *          values will not be normalized. 
  */
-public double[][] makeLinearClassificationnData(in size_t numPoints,
+public double[][] makeLinearClassificationData(in size_t numPoints,
                                                 in size_t numInputs,
                                                 in size_t numOutputs,
                                                 in double noiseStd)
