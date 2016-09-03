@@ -20,7 +20,6 @@ import std.string;
 version(unittest)
 {
   import std.stdio;
-
 }
 
 /**
@@ -269,57 +268,32 @@ unittest
    * For direction (0,1,0) should bracket minimum point at (1,2,1). Since we
    * are only moving along the y direction and want to bracket the point y=2,
    * startPoint[1] + (ax,bx,cx) should bracket 2.
-   *
-   * Normally you would multiply by the direction, but here the direction values
-   * are all 1!
    */
   BracketResults results = bracketMinimum(startPoint, [0.0,1.0,0.0], af);
-  assert(results.bracketFound);
-  // These look complicated because of assumptions about derivatives and 
-  // function smoothness, two of the values can be equal if the third is greater
-  // as long as the middle one isn't the greatest.
-  assert(results.fa > results.fb || 
-    (results.fa == results.fb && results.fc > results.fa));
-  assert(results.fc > results.fb || 
-    (results.fc == results.fb && results.fa > results.fb));
-  assert(results.ax <= results.bx && results.bx <= results.cx);
-  assert(startPoint[1] + results.ax < 2.0);
-  assert(startPoint[1] + results.cx > 2.0);
+  assert(results.bracketFound); 
+  assert(results.fa >= results.fb && results.fc >= results.fb);
+  assert((results.ax > results.bx && results.bx > results.cx) ||
+    (results.cx > results.bx && results.bx > results.ax));
 
   /* 
    * For direction (1,0,0) should bracket minimum point at (1,1,1). Since we
    * are only moving along the x direction and want to bracket the point x=1,
    * startPoint[0] + (ax,bx,cx) should bracket 1.
-   *
-   * Normally you would multiply by the direction, but here the direction values
-   * are all 1!
    */
   results = bracketMinimum(startPoint, [1.0,0.0,0.0], af);
-  assert(results.bracketFound);
-  // These look complicated because of assumptions about derivatives and 
-  // function smoothness, two of the values can be equal if the third is greater
-  // as long as the middle one isn't the greatest.
-  assert(results.fa > results.fb || 
-    (results.fa == results.fb && results.fc > results.fa));
-  assert(results.fc > results.fb || 
-    (results.fc == results.fb && results.fa > results.fb));
-  assert(results.ax <= results.bx && results.bx <= results.cx);
-  assert(startPoint[0] + results.ax < 1.0);
-  assert(startPoint[0] + results.cx > 1.0);
+  assert(results.bracketFound); 
+  assert(results.fa >= results.fb && results.fc >= results.fb);
+  assert((results.ax > results.bx && results.bx > results.cx) ||
+    (results.cx > results.bx && results.bx > results.ax));
 
   /* 
    * For direction (0,0.5,1) should bracket minimum point at (1,2,3).
    */
   results = bracketMinimum(startPoint, [0.0,0.5,1.0], af);
-  assert(results.bracketFound);
-  // These look complicated because of assumptions about derivatives and 
-  // function smoothness, two of the values can be equal if the third is greater
-  // as long as the middle one isn't the greatest.
-  assert(results.fa > results.fb || 
-    (results.fa == results.fb && results.fc > results.fa));
-  assert(results.fc > results.fb || 
-    (results.fc == results.fb && results.fa > results.fb));
-  assert(results.ax <= results.bx && results.bx <= results.cx);
+  assert(results.bracketFound); 
+  assert(results.fa >= results.fb && results.fc >= results.fb);
+  assert((results.ax > results.bx && results.bx > results.cx) ||
+    (results.cx > results.bx && results.bx > results.ax));
 
   /* 
    * This function has no local minimum, so it should not be able to bracket
@@ -628,7 +602,7 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
     BracketResults brackets = bracketMinimum(wA, dA, f);
     
     // Failure to bracket indicates already at minimum, or none exists, so quit!
-    bool foundBracket = brackets.bracketFound;
+    const bool foundBracket = brackets.bracketFound;
     if(!foundBracket) {
       // If the gradient is too small, assume we failed to bracket because we
       // are at a minimum.
