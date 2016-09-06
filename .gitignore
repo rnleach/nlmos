@@ -13,3 +13,4 @@ dffann/source-dffann-data.exe.syntax.cmd
 *.lib
 *.obj
 *.sublime-workspace
+*.csv
