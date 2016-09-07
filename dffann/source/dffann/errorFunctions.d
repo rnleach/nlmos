@@ -13,6 +13,7 @@ import std.array;
 import std.math;
 import std.range;
 
+import numeric.numeric;
 import numeric.func;
 
 import dffann.data;

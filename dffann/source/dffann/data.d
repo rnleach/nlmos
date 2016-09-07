@@ -20,28 +20,30 @@ import std.regex;
 import std.stdio;
 import std.string;
 
+import numeric.numeric;
+
 version(unittest)
 {
   import dffann.testutilities.testdata;
 }
 
 /*------------------------------------------------------------------------------
- *                             DataPoint struct
- *----------------------------------------------------------------------------*/
+*                             DataPoint struct
+*-----------------------------------------------------------------------------*/
 /**
- * This struct is the most basic form of a data point.
- * 
- * Authors: Ryan Leach
- * Date: February 27, 2016
- * Version: 2.0
- * See_Also: Data
- *
- * History:
- *    V1.0 Initial implementation.
- *    V2.0 No longer a template, instead of holding data, holds a view into a
- *         Data object via slices.
- *
- */
+* This struct is the most basic form of a data point.
+* 
+* Authors: Ryan Leach
+* Date: February 27, 2016
+* Version: 2.0
+* See_Also: Data
+*
+* History:
+*    V1.0 Initial implementation.
+*    V2.0 No longer a template, instead of holding data, holds a view into a
+*         Data object via slices.
+*
+*/
 public struct DataPoint
 {
 
@@ -51,10 +53,10 @@ public struct DataPoint
   public double[] targets;
 
   /**
-   * Params:
-   * inpts = array of input values.
-   * trgts = array of target values.
-   */
+  * Params:
+  * inpts = array of input values.
+  * trgts = array of target values.
+  */
   this(double[] inpts, double[] trgts = [])
   {
     inputs = inpts;
@@ -76,8 +78,8 @@ public struct DataPoint
   }
 
   /**
-   * Returns: A string representation of the DataPoint.
-   */
+  * Returns: A string representation of the DataPoint.
+  */
   @property string stringRep() const
   {
     string toRet = "";
@@ -93,14 +95,16 @@ public struct DataPoint
 
 version(unittest)
 {
-  // Some values to keep around for testing DataPoint objects.
+  
   enum vals  = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
   double[] inpts = vals[0 .. 5];
   double[] trgts = vals[5 .. $];
 }
-///
+
 unittest
 {
+  mixin(announceTest("DataPoint constructor"));
+
   const DataPoint dp = DataPoint(inpts, trgts);
   assert( dp.inputs == vals[0 .. 5] );
 
@@ -109,9 +113,10 @@ unittest
   assert( dp2.inputs == vals );
 }
 
-///
 unittest
 {
+  mixin(announceTest("DataPoint toString"));
+
   const DataPoint dp = DataPoint(vals);
 
   assert(dp.stringRep == "1.000000000000000,2.000000000000000," ~ 
@@ -121,19 +126,19 @@ unittest
 }
 
 /*******************************************************************************
- * A collection of DataPoint objects with some other added functionality 
- * related to creating various Ranges and Normalizations.
- * 
- * Authors: Ryan Leach
- * Date: January 21, 2015
- * See_Also: DataPoint
- * Version: 2.0
- *
- * History:
- *    V1.0 Initial implementation.
- *    V2.0 No longer a template. Moved normalization out into it's own class.
- *
- * 
+* A collection of DataPoint objects with some other added functionality 
+* related to creating various Ranges and Normalizations.
+* 
+* Authors: Ryan Leach
+* Date: January 21, 2015
+* See_Also: DataPoint
+* Version: 2.0
+*
+* History:
+*    V1.0 Initial implementation.
+*    V2.0 No longer a template. Moved normalization out into it's own class.
+*
+* 
 *******************************************************************************/
 public class Data
 {
@@ -144,30 +149,37 @@ public class Data
   private const uint numVals;
 
   /**
-   * Factory method to create immutable versions of data.
-   */
-  public static immutable(Data) createImmutableData(uint nInputs,
-    uint nTgts, in double[][] data)
+  * Factory method to create immutable versions of data.
+  *
+  * This uses a cast to gain immutability, so is dangerous if any references
+  * to data remain. Ideally, you would write a function that loads the data
+  * from disc or dynamically generates it and returns an immutable(Data) object.
+  * So after the function return whatever array/pointer/slice was used to 
+  * create the data goes out of scope and disapears, leaving the immutable
+  * reference the only one around.
+  */
+  public static immutable(Data) createImmutableData(in uint nInputs,
+    in uint nTgts, in double[][] data)
   {
     return cast(immutable) new Data(nInputs, nTgts, data);
   }
 
   /**
-   * Basic constructor.
-   *
-   * Params: 
-   * nInputs = The number of values in a point that are inputs. This class 
-   *           assumes the inputs are first, followed by the targets in an
-   *           array.
-   * nTgts   = The number of values in a point that are targets. This class
-   *           assumes those are the last points in an array.
-   * data    = A 2-d array with rows representing a data point and columns, e.g. 
-   *           1000 rows by 5 columns is 1000 5-dimensional data points. If
-   *           there are 3 inputs and 2 targets, then the targets are the last
-   *           two values in each point.
-   *
-   */
-  public this(uint nInputs, uint nTgts, in double[][] data)
+  * Basic constructor.
+  *
+  * Params: 
+  * nInputs = The number of values in a point that are inputs. This class 
+  *           assumes the inputs are first, followed by the targets in an
+  *           array.
+  * nTgts   = The number of values in a point that are targets. This class
+  *           assumes those are the last points in an array.
+  * data    = A 2-d array with rows representing a data point and columns, e.g. 
+  *           1000 rows by 5 columns is 1000 5-dimensional data points. If
+  *           there are 3 inputs and 2 targets, then the targets are the last
+  *           two values in each point.
+  *
+  */
+  public this(in uint nInputs, in uint nTgts, in double[][] data)
   {
     this.numInputs  = nInputs;
     this.numTargets = nTgts;
@@ -188,7 +200,7 @@ public class Data
     
     for(size_t i = 0; i < data.length; ++i)
     {
-      size_t start = i * this.numVals;
+      const size_t start = i * this.numVals;
       assert( data[i].length == this.numVals );
       this.data_[start .. (start + this.numVals)] = data[i][];
     }
@@ -203,15 +215,15 @@ public class Data
   }
 
   /// ditto
-  @property final size_t nInputs() const {return this.numInputs;}
+  @property final size_t nInputs() const { return this.numInputs; }
   
   /// ditto
-  @property final size_t nTargets() const {return this.numTargets;}
+  @property final size_t nTargets() const { return this.numTargets; }
 
 
   /**
-   * Returns: a range that iterates over the points in this collection.
-   */
+  * Returns: a range that iterates over the points in this collection.
+  */
   @property final auto simpleRange() const
   {
     return DataRange!(typeof(this))(this);
@@ -223,26 +235,26 @@ public class Data
   }
 
   /**
-   * Returns: a range that iterates over the points in this collection in
-   *          the same order everytime.
-   */
+  * Returns: a range that iterates over the points in this collection in
+  *          the same order everytime.
+  */
   @property final auto infiniteRange() const
   {
     return InfiniteDataRange!(typeof(this))(this);
   }
 
   /**
-   * Returns: a range that iterates over the points in this collection at
-   *          random. It is an infinite range.
-   */
+  * Returns: a range that iterates over the points in this collection at
+  *          random. It is an infinite range.
+  */
   @property final auto randomRange() const
   {
     return RandomDataRange!(typeof(this))(this);
   }
 
   /**
-   * Returns: The DataPoint object at the given position in this collection.
-   */
+  * Returns: The DataPoint object at the given position in this collection.
+  */
   public final auto opIndex(size_t index)
   {
     const size_t start = index * numVals;
@@ -250,7 +262,7 @@ public class Data
     const size_t brk = start + numInputs;
     return DataPoint(data_[start .. brk], data_[brk .. end]);
   }
-
+  /// ditto
   public final auto opIndex(size_t index) const
   {
     const size_t start = index * numVals;
@@ -258,7 +270,6 @@ public class Data
     const size_t brk = start + numInputs;
     return const DataPoint(data_[start .. brk], data_[brk .. end]);
   }
-
   /// ditto
   public final auto opIndex(size_t index) immutable
   {
@@ -276,8 +287,8 @@ public class Data
 }
 
 /*==============================================================================
- *                     Unit tests for data class
- *============================================================================*/
+*                     Unit tests for data class
+*=============================================================================*/
 version(unittest)
 {
   
@@ -297,6 +308,8 @@ version(unittest)
 
 unittest
 { 
+  mixin(announceTest("Constructors"));
+
   Data d = new Data(5, 2, testData);
   
   // Check the number of points
@@ -312,6 +325,7 @@ unittest
 
 unittest
 {
+  mixin(announceTest("createImmutableData"));
   // Short-hand for dealing with immutable data
   alias iData = immutable(Data);
   
@@ -328,7 +342,7 @@ unittest
     }
   }
 }
-
+/***/
 /*==============================================================================
  *                         Helper Functions for Data class.
  *============================================================================*/

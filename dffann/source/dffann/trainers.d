@@ -8,6 +8,7 @@
  */
 module dffann.trainers;
 
+import numeric.numeric;
 import numeric.func;
 import numeric.matrix;
 import numeric.minimize;
