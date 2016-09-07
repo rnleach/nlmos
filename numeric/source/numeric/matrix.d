@@ -12,7 +12,7 @@ import std.math;
 import std.random;
 import std.string: format;
 
-public import numeric.numeric;
+import numeric.numeric;
 
 version(par)
 {
@@ -105,6 +105,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("Constructors"));
+
     // Test blank initialization
     Matrix M = Matrix(4,5);
     assert(M.rows == 4);
@@ -144,7 +146,8 @@ public struct Matrix
 
   unittest
   {
-    
+    mixin(announceTest("Postblit"));
+
     Matrix M = Matrix(4, 5);
 
     // Fill the array with something other than double.nan
@@ -171,10 +174,7 @@ public struct Matrix
   }
 
   /// Make a duplicate matrix.
-  @property Matrix dup() const
-  {
-    return Matrix(this);
-  }
+  @property Matrix dup() const { return Matrix(this); }
 
   /**
   * Make a human readable string representation of a matrix suitable for
@@ -217,6 +217,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("matrixOf"));
+
     Matrix M = Matrix.matrixOf(2.17,7,8);
     foreach(i; 0 .. M.numVals) assert(M.m[i] == 2.17);
   }
@@ -232,6 +234,7 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("Matrix.zeros")); 
     Matrix M = Matrix.zeros(3,5);
     foreach(i; 0 .. M.numVals) assert(M.m[i] == 0.0);
   }
@@ -248,6 +251,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("Matrix.identity"));
+
     Matrix M = Matrix.identity(3);
 
     foreach(r; 0 .. M.numRows)
@@ -300,6 +305,8 @@ public struct Matrix
   }
   unittest
   {
+    mixin(announceTest("opIndex"));
+
     Matrix M = matrixOf(4.0, 3, 3);
 
     assert(M[0, 0] == 4.0);
@@ -315,7 +322,6 @@ public struct Matrix
     // No bounds checking, so no assertions for errors. The assert statement
     // in the first line is only present for debugging code, code compiled in
     // release mode (or optomize) will not have this assertion.
-
   }
 
   /**
@@ -342,6 +348,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opIndexAssign"));
+
     Matrix M = Matrix(3);
     foreach(r; 0 .. M.numRows)
       foreach(c; 0 .. M.numCols)
@@ -381,6 +389,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opIndexOpAssign"));
+
     Matrix M = Matrix.matrixOf(1.0,3,3);
     foreach(r; 0 .. M.numRows)
       foreach(c; 0 .. M.numCols){
@@ -413,6 +423,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("numRows, numCols"));
+
     Matrix M = Matrix(800,500);
     assert(M.numRows == 800);
     assert(M.numCols == 500);
@@ -451,6 +463,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opEquals"));
+
     Matrix M = Matrix.matrixOf(3.14159, 80, 4);
     Matrix N = M; // Copied via postblit
     Matrix O = Matrix.matrixOf(1.0, 80, 4);
@@ -501,6 +515,8 @@ public struct Matrix
   }
   unittest
   {
+    mixin(announceTest("opUnary"));
+
     double[][] m = [[1.0, 2.0],
                     [3.0, 4.0]];
     double[][] n = [[-1.0, -2.0],
@@ -556,6 +572,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opBinary + - "));
+
     // Test addition
     Matrix M = Matrix.identity(3);
     Matrix N = Matrix.matrixOf(1.0,3,3);
@@ -599,6 +617,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opOpAssign + - "));
+
     // Test addition
     Matrix M = Matrix.identity(3);
     Matrix N = Matrix.matrixOf(1.0,3,3);
@@ -642,6 +662,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opOpAssign + - TransposeView"));
+
     double[][] m = [[1.0, 2.0, 3.0],
                     [4.0, 5.0, 6.0]];
     
@@ -726,6 +748,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opBinary * / double"));
+
     // Test multiplication
     Matrix M = Matrix.matrixOf(1.0,3,3);
     Matrix N = M * 2.0;
@@ -771,6 +795,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opOpAssign * / double"));
+
     // Test multiplication
     Matrix M = Matrix.matrixOf(1.0,3,3);
     M *= 2.0;
@@ -834,6 +860,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opBinary * Matrix"));
+
     double[][] m = [[1.0, 2.0, 3.0],
                     [4.0, 5.0, 6.0]];
     double[][] n = [[7.0, 10.0],
@@ -891,6 +919,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("opBinary % Matrix"));
+
     // Test multiplication
     double[][] m = [[1.0, 2.0],
                     [3.0, 4.0]];
@@ -947,6 +977,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("T"));
+
     // Test transpose
     double[][] m = [[1.0, 2.0],
                     [3.0, 4.0]];
@@ -973,8 +1005,8 @@ public struct Matrix
   }
 
   /**
-   * Get a transpose view of this matrix.
-   */
+  * Get a transpose view of this matrix.
+  */
   @property package TransposeView Tv() const
   {
     return TransposeView(&this);
@@ -982,6 +1014,8 @@ public struct Matrix
 
   unittest
   {
+    mixin(announceTest("Tv"));
+
     double[][] arr = [[0.0, 1.0, 2.0],
                       [0.1, 1.1, 2.1],
                       [0.2, 1.2, 2.2]];
@@ -1068,6 +1102,8 @@ package struct TransposeView
 
   unittest
   {
+    mixin(announceTest("opIndex"));
+
     double[][] arr = [[0.0, 1.0, 2.0],
                       [0.1, 1.1, 2.1],
                       [0.2, 1.2, 2.2]];
@@ -1093,6 +1129,8 @@ package struct TransposeView
 
   unittest
   {
+    mixin(announceTest("numRows numCols"));
+
     TransposeView M = Matrix(800,500).Tv;
     assert(M.numRows == 500);
     assert(M.numCols == 800);
@@ -1207,6 +1245,8 @@ package struct TransposeView
 
   unittest
   {
+    mixin(announceTest("opBinary + - Matrix TransposeView"));
+
     // Test addition
     double[][] m = [[1.0, 2.0, 3.0],
                    [4.0, 5.0, 6.0]];
@@ -1295,6 +1335,8 @@ package struct TransposeView
 
   unittest
   {
+    mixin(announceTest("opBinary * / double"));
+
     double[][] m = [[1.0, 2.0, 3.0],
                    [4.0, 5.0, 6.0]];
 
@@ -1407,6 +1449,8 @@ package struct TransposeView
 
   unittest
   {
+    mixin(announceTest("opBinary * Matrix"));
+
     double[][] m = [[1.0, 2.0, 3.0],
                     [4.0, 5.0, 6.0]];
 
@@ -1520,6 +1564,8 @@ package struct TransposeView
 
   unittest
   {
+    mixin(announceTest("opBinary %"));
+
     double[][] m = [[1.0, 3.0],
                     [2.0, 4.0]];
     
@@ -1594,6 +1640,8 @@ package struct TransposeView
 
   unittest
   {
+    mixin(announceTest("opEquals"));
+
     Matrix M = Matrix.matrixOf(3.14159, 80, 4);
     Matrix N = M;
     Matrix O = Matrix.matrixOf(1.0, 80, 4);
@@ -1612,6 +1660,8 @@ package struct TransposeView
 
   unittest
   {
+    mixin(announceTest("opUnary"));
+
     double[][] m = [[1.0, 3.0],
                    [2.0, 4.0]];
     double[][] n = [[-1.0, -2.0],
@@ -1898,6 +1948,8 @@ struct SVDDecomp
 
   unittest
   {
+    mixin(announceTest("SVDDecomp - decompose, U, V, W"));
+
     double[][] m = [[ 1.0,  2.0,  3.0,  4.0],
                     [ 5.0,  6.0,  7.0,  8.0],
                     [ 9.0, 10.0, 11.0, 12.0],
@@ -1942,6 +1994,8 @@ struct SVDDecomp
 
   unittest
   {
+    mixin(announceTest("SVDDecomp - condition"));
+
     double[][] m = [[ 1.0,  2.0,  3.0,  4.0],
                     [ 5.0,  6.0,  7.0,  8.0],
                     [ 9.0, 10.0, 11.0, 12.0],
@@ -2021,6 +2075,8 @@ Vector RVector(in double[] vals)
 }
 unittest
 {
+  mixin(announceTest("Vectors"));
+
   Vector v = CVector([1.0, 2.0, 3.0, 4.0, 5.0]);
   Vector vt = RVector([1.0, 2.0, 3.0, 4.0, 5.0]);
   Vector p = CVector([55.0]);
@@ -2080,6 +2136,8 @@ private struct CountRange
 
 unittest
 {
+  mixin(announceTest("CountRange"));
+  
   // CountRange
   size_t k = 0;
   foreach(i; CountRange(4))
@@ -2114,29 +2172,29 @@ version(prof)
     version(par) { prefix ~= "Parallel_"; }
     else{ prefix ~= "Serial_"; }
 
-    enum iter = 500;              // Number of times to do it while timing.
+    enum iter = 500;               // Number of times to do it while timing.
     auto sizes = LogRange(1,001);  // Matrix sizes to use
 
     // Temporarily store results here before saving.
     TickDuration[size_t] results;
 
     /*
-     * Make the same basic foreach block for each test. Use this with mixin to
-     * create a block of code to time a function.
-     *
-     * Params:
-     * msg        - a description of what is being timed.
-     * setup      - any code that needs to be evaluated before the loop.
-     * func       - an anonymous function that will go inside the loop and be 
-     *              timed.
-     * fname      - the name of the file to output the results.
-     * matSizeVar - an array literal listing the matrix sizes you want to 
-     *              time for. If none is given, the variable sizes initialized
-     *              above is used.
-     * iterations - the number of times you want each function ran (for each 
-     *              size) while while you are timing it. Defaults to the enum
-     *              iter above.
-     */
+    * Make the same basic foreach block for each test. Use this with mixin to
+    * create a block of code to time a function.
+    *
+    * Params:
+    * msg        - a description of what is being timed.
+    * setup      - any code that needs to be evaluated before the loop.
+    * func       - an anonymous function that will go inside the loop and be 
+    *              timed.
+    * fname      - the name of the file to output the results.
+    * matSizeVar - an array literal listing the matrix sizes you want to 
+    *              time for. If none is given, the variable sizes initialized
+    *              above is used.
+    * iterations - the number of times you want each function ran (for each 
+    *              size) while while you are timing it. Defaults to the enum
+    *              iter above.
+    */
     string makeProfileBlock(string msg, string setup, 
                             string func, string fname,
                             string matSizeVar = "sizes",
@@ -2157,8 +2215,8 @@ version(prof)
     }
 
     /*
-     * Time allocation and deallocation
-     */
+    * Time allocation and deallocation
+    */
     mixin(makeProfileBlock(
       "allocation of matrixOf",
       "",
@@ -2167,8 +2225,8 @@ version(prof)
       ));
     
     /*
-     * Time addition
-     */
+    * Time addition
+    */
     mixin(makeProfileBlock(
       "addition",
       "Matrix M = Matrix.matrixOf(10.0, sz, sz);
@@ -2178,8 +2236,8 @@ version(prof)
       ));
 
     /*
-     * Time multiplication * matrix
-     */
+    * Time multiplication * matrix
+    */
     mixin(makeProfileBlock(
       "multiplication",
       "Matrix M = Matrix.matrixOf(10.0, sz, sz);
@@ -2189,8 +2247,8 @@ version(prof)
       ));
   
     /*
-     * Time multiplication % matrix
-     */
+    * Time multiplication % matrix
+    */
     mixin(makeProfileBlock(
       "multiplication %%",
       "Matrix M = Matrix.matrixOf(10.0, sz, sz);
@@ -2201,8 +2259,8 @@ version(prof)
       ));
 
     /*
-     * Time Transpose
-     */
+    * Time Transpose
+    */
     mixin(makeProfileBlock(
       "transpose",
       "Matrix M = Matrix.matrixOf(10.0, sz, sz);",
@@ -2211,9 +2269,9 @@ version(prof)
       ));
 
     /*
-     * Time Some composite operations, to see effect of Transpose, compare with
-     * results of block below to see influence of TransposeView stuct.
-     */
+    * Time Some composite operations, to see effect of Transpose, compare with
+    * results of block below to see influence of TransposeView stuct.
+    */
     mixin(makeProfileBlock(
       "CompositionT1",
       "Matrix M = Matrix.matrixOf(10.0, sz, sz);
@@ -2223,8 +2281,8 @@ version(prof)
       ));
 
     /*
-     * Time Some composite operations, to see effect of Transpose View
-     */
+    * Time Some composite operations, to see effect of Transpose View
+    */
     mixin(makeProfileBlock(
       "CompositionT2",
       "Matrix M = Matrix.matrixOf(10.0, sz, sz);
@@ -2232,55 +2290,46 @@ version(prof)
       "{Matrix O = M.Tv + N;}",
       "CompositionT2.csv"
       ));
-
-    /+
-    /*
-     * Time the svd algorithm.
-     */
-    mixin(makeProfileBlock(
-      "SVD",
-      "Matrix M = Matrix.random(sz);",
-      "{SVDDecomp svd = SVDDecomp(M);}",
-      "SVDDecomp.csv"
-      ));
-    +/
   }
 
 
   /**
-   * Create a range of integers like 1,2,3,...,9,10,20,30,....90,100,200...
-   */
-  struct LogRange{
+  * Create a range of integers like 1,2,3,...,9,10,20,30,....90,100,200...
+  */
+  struct LogRange
+  {
 
     private size_t max;
     private size_t i = 0;
 
-    this(size_t mx){max = mx;}
+    this(size_t mx) { max = mx; }
 
-    this(size_t min, size_t mx){
+    this(size_t min, size_t mx)
+    {
       max = mx; 
       i = min;
     }
 
-    @property bool empty(){return i >= max;}
+    @property bool empty() { return i >= max; }
 
-    @property size_t front(){return i;}
+    @property size_t front() { return i; }
 
-    void popFront(){
-
+    void popFront()
+    {
       size_t step = 1;
       while(step <= i) step *= 10;
       if(step > 1) step /= 10;
 
       i += step;
 
-    };
+    }
   }
 
   /**
-   * Quickly save a csv file.
-   */
-  void SaveData(in TickDuration[size_t] data, in string filename){
+  * Quickly save a csv file.
+  */
+  void SaveData(in TickDuration[size_t] data, in string filename)
+  {
     // Open the file
     Stream fl = new BufferedFile(filename, FileMode.OutNew);
     scope(exit) fl.close();
@@ -2290,9 +2339,9 @@ version(prof)
 
     //Print output.
     auto keys = sort!("a<b")(data.keys);
-    foreach(k; keys){
+    foreach(k; keys)
+    {
       fl.writefln("%d,%d",k,data[k].usecs);
     }
   }
-
 }

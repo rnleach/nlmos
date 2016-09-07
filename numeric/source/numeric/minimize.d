@@ -1,15 +1,14 @@
 /**
- * Library for numerics in D.
- *
- * This module contains routines for minimizing functions as defined in func.d.
- *
- * Version: 1.0.0
- * Date: January 23, 2015
- */
+* Library for numerics in D.
+*
+* This module contains routines for minimizing functions as defined in func.d.
+*
+* Version: 1.0.0
+* Date: January 23, 2015
+*/
 module numeric.minimize;
 
-public import numeric.numeric;
-
+import numeric.numeric;
 import numeric.func;
 import numeric.matrix;
 
@@ -17,21 +16,16 @@ import std.algorithm;
 import std.math;
 import std.string;
 
-version(unittest)
-{
-  import std.stdio;
-}
-
 /**
- * Shift a point.
- *
- * Given a starting point, a direction, and a scale, return a point shifted
- * by scale times direction from starting point.
- * 
- * Used internally for minimizations of multivariable functions along a line.
- * 
- * Returns: start + scale * dir
- */
+* Shift a point.
+*
+* Given a starting point, a direction, and a scale, return a point shifted
+* by scale times direction from starting point.
+* 
+* Used internally for minimizations of multivariable functions along a line.
+* 
+* Returns: start + scale * dir
+*/
 private double[] delta(double[] start, double[] dir, double scale)
 {
   assert(start.length == dir.length);
@@ -42,10 +36,10 @@ private double[] delta(double[] start, double[] dir, double scale)
   
   return toRet;
 }
-///
+
 unittest
 {
-  // delta
+  mixin(announceTest("delta"));
 
   double[] x = [1.0, 2.0, 3.0, 4.0];
   double[] dir = [1.0, 2.0, 3.0, 4.0];
@@ -55,12 +49,12 @@ unittest
 }
 
 /**
- * Convenient and more expressive way to represent results of a bracketing 
- * operation compared to an array.
- *
- * If there was a failure to bracket, then the minimum value of the function
- * found during the proces should be returned via parameter ax.
- */
+* Convenient and more expressive way to represent results of a bracketing 
+* operation compared to an array.
+*
+* If there was a failure to bracket, then the position of the minimum value of 
+* the function found during the proces should be returned via parameter ax.
+*/
 public struct BracketResults
 {
   /// Abisca points bracketing a minimum and function values at those points.
@@ -69,14 +63,14 @@ public struct BracketResults
   public double fa, fb, fc;
 
   /**
-   * Params:
-   * a = abisca value bracketing a minimum from the low side
-   * b = abisca value between the brackets, with function value lower than a and c
-   * c = abisca value bracketing a minimum from the high side
-   * fa = function value at a
-   * fb = function value at b
-   * fc = function value at c
-   */
+  * Params:
+  * a = abisca value bracketing a minimum from the low side
+  * b = abisca value between the brackets, with function value lower than a and c
+  * c = abisca value bracketing a minimum from the high side
+  * fa = function value at a
+  * fb = function value at b
+  * fc = function value at c
+  */
   public this(double a, double b, double c, double fax, double fbx, double fcx)
   {
     ax = a;   bx = b;   cx = c; 
@@ -84,9 +78,9 @@ public struct BracketResults
   }
 
   /**
-   * Returns: false if any members are NaN or infinity, which is the signal for 
-   *          a failed attempt to bracket.
-   */
+  * Returns: false if any members are NaN or infinity, which is the signal for 
+  *          a failed attempt to bracket.
+  */
   public @property bool bracketFound() const
   {
     if(isNaN(ax) || isNaN(bx) || isNaN(cx) || 
@@ -107,29 +101,29 @@ public struct BracketResults
 }
 
 /**
- * Bracket a minimum along a given direction.
- *
- * For doing a line minimization given a starting point and a direction,
- * return 3 values to bracket a minimum along the line through the starting 
- * point in the direction given.
- * 
- * Based on routine mnbrak from Numerical Recipes in C, Second Edition, 
- * section 10.1, pg 400. However, I've added a feature.
- *
- * If a bracket cannot be found, this routine will return the location of the 
- * lowest function value found so far in the 'ax' field of the returned struct.
- * 
- * Params:
- * startingPoint = the starting point.
- * direction     = the direction to search along a line.
- * f             = the function to evaluate when bracketing a minimum.
- *
- * Returns: a BracketResults struct with the minimum along the line bracketed
- *          by the ax and ac members. The middle location bx is included along
- *          the function values at all of those locations. If the routine was
- *          unable to bracket a minimum, all the valuse of the return will be
- *          double.nan and this can be checked for with the bracketFound method.
- */
+* Bracket a minimum along a given direction.
+*
+* For doing a line minimization given a starting point and a direction,
+* return 3 values to bracket a minimum along the line through the starting 
+* point in the direction given.
+* 
+* Based on routine mnbrak from Numerical Recipes in C, Second Edition, 
+* section 10.1, pg 400. However, I've added a feature.
+*
+* If a bracket cannot be found, this routine will return the location of the 
+* lowest function value found so far in the 'ax' field of the returned struct.
+* 
+* Params:
+* startingPoint = the starting point.
+* direction     = the direction to search along a line.
+* f             = the function to evaluate when bracketing a minimum.
+*
+* Returns: a BracketResults struct with the minimum along the line bracketed
+*          by the ax and ac members. The middle location bx is included along
+*          the function values at all of those locations. If the routine was
+*          unable to bracket a minimum, all the valuse of the return will be
+*          double.nan and this can be checked for with the bracketFound method.
+*/
 public BracketResults bracketMinimum(double[] startingPoint, 
   double[] direction, Func f)
 {
@@ -250,25 +244,24 @@ public BracketResults bracketMinimum(double[] startingPoint,
   return BracketResults(ax, bx, cx, fa, fb, fc);
 }
 
-///
 unittest
 {
-  // bracketMinimum
+  mixin(announceTest("bracketMinimum"));
 
   /*
-   * Imported function in the unittest version of func.d with an absolute 
-   * minimum at (x=1, y=2, z=3).
-   */
+  * Imported function in the unittest version of func.d with an absolute 
+  * minimum at (x=1, y=2, z=3).
+  */
   AnotherFunction af = new AnotherFunction;
 
   // Start at point (1,1,1) and bracket a minimum in along a given direction
   double[] startPoint = [1.0, 1.0, 1.0];
 
   /* 
-   * For direction (0,1,0) should bracket minimum point at (1,2,1). Since we
-   * are only moving along the y direction and want to bracket the point y=2,
-   * startPoint[1] + (ax,bx,cx) should bracket 2.
-   */
+  * For direction (0,1,0) should bracket minimum point at (1,2,1). Since we
+  * are only moving along the y direction and want to bracket the point y=2,
+  * startPoint[1] + (ax,bx,cx) should bracket 2.
+  */
   BracketResults results = bracketMinimum(startPoint, [0.0,1.0,0.0], af);
   assert(results.bracketFound); 
   assert(results.fa >= results.fb && results.fc >= results.fb);
@@ -276,10 +269,10 @@ unittest
     (results.cx > results.bx && results.bx > results.ax));
 
   /* 
-   * For direction (1,0,0) should bracket minimum point at (1,1,1). Since we
-   * are only moving along the x direction and want to bracket the point x=1,
-   * startPoint[0] + (ax,bx,cx) should bracket 1.
-   */
+  * For direction (1,0,0) should bracket minimum point at (1,1,1). Since we
+  * are only moving along the x direction and want to bracket the point x=1,
+  * startPoint[0] + (ax,bx,cx) should bracket 1.
+  */
   results = bracketMinimum(startPoint, [1.0,0.0,0.0], af);
   assert(results.bracketFound); 
   assert(results.fa >= results.fb && results.fc >= results.fb);
@@ -287,8 +280,8 @@ unittest
     (results.cx > results.bx && results.bx > results.ax));
 
   /* 
-   * For direction (0,0.5,1) should bracket minimum point at (1,2,3).
-   */
+  * For direction (0,0.5,1) should bracket minimum point at (1,2,3).
+  */
   results = bracketMinimum(startPoint, [0.0,0.5,1.0], af);
   assert(results.bracketFound); 
   assert(results.fa >= results.fb && results.fc >= results.fb);
@@ -296,38 +289,38 @@ unittest
     (results.cx > results.bx && results.bx > results.ax));
 
   /* 
-   * This function has no local minimum, so it should not be able to bracket
-   *  one!
-   */
+  * This function has no local minimum, so it should not be able to bracket
+  *  one!
+  */
   ANegativeFunction nf = new ANegativeFunction;
   results = bracketMinimum(startPoint, [0.0,1.0,0.0], nf);
   assert(!results.bracketFound);
 }
 
 /**
- * Convenient and more expressive way to represent results of a line 
- * minimization operation compared to an array.
- *
- * Assuming the line minimization was done with a starting point sp and 
- * direction dr, the coordinates of the minimum will be delta(sp, dir, alpha),
- * where alpha is a member of this struct. The value at that position is
- * the value member, and the gradient is the gradient member. The gradient
- * member may be null if the gradient was not requested during minimization.
- */
+* Convenient and more expressive way to represent results of a line 
+* minimization operation compared to an array.
+*
+* Assuming the line minimization was done with a starting point sp and 
+* direction dr, the coordinates of the minimum will be delta(sp, dir, alpha),
+* where alpha is a member of this struct. The value at that position is
+* the value member, and the gradient is the gradient member. The gradient
+* member may be null if the gradient was not requested during minimization.
+*/
 public struct LineMinimizationResults
 {
   /**
-   * Assuming the line minimization was done with a starting point sp and
-   * direction dr, alpah is the distance along that direction to get to the 
-   * minimum.
-   */
+  * Assuming the line minimization was done with a starting point sp and
+  * direction dr, alpah is the distance along that direction to get to the 
+  * minimum.
+  */
   public double alpha;
   /// The value of the function at the minimum.
   public double value;
   /**
-   * The value of the gradient at the minimum, may be null if no gradient was 
-   * calculated.
-   */
+  * The value of the gradient at the minimum, may be null if no gradient was 
+  * calculated.
+  */
   public double[] gradient;
   /// The coordinates of the minimum after the line minimization.
   public double[] pos;
@@ -335,16 +328,16 @@ public struct LineMinimizationResults
   public uint iterations;
   
   /**
-   * Params:
-   * a  = Assuming the line minimization was done with a starting point sp and
-   *      direction dr, a is the distance along that direction to get to the
-   *      minimum.
-   * v  = the value of the function at the minimum.
-   * g  = the gradient of the function at the minimum, and may be null.
-   * sp = the starting point used to do the line minimization.
-   * dr = the direction used in the line minimization.
-   * it = the number of iterations it took to reach the minimum.
-   */
+  * Params:
+  * a  = Assuming the line minimization was done with a starting point sp and
+  *      direction dr, a is the distance along that direction to get to the
+  *      minimum.
+  * v  = the value of the function at the minimum.
+  * g  = the gradient of the function at the minimum, and may be null.
+  * sp = the starting point used to do the line minimization.
+  * dr = the direction used in the line minimization.
+  * it = the number of iterations it took to reach the minimum.
+  */
   public this(double a, double v, double[] g, double[] sp, double[] dr, uint it)
   {
     this.alpha = a;
@@ -363,17 +356,17 @@ public struct LineMinimizationResults
 }
 
 /**
- * Line minimization based off of routine brent from Numerical Recipes in 
- * C, Second Edition, section 10.2, pg 404.
- * 
- * Params:
- * startingPoint = the starting point
- * direction     = the direction to search along a line
- * brackets      = as returned from bracketMinimum
- * f             = the function to evaluate when minimizing.
- * 
- * Returns: an object with public access to the results.
- */
+* Line minimization based off of routine brent from Numerical Recipes in 
+* C, Second Edition, section 10.2, pg 404.
+* 
+* Params:
+* startingPoint = the starting point
+* direction     = the direction to search along a line
+* brackets      = as returned from bracketMinimum
+* f             = the function to evaluate when minimizing.
+* 
+* Returns: an object with public access to the results.
+*/
 public LineMinimizationResults lineMinimize(double[] startingPoint, 
                                             double[] direction, 
                                             BracketResults brackets, 
@@ -495,23 +488,23 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
 
 unittest
 {
-  // lineMinimize
+  mixin(announceTest("lineMinimize"));
 
   /*
-   * Imported function in the unittest version of func.d with an absolute 
-   * minimum at (x=1, y=2, z=3).
-   */
+  * Imported function in the unittest version of func.d with an absolute 
+  * minimum at (x=1, y=2, z=3).
+  */
   AnotherFunction af = new AnotherFunction;
 
   // Start at point (1,1,1) and find a minimum in along a given direction
   double[] startPoint = [1.0, 1.0, 1.0];
 
   /* 
-   * For direction (0,1,0) should find minimum point at (1,2,1), this is not 
-   * a local minimum for the function, but here we are constrained to move along
-   * a given line. Since we are only moving along the y direction this is at
-   * (1,2,1)
-   */
+  * For direction (0,1,0) should find minimum point at (1,2,1), this is not 
+  * a local minimum for the function, but here we are constrained to move along
+  * a given line. Since we are only moving along the y direction this is at
+  * (1,2,1)
+  */
   double[] dr = [0.0,1.0,0.0];
   BracketResults bres = bracketMinimum(startPoint, dr, af);
   assert(bres.bracketFound);
@@ -522,11 +515,11 @@ unittest
   assert(approxEqual(lres.gradient, [0.0, 0.0, -4.0]));
 
   /* 
-   * For direction (1,0,0) should find minimum point at (1,1,1), this is not 
-   * a local minimum for the function, but here we are constrained to move along
-   * a given line. Since we are only moving along the x direction this is at
-   * (1,1,1).
-   */
+  * For direction (1,0,0) should find minimum point at (1,1,1), this is not 
+  * a local minimum for the function, but here we are constrained to move along
+  * a given line. Since we are only moving along the x direction this is at
+  * (1,1,1).
+  */
   dr = [1.0, 0.0, 0.0];
   bres = bracketMinimum(startPoint, [1.0,0.0,0.0], af);
   assert(bres.bracketFound);
@@ -536,9 +529,9 @@ unittest
   assert(approxEqual(lres.gradient, [0.0, -2.0, -4.0]));
 
   /* 
-   * For direction (0,0.5,1) should find minimum point at (1,2,3), which 
-   * happens to be a local minimum of the function.
-   */
+  * For direction (0,0.5,1) should find minimum point at (1,2,3), which 
+  * happens to be a local minimum of the function.
+  */
   dr = [0.0, 0.5, 1.0];
   bres = bracketMinimum(startPoint, dr, af);
   assert(bres.bracketFound);
@@ -550,17 +543,17 @@ unittest
 }
 
 /**
- * Use a BFGS algorithm to minimize the supplied function.
- * 
- * Params:
- * f         = the function to be minimized.
- * startPos  = seed for the starting position to start looking for a minimum,
- *             and the result is returned.
- * maxIt     = the maximum number of steps to take before quitting.
- * minDeltaV = a stopping condition. When the average change in value over the 
- *             last several iterations is smaller than this, stop!
- *
- */
+* Use a BFGS algorithm to minimize the supplied function.
+* 
+* Params:
+* f         = the function to be minimized.
+* startPos  = seed for the starting position to start looking for a minimum,
+*             and the result is returned.
+* maxIt     = the maximum number of steps to take before quitting.
+* minDeltaV = a stopping condition. When the average change in value over the 
+*             last several iterations is smaller than this, stop!
+*
+*/
 public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt, 
   double minDeltaV)
 {
@@ -639,12 +632,6 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
       alpha = res.alpha;
       gA = res.gradient;
 
-      /+
-      version(unittest)
-      {
-        writeln(res.toString);
-      }
-      +/
     }
     else // Couldn't bracket, but use the best value we got from trying.
     {
@@ -654,13 +641,6 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
       gA = f.gradient;
       alpha = 0.0;
 
-      /+
-      version(unittest)
-      {
-        write("Failed to bracket - so -");
-        writeln(brackets.toString);
-      }
-      +/
     }
 
     // Update the error averages to check stopping criteria
@@ -706,15 +686,14 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
   startPos = wA;
 }
 
-///
 unittest
 {
-  // bfgsMinimize
+  mixin(announceTest("bfgsMinimize"));
 
   /*
-   * Imported function in the unittest version of func.d with an absolute 
-   * minimum at (x=1, y=2, z=3).
-   */
+  * Imported function in the unittest version of func.d with an absolute 
+  * minimum at (x=1, y=2, z=3).
+  */
   AnotherFunction af = new AnotherFunction;
 
   // Start at point (-10,100,1000), just cause
@@ -723,9 +702,9 @@ unittest
   assert(approxEqual(startPoint, [1.0, 2.0, 3.0]));
 
   /*
-   * Imported function in the unittest version of func.d with an absolute 
-   * minimum at (x=0, y=0, z=0, .....).
-   */
+  * Imported function in the unittest version of func.d with an absolute 
+  * minimum at (x=0, y=0, z=0, .....).
+  */
   Func sm = new SquareMachine;
   startPoint = [-10.0, 100.0, 100.0, 1.0, 20.0, 567.88888];
   try{
@@ -738,9 +717,9 @@ unittest
   }
 
   /*
-   * Imported function in the unittest version of func.d with an absolute 
-   * minimum at infinity and no local minima.
-   */
+  * Imported function in the unittest version of func.d with an absolute 
+  * minimum at infinity and no local minima.
+  */
   Func nf = new ANegativeFunction;
   startPoint = [-0.01, 0.01, 0.02];
   assertThrown!FailureToConverge(bfgsMinimize(nf, startPoint, 1000, 1.0e-12));

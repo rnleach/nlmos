@@ -1,39 +1,39 @@
 /**
- * Library for numerics in D.
- *
- * This module contains routines for random numbers. Note that many of these
- * routines were developed for floating point arithmetic, and I'm not sure how
- * well they stand up at double precisiion in a 64 bit envirionment.
- *
- * Probably better off using the std.random library's uniform generator,
- * however, after inspection of the code in std/random.d, it appears that the
- * default generator is much more complicated and defaults to a 32 bit 
- * implementation. It seems possible to create a 64 bit version, but will
- * require some research into how exactly to use the myriad types. So for now
- * will stick with these routines for random numbers.
- *
- * // TODO - add code to use std.random for uniform deviates, and get check for
- * //        for 64 bit compilation, then configure generators correctly.
- *
- * Version: 1.0.0
- * Date: January 25, 2015
- */
+* Library for numerics in D.
+*
+* This module contains routines for random numbers. Note that many of these
+* routines were developed for floating point arithmetic, and I'm not sure how
+* well they stand up at double precisiion in a 64 bit envirionment.
+*
+* Probably better off using the std.random library's uniform generator,
+* however, after inspection of the code in std/random.d, it appears that the
+* default generator is much more complicated and defaults to a 32 bit 
+* implementation. It seems possible to create a 64 bit version, but will
+* require some research into how exactly to use the myriad types. So for now
+* will stick with these routines for random numbers.
+*
+* // TODO - add code to use std.random for uniform deviates, and get check for
+* //        for 64 bit compilation, then configure generators correctly.
+*
+* Version: 1.0.0
+* Date: January 25, 2015
+*/
 module numeric.random;
 
-public import numeric.numeric;
+import numeric.numeric;
 
 import std.math;
 import std.random;
 
 /**
- * Routine ran0 ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
- * page 279.
- *
- * Params: a seed that must not be altered between succesive calls.
- *
- * Returns: a uniform random deviate.
- */
- double ran0(ref long idum){
+* Routine ran0 ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
+* page 279.
+*
+* Params: a seed that must not be altered between succesive calls.
+*
+* Returns: a uniform random deviate.
+*/
+double ran0(ref long idum){
 
   enum IA = 16807;
   enum IM = 2147483647;
@@ -54,16 +54,16 @@ import std.random;
   return ans;
  }
 
- /**
- * Routine ran1 ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
- * page 280.
- *
- * Params: a negative integer seed that must not be altered between succesive 
- *         calls.
- *
- * Returns: a uniform random deviate between 0.0 and 1.0 exclusive.
- */
- double ran1(ref long idum){
+/**
+* Routine ran1 ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
+* page 280.
+*
+* Params: a negative integer seed that must not be altered between succesive 
+*         calls.
+*
+* Returns: a uniform random deviate between 0.0 and 1.0 exclusive.
+*/
+double ran1(ref long idum){
 
   enum IA = 16807;
   enum IM = 2147483647;
@@ -102,20 +102,21 @@ import std.random;
   iv[j] = idum;
   if((temp = AM * iy) > RNMX) return RNMX;
   else return temp;
- }
+}
 
 // TODO add ran2 and ran3
 
- /**
- * Routine gasdev ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
- * page 289.
- *
- * Params: a negative integer seed that must not be altered between succesive 
- *         calls.
- *
- * Returns: a gaussian random deviate of zero mean and unit standard deviation.
- */
- double gasdev(ref long idum){
+/**
+* Routine gasdev ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
+* page 289.
+*
+* Params: a negative integer seed that must not be altered between succesive 
+*         calls.
+*
+* Returns: a gaussian random deviate of zero mean and unit standard deviation.
+*/
+double gasdev(ref long idum)
+{
   static bool iset = false;
   static double gset;
   double fac, rsq, v1, v2;
@@ -136,20 +137,20 @@ import std.random;
     iset = false;
     return gset;
   }
- }
+}
 
-  /**
- * Routine gasdev ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
- * page 289. This override relies on the D phobos standard library random
- * number generator to generate the uniform random deviates.
- *
- * Params: a negative integer seed that must not be altered between succesive 
- *         calls.
- *
- * Returns: a gaussian random deviate of zero mean and unit standard deviation.
- */
- double gasdev()
- {
+/**
+* Routine gasdev ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
+* page 289. This override relies on the D phobos standard library random
+* number generator to generate the uniform random deviates.
+*
+* Params: a negative integer seed that must not be altered between succesive 
+*         calls.
+*
+* Returns: a gaussian random deviate of zero mean and unit standard deviation.
+*/
+double gasdev()
+{
   static bool iset = false;
   static double gset;
   double fac, rsq, v1, v2;

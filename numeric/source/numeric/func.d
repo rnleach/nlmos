@@ -1,11 +1,11 @@
 /**
- * Author: Ryan Leach
- * Version: 1.0.0
- * Date: January 23, 2015
- */
+* Author: Ryan Leach
+* Version: 1.0.0
+* Date: January 23, 2015
+*/
 module numeric.func;
 
-public import numeric.numeric;
+import numeric.numeric;
 
 version(unittest)
 {
@@ -13,42 +13,43 @@ version(unittest)
 }
 
 /**
- * Basic interface for a function that will be manipulated by other numeric
- * routines.
- */
+* Basic interface for a function that will be manipulated by other numeric
+* routines.
+*/
 interface Func
 {
 
   /**
-   * Evaluate the function with the given inputs, saving the
-   * value and gradient for later retrieval.
-   * 
-   * Params:
-   * inputs = postition to evaluate at, e.g. inputs = [x,y] for f(x,y).
-   */
+  * Evaluate the function with the given inputs, saving the
+  * value and gradient for later retrieval.
+  * 
+  * Params:
+  * inputs = postition to evaluate at, e.g. inputs = [x,y] for f(x,y).
+  */
   public void evaluate(in double[] inputs, bool grad = false);
   
   /**
-   * Returns: the value that resulted from the last call to 
-   * evaluate.
-   */
+  * Returns: the value that resulted from the last call to 
+  * evaluate.
+  */
   public @property double value();
   
   /**
-   * Returns: the gradient with respect to the provided inputs 
-   * from the last call to evaluate. If the gradient was not
-   * evaluated then it should return null.
-   */
+  * Returns: the gradient with respect to the provided inputs 
+  * from the last call to evaluate. If the gradient was not
+  * evaluated then it should return null.
+  */
   public @property double[] gradient();
   
 }
 
+/// Make these functions available for unittesting
 version(unittest)
 {
-  // Some functions to test on.
   import std.algorithm: reduce;
 
-  class SquareMachine: Func{
+  class SquareMachine: Func
+  {
     double result;
     double[] lgradient = null;
 
@@ -56,28 +57,30 @@ version(unittest)
     {
       this.result = reduce!"a + b * b"(0.0,inputs);
 
-      if(grad){
+      if(grad)
+      {
         lgradient = new double[](inputs.length);
         lgradient[] = 2.0 * inputs[];
       }
     }
 
-    override final @property double value(){return this.result;}
-    override final @property double[] gradient(){return this.lgradient;}
+    override final @property double value() { return this.result; }
+    override final @property double[] gradient() { return this.lgradient; }
   }
 
   /*
-   * Function of 3 independent variables, evaluates to 
-   * f = (x - 1)^2 + (y - 2)^2 + (z - 3)^2
-   *
-   * with a minimum at (1,2,3).
-   */
+  * Function of 3 independent variables, evaluates to 
+  * f = (x - 1)^2 + (y - 2)^2 + (z - 3)^2
+  *
+  * with a minimum at (1,2,3).
+  */
   class AnotherFunction: Func
   {
     double result;
     double[3] lgradient = double.nan;
 
-    override final void evaluate(in double[] inputs, bool grad = false){
+    override final void evaluate(in double[] inputs, bool grad = false)
+    {
       assert(inputs.length == 3);
 
       this.result = pow(inputs[0] - 1.0,2) + 
@@ -93,23 +96,24 @@ version(unittest)
       }
     }
 
-    override final @property double value(){return this.result;}
-    override final @property double[] gradient(){return this.lgradient;}
+    override final @property double value() { return this.result; }
+    override final @property double[] gradient() { return this.lgradient; }
   }
 
   /*
-   * Function of 3 independent variables, evaluates to 
-   * f = -((x - 1)^2 + (y - 2)^2 + (z - 3)^2)
-   *
-   * This function has no local minima, and the global minima is at infinity,
-   * so it is nice for testing the failure of minimization routines!
-   */
+  * Function of 3 independent variables, evaluates to 
+  * f = -((x - 1)^2 + (y - 2)^2 + (z - 3)^2)
+  *
+  * This function has no local minima, and the global minima is at infinity,
+  * so it is nice for testing the failure of minimization routines!
+  */
   class ANegativeFunction: Func
   {
     double result;
     double[3] lgradient = double.nan;
 
-    override final void evaluate(in double[] inputs, bool grad = false){
+    override final void evaluate(in double[] inputs, bool grad = false)
+    {
       assert(inputs.length == 3);
 
       this.result = -(pow(inputs[0] - 1.0,2) + 
@@ -125,14 +129,14 @@ version(unittest)
       }
     }
 
-    override final @property double value(){return this.result;}
-    override final @property double[] gradient(){return this.lgradient;}
+    override final @property double value() { return this.result; }
+    override final @property double[] gradient() { return this.lgradient; }
   }
 }
 
 unittest
 {
-  // Func
+  mixin(announceTest("Functions"));
 
   SquareMachine sm = new SquareMachine;
   sm.evaluate([0.0,1.0,2.0],true);
