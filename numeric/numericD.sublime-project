@@ -11,12 +11,12 @@
   "build_systems":
   [
     {
-      "name":"dub release GDC",
+      "name":"dub release LDC",
       "working_dir":"$project_path",
       "cmd":["dub",
              "--build=release",
              "--config=lib-release",
-             "--compiler=gdc",
+             "--compiler=ldc2",
              "--arch=x86_64"]
     },
     {
@@ -29,10 +29,10 @@
              "--arch=x86_64"]
     },
     {
-      "name":"dub Profile GDC",
+      "name":"dub Profile LDC",
       "working_dir":"$project_path",
       "cmd":["dub","test",
-             "--compiler=gdc",
+             "--compiler=ldc2",
              "--config=SerialProfile",
              "--arch=x86_64"]
     },
@@ -45,9 +45,10 @@
              "--arch=x86_64"]
     },
     {
-      "name":"dub Profile Par GDC",
+      "name":"dub Profile Par LDC",
       "working_dir":"$project_path",
       "cmd":["dub","test",
+             "--compiler=ldc2",
              "--config=ParProfile",
              "--arch=x86_64"]
     },
@@ -60,10 +61,10 @@
              "--arch=x86_64"]
     },
     {
-      "name":"dub test GDC",
+      "name":"dub test LDC",
       "working_dir":"$project_path",
       "cmd":["dub","test",
-             "--compiler=gdc",
+             "--compiler=ldc2",
              "--config=lib-release-serial",
              "--arch=x86_64"]
     },
@@ -76,9 +77,10 @@
              "--arch=x86_64"]
     },
     {
-      "name":"dub test Par GDC",
+      "name":"dub test Par LDC",
       "working_dir":"$project_path",
       "cmd":["dub","test",
+             "--compiler=ldc2",
              "--config=lib-release",
              "--arch=x86_64"]
     },
