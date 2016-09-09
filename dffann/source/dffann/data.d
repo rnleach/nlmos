@@ -46,7 +46,6 @@ version(unittest)
 */
 public struct DataPoint
 {
-
   /// Inputs and targets view.
   public double[] inputs;
   /// ditto
@@ -207,8 +206,8 @@ public class Data
   }
 
   /**
-   * Get information about the sizes of data associated with this Data object.
-   */
+  * Get information about the sizes of data associated with this Data object.
+  */
   @property final size_t nPoints() const 
   {
     return this.data_.length / this.numVals;
@@ -219,7 +218,6 @@ public class Data
   
   /// ditto
   @property final size_t nTargets() const { return this.numTargets; }
-
 
   /**
   * Returns: a range that iterates over the points in this collection.
@@ -280,7 +278,7 @@ public class Data
   }
 
   /// Override of $ operator
-  public final size_t opDollar(size_t pos)() const
+  public final size_t opDollar(size_t pos)() const 
   {
     return this.data_.length;
   }
@@ -326,6 +324,7 @@ unittest
 unittest
 {
   mixin(announceTest("createImmutableData"));
+
   // Short-hand for dealing with immutable data
   alias iData = immutable(Data);
   
@@ -342,19 +341,19 @@ unittest
     }
   }
 }
-/***/
+
 /*==============================================================================
- *                         Helper Functions for Data class.
- *============================================================================*/
+*                         Helper Functions for Data class.
+*=============================================================================*/
 /**
- * Load data from a file and create a Data object.
- *
- * Params:
- * nInputs    = number of inputs.
- * nTgts      = number of targets.
- * filename   = Path to the data to load.
- */
-public Data loadDataFromCSVFile (uint nInputs, uint nTgts, const string fname)
+* Load data from a file and create a Data object.
+*
+* Params:
+* nInputs    = number of inputs.
+* nTgts      = number of targets.
+* filename   = Path to the data to load.
+*/
+public Data loadDataFromCSVFile(in uint nInputs, in uint nTgts, in string fname)
 { 
   const size_t numVals = nInputs + nTgts;
 
@@ -367,7 +366,6 @@ public Data loadDataFromCSVFile (uint nInputs, uint nTgts, const string fname)
   auto sepRegEx = ctRegex!r",";
   foreach(char[] line; f.byLine)
   {
-    
     // Split the line on commas
     char[][] tokens = split(line,sepRegEx);
     
@@ -388,9 +386,11 @@ public Data loadDataFromCSVFile (uint nInputs, uint nTgts, const string fname)
   // Return the new Data instance
   return new Data(nInputs, nTgts, app.data);
 }
-///
+
 unittest
 {
+  mixin(announceTest("loadDataFromCSVFile"));
+
   makeRandomCSVFile(100, 22,"TestData.csv");
   scope(exit) std.file.remove("TestData.csv");
 
@@ -401,24 +401,25 @@ unittest
   assert( d.nInputs  ==  21 );
   assert( d.nTargets ==   1 );
 }
+
 /** 
- * Save data in a pre-determined format so that it  can be loaded quickly. 
- * 
- * Params: 
- * pData    = The data object to save.
- * filename = The path to save the data.
- */
+* Save data in a pre-determined format so that it  can be loaded quickly. 
+* 
+* Params: 
+* pData    = The data object to save.
+* filename = The path to save the data.
+*/
 public void saveData(const Data pData, const string filename)
 {
   /*
-   * File format:
-   * Data
-   * nPoints = val
-   * nInputs = val
-   * nTargets = val
-   * data =
-   * inputVal,inputVal,inputVal,inputVal,.....targetVal,targetVal,...
-   */
+  * File format:
+  * Data
+  * nPoints = val
+  * nInputs = val
+  * nTargets = val
+  * data =
+  * inputVal,inputVal,inputVal,inputVal,.....targetVal,targetVal,...
+  */
 
   // Open the file
   File fl = File(filename, "w");
@@ -439,16 +440,15 @@ public void saveData(const Data pData, const string filename)
 }
 
 /** 
- * Load data that was saved via saveData.
- * 
- * Params: 
- * filename = The path to the file to load.
- * 
- * Returns: A Data object.
- */
+* Load data that was saved via saveData.
+* 
+* Params: 
+* filename = The path to the file to load.
+* 
+* Returns: A Data object.
+*/
 public Data loadData(const string filename)
 {
-
   // See comments in saveData for file and header formats.
 
   // Open the file, read in the contents
@@ -483,7 +483,6 @@ public Data loadData(const string filename)
   
   foreach(i; 0 ..nmPoints)
   {
-
     tokens = split(dataLines[i], regex(","));
 
     enforce(tokens.length >= numVals,
@@ -499,6 +498,7 @@ public Data loadData(const string filename)
 
 unittest
 {
+  mixin(announceTest("loadData"));
 
   enum string testFileName = "TestData.csv";
   enum string testSaveName = "TestSaveData.csv"; 
@@ -524,48 +524,54 @@ unittest
   }
 }
 /*==============================================================================
- *                                   DataRange
- *============================================================================*/
-
+*                                   DataRange
+*=============================================================================*/
 /**
- * ForwardRange for iterating over a Data object.
- */
+* RandomAccessRange with length and slicing for iterating over a Data object.
+*/
 public struct DataRange(DataType)
 {
-
   private size_t start_;
   private size_t end_;
   private DataType dataObject_;
 
   /**
-   * Params: 
-   * d = The Data object you wish to iterate over.
-   */
+  * Params: 
+  * d = The Data object you wish to iterate over.
+  */
   this(DataType d)
   {
     this.start_ = 0;
     this.end_ = d.nPoints;
     this.dataObject_ = d;
   }
+
+  /// Copy constructor
+  this(DataRange!DataType src)
+  {
+    this.start_ = src.start_;
+    this.end_ = src.end_;
+    this.dataObject_ = src.dataObject_;
+  }
   
   /// Properties/methods to make this a RandomAccessRange.
-  @property bool empty(){ return start_ >= end_; }
+  @property bool empty() { return start_ >= end_; }
 
   /// ditto
-  @property auto ref front(){ return this.dataObject_[start_]; }
+  @property auto ref front() { return this.dataObject_[start_]; }
 
   /// ditto
-  void popFront(){ ++start_; }
+  void popFront() { ++start_; }
 
   /// ditto
-  @property auto ref back(){ return this.dataObject_[end_ - 1]; }
+  @property auto ref back() { return this.dataObject_[end_ - 1]; }
 
   /// ditto
-  void popBack(){ --end_; }
+  void popBack() { --end_; }
 
   /// ditto
   // Since this is a struct, return copies all values! Easy.
-  @property auto save(){ return this; }
+  @property auto save() { return this; }
 
   auto ref opIndex(size_t index)
   {
@@ -575,17 +581,17 @@ public struct DataRange(DataType)
   /// ditto
   @property size_t length(){return end_ - start_;}
 
-  /+
-  // Never have been able to get this to work with the hasSlicing! test.
-  /// ditto
+  /**
+  * This is nice to have, but only works if the underlying data is mutable.
+  */
   typeof(this) opSlice(size_t start, size_t end)
   {
     assert(start <= end, "Range Error, start must be less than end.");
     assert(start >= 0, "No negative indicies allowed!");
-    assert( this.start_ + end < this.end_, "Out of range!" );
+    assert( this.start_ + end <= this.end_, "Out of range!" );
 
     // Create a copy
-    auto temp = this.save;
+    auto temp = DataRange!DataType(this.dataObject_);
 
     // Update the next
     temp.start_  = start_ + start;
@@ -596,7 +602,6 @@ public struct DataRange(DataType)
 
     return temp;
   }
-  +/
 
   /// ditto
   @property size_t opDollar(){ return this.length; }
@@ -606,10 +611,12 @@ static assert( isForwardRange!(DataRange!(immutable Data)) );
 static assert( isBidirectionalRange!(DataRange!(immutable Data)) );
 static assert( isRandomAccessRange!(DataRange!(immutable Data)) );
 static assert( hasLength!(DataRange!(immutable Data)) );
+static assert( hasSlicing!(DataRange!(Data)) ); 
 
-///
 unittest
 {
+  mixin(announceTest("DataRange"));
+
   // Create a data set to test on.
   auto d = Data.createImmutableData(5, 2, testData);
 
@@ -640,8 +647,8 @@ unittest
 }
 
 /**
- * Infinite ForwardRange for iterating a data set in a random order.
- */
+* Infinite ForwardRange for iterating a data set in a random order.
+*/
 public struct RandomDataRange(DataType)
 {
   private DataType dataObject_;
@@ -649,16 +656,16 @@ public struct RandomDataRange(DataType)
 
 
   /**
-   * Params: 
-   * d = The Data object you wish to iterate over.
-   */
+  * Params: 
+  * d = The Data object you wish to iterate over.
+  */
   this(DataType d)
   {
     dataObject_ = d;
     nPoints_ = d.nPoints;
   }
   
-  /// Properties/methods to make this a ForwardRange with slicing.
+  /// Properties/methods to make this an infinite ForwardRange.
   public enum bool empty = false;
 
   /// ditto
@@ -677,9 +684,10 @@ public struct RandomDataRange(DataType)
 static assert( isForwardRange!(RandomDataRange!(immutable Data)) );
 static assert( isInfinite!(RandomDataRange!(immutable Data)) );
 
-///
 unittest
 {
+  mixin(announceTest("RandomDataRange"));
+
   // Create a data set to test on.
   auto d = Data.createImmutableData(5, 2, testData);
 
@@ -694,9 +702,9 @@ unittest
 }
 
 /**
- * Infinite ForwardRange for iterating a data set over and over in the same 
- * order.
- */
+* Infinite ForwardRange for iterating a data set over and over in the same 
+* order.
+*/
 public struct InfiniteDataRange(DataType)
 {
   private size_t next_;
@@ -704,9 +712,9 @@ public struct InfiniteDataRange(DataType)
   private DataType dataObject_;
 
   /**
-   * Params: 
-   * d = The Data object you wish to iterate over.
-   */
+  * Params: 
+  * d = The Data object you wish to iterate over.
+  */
   this(DataType d)
   {
     this.next_ = 0;
@@ -733,9 +741,11 @@ public struct InfiniteDataRange(DataType)
 }
 static assert( isForwardRange!(InfiniteDataRange!(immutable Data)) );
 static assert( isInfinite!(InfiniteDataRange!(immutable Data)) );
-///
+
 unittest
 {
+  mixin(announceTest("InfiniteDataRange"));
+
   // Create a data set to test on.
   Data d = new Data(5, 2, testData);
 
@@ -754,18 +764,18 @@ unittest
 }
 
 /*==============================================================================
- *                                Normalizations
- *============================================================================*/
+*                                Normalizations
+*=============================================================================*/
 
 /**
- * A normalization is used to force data to have certain statistical properties,
- * such as a standard deviation of 1 and a mean of 0. 
- * 
- * Sometimes data is binary, e.g. with values 0 or 1, or possibly -1 or 1, in 
- * which case you do not want to normalize it. Binary data may also be mixed 
- * with non-binary data. This is handled at the constructor level when loading
- * the data with the use of filters to determine if a column is binary.
- */
+* A normalization is used to force data to have certain statistical properties,
+* such as a standard deviation of 1 and a mean of 0. 
+* 
+* Sometimes data is binary, e.g. with values 0 or 1, or possibly -1 or 1, in 
+* which case you do not want to normalize it. Binary data may also be mixed 
+* with non-binary data. This is handled at the constructor level when loading
+* the data with the use of filters to determine if a column is binary.
+*/
 struct Normalization
 {
 
@@ -787,8 +797,8 @@ struct Normalization
   }
 
   /**
-   * Normalizes the Data dt in place.
-   */
+  * Normalizes the Data dt in place.
+  */
   public void normalizeInPlace(Data dt)
   {
     assert( dt.numVals == shift.length );
@@ -808,8 +818,8 @@ struct Normalization
   }
 
   /**
-   *  Un-normalize a single point with nTgtVals number of target values.
-   */
+  *  Un-normalize a single point with nTgtVals number of target values.
+  */
   public void unNormalizeTarget(double[] tgt)
   {
     tgt[] = tgt[] * scale[($ - tgt.length) .. $] + shift[($ - tgt.length) .. $];
@@ -836,9 +846,11 @@ version(unittest)
   double[] scalePar = new double[](shiftPar.length);
   double scaleVal = 0.302765035409750;
 }
-///
+
 unittest
 {
+  mixin(announceTest("Normalization."));
+
   Data d = new Data(5, 2, testData);
   scalePar[] = scaleVal;
 
@@ -874,9 +886,9 @@ unittest
 }
 
 /**
- * TODO
- */
-Normalization calcNormalization(Data dt, bool[] binaryFilter)
+* Calculate a normalization given the data set.
+*/
+Normalization calcNormalization(const Data dt, const bool[] binaryFilter)
 {
   assert( binaryFilter.length == dt.numVals );
 
@@ -887,7 +899,8 @@ Normalization calcNormalization(Data dt, bool[] binaryFilter)
   /*==========================================================================
     Nested struct to hold results of summing over a batch
   ==========================================================================*/
-  struct BatchResults {
+  struct BatchResults 
+  {
     public double[] batchSum;
     public double[] batchSumSquares;
 
@@ -909,7 +922,8 @@ Normalization calcNormalization(Data dt, bool[] binaryFilter)
     smSq[] = 0.0;
 
     // Calculate the sum and sumsq
-    foreach(d; chunk){
+    foreach(d; chunk)
+    {
       sm[0 .. nInputs] += d.inputs[];
       sm[nInputs .. numVals] += d.targets[];
       smSq[0 .. nInputs] += d.inputs[] * d.inputs[];
@@ -967,7 +981,7 @@ Normalization calcNormalization(Data dt, bool[] binaryFilter)
   // All done, now return.
   return Normalization(shift, scale);
 }
-///
+
 unittest
 {
   // None of these values are binary, so all flags are false
@@ -1006,25 +1020,25 @@ unittest
 }
 
 /**
- * Save a normalization to a file so it can be loaded back in later.
- * Useful for associating with a trained network, send the normalizations
- * along with the network file, otherwise the network is useless.
- * 
- * TODO - When phobos library settles down, save these as XML instead.
- *
- * Params: 
- * norm = the normalization to save
- * path = path to the file to save.
- */
+* Save a normalization to a file so it can be loaded back in later.
+* Useful for associating with a trained network, send the normalizations
+* along with the network file, otherwise the network is useless.
+* 
+* TODO - When phobos library settles down, save these as XML instead.
+*
+* Params: 
+* norm = the normalization to save
+* path = path to the file to save.
+*/
 void saveNormalization(const Normalization norm, const string path)
 {
   /*
-   * File format:
-   * Normalization
-   * nVals = val                      // length of arrays shift and scale
-   * shift = val,val,val,val,val,...
-   * scale = val,val,val,val,val,...
-   */
+  * File format:
+  * Normalization
+  * nVals = val                      // length of arrays shift and scale
+  * shift = val,val,val,val,val,...
+  * scale = val,val,val,val,val,...
+  */
 
   assert(norm.scale.length == norm.shift.length);
   
@@ -1054,13 +1068,13 @@ void saveNormalization(const Normalization norm, const string path)
 }
 
 /**
- * Load a normalization from the file system.
- *
- * TODO - When phobos library settles down, use XML instead.
- * 
- * Parms: 
- * fileName = path to the file to be loaded.
- */
+* Load a normalization from the file system.
+*
+* TODO - When phobos library settles down, use XML instead.
+* 
+* Parms: 
+* fileName = path to the file to be loaded.
+*/
 Normalization loadNormalization(const string fileName)
 {
   // See file description in saveNormalization
@@ -1093,7 +1107,7 @@ Normalization loadNormalization(const string fileName)
 
   return Normalization(tmpShift, tmpScale);
 }
-///
+
 unittest
 {
   scalePar[] = scaleVal;
