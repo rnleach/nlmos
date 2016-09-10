@@ -17,6 +17,8 @@
  */
 module dffann.activationfunctions;
 
+import numeric.numeric;
+
 import std.math;
 import std.traits;
 
@@ -124,9 +126,10 @@ public struct LinearAF
   }
 }
 
-///
 unittest
 {
+  mixin(announceTest("LinearAF"));
+
   const double[] input = [1.0, 2.0, 3.0, 42.0];
   double[] output = [0.0, 0.0, 0.0, 0.0];
   LinearAF.eval(input, output);
@@ -175,6 +178,8 @@ public struct SigmoidAF
 ///
 unittest
 {
+  mixin(announceTest("SigmoidAF"));
+  
   const double[] input = [0.0, 1000.0, -1000.0];
   double[] output = [0.0, 0.0, 0.0];
   SigmoidAF.eval(input, output);

@@ -9,6 +9,7 @@ import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
 import numeric.random: gasdev;
+import numeric.numeric;
 
 import std.array;
 import std.conv;
@@ -458,7 +459,7 @@ if(isAF!HAF && isOAF!OAF)
   /**
    * Returns: A copy of this network.
    */
-  override MultiLayerPerceptronNetwork!(HAF, OAF) dup()
+  override MultiLayerPerceptronNetwork!(HAF, OAF) dup() const
   {
     // Check constructor code to ensure it is a copying constructor.
     return new 
@@ -658,6 +659,8 @@ alias MLPClsNet = MultiLayerPerceptronNetwork!(TanhAF, SoftmaxAF);
 
 unittest
 {
+  mixin(announceTest("MLP2ClsNet"));
+
   // MLP2ClsNet eval(double)
 
   // Make a fake data set XOR

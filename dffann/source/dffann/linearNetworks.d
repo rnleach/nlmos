@@ -9,6 +9,7 @@ import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
 import numeric.random: gasdev;
+import numeric.numeric;
 
 import std.conv;
 import std.datetime;
@@ -88,7 +89,7 @@ if(isOAF!OAF)
     this.setRandom();
   }
 
-  private this(uint nIn, uint nOut, double[] weights, double[] biases)
+  private this(in uint nIn, in uint nOut, in double[] weights, in double[] biases)
   {
     this.nInputs = nIn;
     this.nOutputs = nOut;
@@ -268,7 +269,7 @@ if(isOAF!OAF)
   /**
    * Returns: A copy of this network.
    */
-  override LinearNetwork!OAF dup()
+  override LinearNetwork!OAF dup() const
   {
     // Check to make sure this is a copying constructor
     return new 
@@ -442,7 +443,8 @@ alias LinClsNet = LinearNetwork!SoftmaxAF;
 
 unittest
 {
-
+  mixin(announceTest("Linear Networks."));
+  
   // Make a fake data set
   double[][] fakeData = [[  1.0,   2.0,   3.0,   4.0,  35.0,  31.0],
                          [  1.0,   3.0,   5.0,   7.0,  55.0,  47.0],

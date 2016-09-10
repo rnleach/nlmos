@@ -984,6 +984,8 @@ Normalization calcNormalization(const Data dt, const bool[] binaryFilter)
 
 unittest
 {
+  mixin(announceTest("calcNormalization"));
+
   // None of these values are binary, so all flags are false
   bool[] flags = [false, false, false, false, false, false, false]; 
 
@@ -1110,6 +1112,8 @@ Normalization loadNormalization(const string fileName)
 
 unittest
 {
+  mixin(announceTest("saveNormalization - loadNormalization"));
+
   scalePar[] = scaleVal;
 
   Normalization norm = Normalization(shiftPar, scalePar);

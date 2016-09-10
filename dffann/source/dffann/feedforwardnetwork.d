@@ -94,6 +94,6 @@ interface FeedForwardNetwork{
 	/**
 	 * Returns: A copy of this network.
 	 */
-	@property FeedForwardNetwork dup();
+	@property FeedForwardNetwork dup() const;
 	
 }

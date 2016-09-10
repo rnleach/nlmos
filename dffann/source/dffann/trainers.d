@@ -22,6 +22,7 @@ version(unittest)
 {
   import std.math;
   import std.stdio;
+  import std.algorithm;
   import dffann.testutilities.testdata;
   import dffann.linearnetworks;
   import dffann.multilayerperceptrons;
@@ -123,9 +124,9 @@ public class LinearTrainer: AbstractTrainer
   {
 
     // Get a few useful constants
-    auto nPoints = _tData.nPoints;
-    auto nPredictors = _tData.nInputs + 1; // +1 for bias
-    auto nPredictands = _tData.nTargets;
+    const nPoints = _tData.nPoints;
+    const nPredictors = _tData.nInputs + 1; // +1 for bias
+    const nPredictands = _tData.nTargets;
 
     // Make the design matrix and the targets
     Matrix design = Matrix(nPoints, nPredictors);
@@ -171,7 +172,6 @@ public class LinearTrainer: AbstractTrainer
       }
       p[j++] = solution[nPredictors - 1, o];
     }
-    
 
     // Set the parameters in the net
     _net.parameters = p;
@@ -183,9 +183,10 @@ public class LinearTrainer: AbstractTrainer
   }
 }
 
-///
 unittest
 {
+  mixin(announceTest("LinearTrainer"));
+  
   // Constants to define test data
   enum numPoints = 1500;
   enum numIn = 6;
@@ -327,14 +328,14 @@ public class BFGSTrainer(EFType erf,
         // Ignore this error, the minimization did everything it could to get
         // the best result, just live with what we got. It should have left
         // parms at the best value it has achieved so far.
-        /+
-        version(unittest)
-        {
-          writefln("%d Failed to converge...iterations = %d, tolerance = %g, " ~
-            "best error = %g.", ++failCount, fc.iterations, fc.tolerance, 
-            fc.minSoFar);
-        }
-        +/
+        
+        //version(unittest)
+        //{
+        //  writefln("%d Failed to converge...iterations = %d, tolerance = %g, " ~
+        //    "best error = %g.", ++failCount, fc.iterations, fc.tolerance, 
+        //    fc.minSoFar);
+        //}
+        
       }
 
       // Evaluate the error one more time and set it to this error
@@ -369,9 +370,10 @@ public class BFGSTrainer(EFType erf,
   }
 }
 
-///
 unittest
 {
+  mixin(announceTest("BFGSTrainer"));
+
   // Constants to define test data
   enum numIn = 2;
   enum numOut = 1;
@@ -448,6 +450,6 @@ unittest
   {
     assert(approxEqual(trainedNet.eval(dp.inputs),dp.targets, 1.0e-1, 1.0e-1));
     //writefln("Inputs: %5s    Evaluated: %5s   Targets: %5s", dp.inputs, 
-    //  trainedNet.eval(dp.inputs), dp.targets);
+    //  trainedNet.eval(dp.inputs).map!(a => round(a)), dp.targets);
   }
 }

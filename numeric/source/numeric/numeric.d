@@ -29,7 +29,7 @@ import std.exception;
 version(unittest)
 {
   // Make these always available for unittests
-  public import std.stdio: writeln, write, stdout, stderr;
+  public import std.stdio: writeln, write, stdout, stderr, writefln, writef;
   public import std.string: format;
   public import std.exception;
 
@@ -38,6 +38,8 @@ version(unittest)
   {
     return "
     write(format(\"Testing %s - %5d: %s...\",__MODULE__,__LINE__,\"" ~ msg ~"\"));
+    stdout.flush();
+    stderr.flush();
     scope(exit)
     {
       writeln(\"done.\");

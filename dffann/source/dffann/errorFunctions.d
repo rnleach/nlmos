@@ -1,12 +1,12 @@
 /**
- * Author: Ryan Leach
- * Version: 1.0.0
- * Date: February 7, 2015
- *
- * This module contains error functions AND regulizers. Regulizers are treated
- * as an addition to the error function.
- *
- */
+* Author: Ryan Leach
+* Version: 1.0.0
+* Date: February 7, 2015
+*
+* This module contains error functions AND regulizers. Regulizers are treated
+* as an addition to the error function.
+*
+*/
 module dffann.errorfunctions;
 
 import std.array;
@@ -27,43 +27,43 @@ version(unitttest)
 }
 
 /**
- * Different types of error functions are used to parameterize the error 
- * function class.
- *
- * ChiSquare is the standard sum of square errors averaged over the number
- * of data points in a sample.
- *
- * CrossEntropy is the average per point cross entropy error for multiple 
- * classes in 1-of-N encoding for classification problems.
- *
- * CrossEntropy2C is the average per point cross entropy error for 0-1 encoding
- * of 2 class classification problems where the network can only have a single
- * output.
- */
+* Different types of error functions are used to parameterize the error 
+* function class.
+*
+* ChiSquare is the standard sum of square errors averaged over the number
+* of data points in a sample.
+*
+* CrossEntropy is the average per point cross entropy error for multiple 
+* classes in 1-of-N encoding for classification problems.
+*
+* CrossEntropy2C is the average per point cross entropy error for 0-1 encoding
+* of 2 class classification problems where the network can only have a single
+* output.
+*/
 enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
 
 /**
- * A class for computing the value and gradient of an error function for 
- * a feed forward network with a given set of weights. This class implements 
- * the numeric.func.Func interface so it can be used with the function 
- * minimization tools in the numeric package during training.
- *
- * Params:
- * eft       = The specific error function to calculate.
- * para      = ParallelStrategy.parallel if you want to use the parallel 
- *             (concurrent) code in the evaluate method. You may want to use 
- *             ParallelStrategy.serial if you plan to parallelize at a higher 
- *             level construct.
- * batchMode = BatchStrategy.minibatch if you want to use mini-batches, or a 
- *             subset of the data for each iteration. Otherwise the default is
- *             BatchStrategy.batch to use the whole data set.
- * randomize = RandomStrategy.inOrder if you want to go through all the points
- *             in a data set in order. This is ignored (defaults to inOrder)
- *             UNLESS mini-batches are used. Then the extra effort is worth it 
- *             to default use a random strategy to prevent odd cycles in the 
- *             data.
- *
- */
+* A class for computing the value and gradient of an error function for 
+* a feed forward network with a given set of weights. This class implements 
+* the numeric.func.Func interface so it can be used with the function 
+* minimization tools in the numeric package during training.
+*
+* Params:
+* eft       = The specific error function to calculate.
+* para      = ParallelStrategy.parallel if you want to use the parallel 
+*             (concurrent) code in the evaluate method. You may want to use 
+*             ParallelStrategy.serial if you plan to parallelize at a higher 
+*             level construct.
+* batchMode = BatchStrategy.minibatch if you want to use mini-batches, or a 
+*             subset of the data for each iteration. Otherwise the default is
+*             BatchStrategy.batch to use the whole data set.
+* randomize = RandomStrategy.inOrder if you want to go through all the points
+*             in a data set in order. This is ignored (defaults to inOrder)
+*             UNLESS mini-batches are used. Then the extra effort is worth it 
+*             to default use a random strategy to prevent odd cycles in the 
+*             data.
+*
+*/
 class ErrorFunction(EFType eft, 
                     ParallelStrategy para    = ParallelStrategy.parallel,
                     BatchStrategy batchMode  = BatchStrategy.batch, 
@@ -165,7 +165,8 @@ class ErrorFunction(EFType eft,
     /*==========================================================================
       Nested structure to hold the results of an error calculation over a range.
     ==========================================================================*/
-    struct results {
+    struct results 
+    {
       public size_t r_count;
       public double r_error;
       public double[] r_grad;
@@ -182,7 +183,7 @@ class ErrorFunction(EFType eft,
     /*==========================================================================
       Nested function to calculate the error over a range.
     ==========================================================================*/
-    results doErrorChunk(DR)(DR dr, FeedForwardNetwork nt)
+    results doErrorChunk(DR)(DR dr, in FeedForwardNetwork net)
     {
       // Set up return variables
       size_t d_count = 0;
@@ -193,6 +194,9 @@ class ErrorFunction(EFType eft,
         d_grad = uninitializedArray!(double[])(numParms);
         d_grad[] = 0.0;
       }
+
+      // Copy in the network
+      FeedForwardNetwork nt = net.dup;
 
       foreach(dp; dr)
       {
@@ -236,7 +240,7 @@ class ErrorFunction(EFType eft,
         // Increment the count
         ++d_count;
       }
-
+      
       return results(d_count, d_error, d_grad);
     }
 
@@ -244,12 +248,7 @@ class ErrorFunction(EFType eft,
     {
       import std.parallelism : totalCPUs, parallel;
 
-      // How many threads to use?
-      size_t numThreads = totalCPUs - 1;
-      if(numThreads < 1) numThreads = 1;
-
-      results[] reses = new results[numThreads];
-
+      // Set up the range for iterating over the data
       static if(!useBatches)
       {
         auto myRange = this.data.simpleRange;
@@ -259,14 +258,25 @@ class ErrorFunction(EFType eft,
         auto myRange = take(infRange, batchSize);
       }
 
+      // How many threads to use?
+      size_t numThreads = totalCPUs - 1;
+      if(numThreads < 1) numThreads = 1;
+      // This check may seem ridiculous, but it was necessary for a probably
+      // over simple unittest I made.
+      if(myRange.length < numThreads) numThreads = myRange.length;
+
+      // A place to save the results
+      results[] reses = new results[](numThreads);
+      
+      // Break up the range into smaller ranges to be spread out
       auto drs = evenChunks(myRange, numThreads);
 
+      // Do the loop
       alias Rng = typeof(drs.front);
       Rng[] dra = array(drs);
-
       foreach(i, ref res; parallel(reses))
       {
-        res = doErrorChunk(dra[i], net.dup);
+        res = doErrorChunk(dra[i], net);
       }
 
       foreach(i, res; reses)
@@ -338,10 +348,9 @@ version(unittest)
 
 }
 
-///
 unittest
 {
-  // ChiSquareEF
+  mixin(announceTest("ChiSquare"));
 
   // Make a data set
   auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
@@ -540,7 +549,7 @@ class WeightDecayRegulizer: Regulizer
     this.nu = hParms[0];
   }
 }
-
+/+
 ///
 unittest
 {
@@ -562,7 +571,7 @@ unittest
   // Test the hyper-parameters
   assert(wdr.hyperParameters == [0.1]);
 }
-
++/
 /**
  * Similar to weight decay Regularization, except when weights are much less
  * than nuRef they are driven to zero, and are thus effectively eliminated.
@@ -626,7 +635,7 @@ class WeightEliminationRegulizer: Regulizer
     this.nuRef = hParms[1];
   }
 }
-
+/+
 ///
 unittest
 {
@@ -651,10 +660,9 @@ unittest
   assert(wer.hyperParameters == [0.1, 1.0]);
 }
 
-///
 unittest
 {
-  // ErrorFunction with Regulizer
+  mixin(announceTest("WeightDecayRegulizer"));
 
   // Make a data set
   auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
@@ -688,3 +696,4 @@ unittest
   assert(ef_S.grad is null, format("%s",ef_S.grad));
   assert(ef_P.grad is null, format("%s",ef_P.grad));
 }
++/

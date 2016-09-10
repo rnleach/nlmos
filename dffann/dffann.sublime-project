@@ -33,6 +33,14 @@
              "--compiler=/usr/local/bin/dmd",
              "--arch=x86_64"]
         }
+    },
+    {
+      "name":"dub test LDC",
+      "working_dir":"$project_path",
+      "cmd":["dub","test",
+             "--compiler=ldc2",
+             "--config=lib-release",
+             "--arch=x86_64"]
     }
   ]
 }
