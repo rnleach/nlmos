@@ -1,16 +1,12 @@
 /**
- * Utilities for loading, saving, and passing data around.
- *
- * Author: Ryan Leach
- * 
- */
+* Utilities for loading, saving, and passing data around.
+*
+* Author: Ryan Leach
+* 
+*/
 module dffann.data;
 
-import std.algorithm;
-import std.array;
-import std.container;
 import std.conv;
-import std.exception;
 import std.file;
 import std.math;
 import std.parallelism;
