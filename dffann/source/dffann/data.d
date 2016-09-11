@@ -90,7 +90,6 @@ public struct DataPoint
 
 version(unittest)
 {
-  
   enum vals  = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
   double[] inpts = vals[0 .. 5];
   double[] trgts = vals[5 .. $];
@@ -133,7 +132,6 @@ unittest
 *    V1.0 Initial implementation.
 *    V2.0 No longer a template. Moved normalization out into it's own class.
 *
-* 
 *******************************************************************************/
 public class Data
 {
@@ -144,23 +142,9 @@ public class Data
   private const uint numVals;
 
   /**
-  * Factory method to create immutable versions of data.
-  *
-  * This uses a cast to gain immutability, so is dangerous if any references
-  * to data remain. Ideally, you would write a function that loads the data
-  * from disc or dynamically generates it and returns an immutable(Data) object.
-  * So after the function return whatever array/pointer/slice was used to 
-  * create the data goes out of scope and disapears, leaving the immutable
-  * reference the only one around.
-  */
-  public static immutable(Data) createImmutableData(in uint nInputs,
-    in uint nTgts, in double[][] data)
-  {
-    return cast(immutable) new Data(nInputs, nTgts, data);
-  }
-
-  /**
-  * Basic constructor.
+  * Basic constructor. This constructor copies the data from the array, so it is
+  * not very space efficient for large data sets, but it is safe for immutable
+  * data.
   *
   * Params: 
   * nInputs = The number of values in a point that are inputs. This class 
@@ -199,6 +183,81 @@ public class Data
       assert( data[i].length == this.numVals );
       this.data_[start .. (start + this.numVals)] = data[i][];
     }
+  }
+  /// ditto
+  public this(in uint nInputs, in uint nTgts, in double[][] data) immutable
+  {
+    this.numInputs  = nInputs;
+    this.numTargets = nTgts;
+    this.numVals    = nInputs + nTgts;
+
+    // Check lengths
+    enforce(data.length > 1, 
+      "Initialization Error, no points in supplied array.");
+    
+    enforce(this.numVals  <= data[0].length,
+      "Initialization Error, sizes do not match.");
+    
+    // Set up the local data storage and copy values
+    //
+    // list has scope only in this constructor, so when it exits there is no 
+    // other reference to the newly copied data, except the immutable ones!
+    auto temp = new double[](data.length * numVals);
+    
+    for(size_t i = 0; i < data.length; ++i)
+    {
+      const size_t start = i * this.numVals;
+      assert( data[i].length == this.numVals );
+      temp[start .. (start + this.numVals)] = data[i][];
+    }
+    this.data_ = cast(immutable) temp;
+  }
+
+  /**
+  * This constructor just stores a reference to the array data. It was made 
+  * private because using it depends on detailed knowledge of the layout of 
+  * of the data_ private member. It is intended to be used with helper functions
+  * for loading from files. Since it does not make a copy, it is expected to be
+  * more space and time efficient.
+  *
+  * The immutable versions below uses a cast to produce immutable data, and so
+  * are very dangerous. Care should be taken to make sure that no other 
+  * references to the data argument exist. It also takes a reference to the 
+  * data argument so it can destroy that reference by setting it to null. It 
+  * should be obvious why these constructors are private.
+  */
+  private this(in uint nInputs, in uint nTgts, double[] data)
+  {
+    this.numInputs  = nInputs;
+    this.numTargets = nTgts;
+    this.numVals    = nInputs + nTgts;
+    this.data_      = data;
+  }
+  /// ditto
+  private this(in uint nInputs, in uint nTgts, ref double[] data) immutable
+  {
+    this.numInputs  = nInputs;
+    this.numTargets = nTgts;
+    this.numVals    = nInputs + nTgts;
+    this.data_      = cast(immutable double[])data;
+
+    // null data to destroy this reference to the data. Not bullet proof, but a
+    // step in the right direction to getting rid of non-immutable references to
+    // the underlying data.
+    data = null;
+  }
+  
+  /**
+  * Copy constructor for immutable data. This also copies the data so it can 
+  * guarantee that it holds the only reference to the immutable data. No casts
+  * here.
+  */
+  public this(const Data src) immutable
+  {
+    this.numInputs  = src.numInputs;
+    this.numTargets = src.numTargets;
+    this.numVals    = src.numVals;
+    this.data_      = src.data_.idup;
   }
 
   /**
@@ -317,27 +376,6 @@ unittest
   }
 }
 
-unittest
-{
-  mixin(announceTest("createImmutableData"));
-
-  // Short-hand for dealing with immutable data
-  alias iData = immutable(Data);
-  
-  iData d = Data.createImmutableData(5, 2, testData);
-  
-  // Check the number of points
-  assert(d.nPoints == 10);
-
-  foreach( i; 0 .. testData.length)
-  {
-    foreach( j; 0 .. d[i].inputs.length)
-    {
-      assert( d[i].inputs[j] == testData[i][j]);
-    }
-  }
-}
-
 /*==============================================================================
 *                         Helper Functions for Data class.
 *=============================================================================*/
@@ -358,7 +396,7 @@ public Data loadDataFromCSVFile(in uint nInputs, in uint nTgts, in string fname)
   scope(exit){ f.close; }
 
   // Read the file line by line
-  auto app = appender!(double[][])();
+  auto app = appender!(double[])();
   auto sepRegEx = ctRegex!r",";
   foreach(char[] line; f.byLine)
   {
@@ -443,7 +481,7 @@ public void saveData(const Data pData, const string filename)
 * 
 * Returns: A Data object.
 */
-public Data loadData(const string filename)
+public auto loadData(string opt = "immutable")(const string filename)
 {
   // See comments in saveData for file and header formats.
 
@@ -475,7 +513,7 @@ public Data loadData(const string filename)
   enforce(dataLines.length >= nmPoints,
     "Malformed data file, not enough input points.");
 
-  double[][] tmp = new double[][](nmPoints,numVals);
+  double[] tmp = new double[](nmPoints * numVals);
   
   foreach(i; 0 ..nmPoints)
   {
@@ -484,12 +522,21 @@ public Data loadData(const string filename)
     enforce(tokens.length >= numVals,
       "Malformed data file, not enought points on line.");
 
-    foreach(j; 0 .. numVals)
-      tmp[i][j] = to!double(strip(tokens[j]));
+    const start = i * numVals;
+    foreach(j; start .. (start + numVals))
+      tmp[j] = to!double(strip(tokens[j - start]));
 
   }
 
-  return new Data( nmInputs, nmTargets, tmp);
+  static if(opt == "immutable")
+  {
+    return new immutable(Data)( nmInputs, nmTargets, tmp);
+  }
+  else static if(opt == "mutable")
+  {
+    return new Data( nmInputs, nmTargets, tmp);
+  }
+  else static assert(0, "Invalid template arguement parameter.");
 }
 
 unittest
@@ -614,7 +661,7 @@ unittest
   mixin(announceTest("DataRange"));
 
   // Create a data set to test on.
-  auto d = Data.createImmutableData(5, 2, testData);
+  auto d = new immutable(Data)(5, 2, testData);
 
   alias DR = DataRange!(typeof(d));
 
@@ -685,7 +732,7 @@ unittest
   mixin(announceTest("RandomDataRange"));
 
   // Create a data set to test on.
-  auto d = Data.createImmutableData(5, 2, testData);
+  auto d = new immutable(Data)(5, 2, testData);
 
   alias DR = RandomDataRange!(typeof(d));
 

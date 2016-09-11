@@ -199,7 +199,7 @@ unittest
   double[][] testData = makeLinearRegressionData(numPoints, numIn, numOut, 0.0);
   
   // Make a data set
-  iData d1 = Data.createImmutableData(numIn, numOut, testData);
+  iData d1 = new immutable(Data)(numIn, numOut, testData);
 
   // Make a trainer, and supply it with a network to train.
   LinearTrainer lt = new LinearTrainer(new LinRegNet(numIn,numOut), d1);
@@ -389,7 +389,7 @@ unittest
                          [1.0, 1.0, 0.0]];
   
   // Make a data set
-  iData d1 = Data.createImmutableData(numIn, numOut, testData);
+  iData d1 = new iData(numIn, numOut, testData);
 
   // Make a trainer, and supply it with a network to train.
   // This is a tough network to train, exhibits some pathological behavior by
@@ -426,7 +426,7 @@ unittest
   enum outNum = 2;
 
   auto net2 = new LinClsNet(inNum, outNum);
-  iData d2 = Data.createImmutableData(inNum, outNum, 
+  iData d2 = new iData(inNum, outNum, 
     makeLinearClassificationData(2000, inNum, outNum, 0.0));
 
   auto bfgs_tbr = new BFGSTrainer!(EFType.CrossEntropy)(net2, d2);

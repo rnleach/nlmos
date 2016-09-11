@@ -456,7 +456,7 @@ unittest
   enum numOut = 2;
   
   // Make a data set
-  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
+  auto d1 = new immutable(Data)(numIn, numOut, fakeData);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
@@ -507,7 +507,7 @@ unittest{
   enum numOut = 1;
   
   // Make a data set
-  auto d1 = Data.createImmutableData(numIn, numOut, andDataArr);
+  auto d1 = new immutable(Data)(numIn, numOut, andDataArr);
 
   // Now, build a network.
   double[] wts = [1000.0, 1000.0, -1500.0];
@@ -520,7 +520,7 @@ unittest{
       format("%s => %s == %s", dp.inputs, slpcn.eval(dp.inputs), dp.targets));
 
   // Make a data set
-  auto d2 = Data.createImmutableData(numIn, numOut, orDataArr);
+  auto d2 = new immutable(Data)(numIn, numOut, orDataArr);
 
   // Now, build a network.
   wts = [1000.0, 1000.0, -500.0];

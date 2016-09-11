@@ -353,7 +353,7 @@ unittest
   mixin(announceTest("ChiSquare"));
 
   // Make a data set
-  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
+  auto d1 = new immutable(Data)(numIn, numOut, fakeData);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];

@@ -675,7 +675,7 @@ unittest
   enum uint[] numNodes = [numIn, 2, numOut];
   
   // Make a data set
-  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
+  auto d1 = new immutable(Data)(numIn, numOut, fakeData);
 
 
   // Now, build a network.
