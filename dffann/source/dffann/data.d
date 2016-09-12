@@ -289,7 +289,7 @@ public class Data
 
   /**
   * Returns: a range that iterates over the points in this collection in
-  *          the same order everytime.
+  *          the same order every time.
   */
   @property final auto infiniteRange() const
   {
@@ -596,6 +596,15 @@ public struct DataRange(DataType)
     this.end_ = src.end_;
     this.dataObject_ = src.dataObject_;
   }
+
+  void opAssign(DataRange!DataType rhs)
+  {
+    enforce(rhs.dataObject_ is this.dataObject_, 
+      "Cannot assign slices between different data sources.");
+    
+    this.start_ = rhs.start_;
+    this.end_ = rhs.end_;
+  }
   
   /// Properties/methods to make this a RandomAccessRange.
   @property bool empty() { return start_ >= end_; }
@@ -625,7 +634,23 @@ public struct DataRange(DataType)
   @property size_t length(){return end_ - start_;}
 
   /**
-  * This is nice to have, but only works if the underlying data is mutable.
+  * This is nice to have, but only works for assignment if the range you are
+  * assigning to has the same underlying data object. This condition is checked
+  * for with std.exception.enforce.
+  *
+  * Examples:
+  * ------------
+  * auto d1 = new immutable(Data)(5,2, src1);
+  * auto d2 = new immutable(Data)(5,2, src2);
+  *
+  * auto r1 = d1.simpleRange;  // Initialization, not assignment
+  * auto r2 = d2.simpleRange;  // Initialization, not assignment
+  * auto r3 = r1;              // OK, initialization, not assignment
+  * r1 = r1[2 .. $];           // OK, underlying data is the same, d1.
+  * r3 = r1[3 .. $];           // OK, underlying data is the same, d1.
+  * r2 = r2[1 .. $];           // OK, underlying data is the same, d2.
+  * r2 = r1[2 .. $];           // ERROR, underlying data is different, d2 !is d1
+  * ------------
   */
   typeof(this) opSlice(size_t start, size_t end)
   {
@@ -649,12 +674,12 @@ public struct DataRange(DataType)
   /// ditto
   @property size_t opDollar(){ return this.length; }
 }
-static assert( isInputRange!(DataRange!(immutable Data)) );
-static assert( isForwardRange!(DataRange!(immutable Data)) );
+static assert( isInputRange!(DataRange!(immutable Data))         );
+static assert( isForwardRange!(DataRange!(immutable Data))       );
 static assert( isBidirectionalRange!(DataRange!(immutable Data)) );
-static assert( isRandomAccessRange!(DataRange!(immutable Data)) );
-static assert( hasLength!(DataRange!(immutable Data)) );
-static assert( hasSlicing!(DataRange!(Data)) ); 
+static assert( isRandomAccessRange!(DataRange!(immutable Data))  );
+static assert( hasLength!(DataRange!(immutable Data))            );
+static assert( hasSlicing!(DataRange!(immutable Data))           ); 
 
 unittest
 {
@@ -696,7 +721,6 @@ public struct RandomDataRange(DataType)
 {
   private DataType dataObject_;
   private const size_t nPoints_;
-
 
   /**
   * Params: 
