@@ -1,11 +1,11 @@
 /**
- * Author: Ryan Leach
- * Version: 1.0.0
- * Date: January 13, 2016
- *
- * This module contains classes for training networks.
- *
- */
+* Author: Ryan Leach
+* Version: 1.0.0
+* Date: January 13, 2016
+*
+* This module contains classes for training networks.
+*
+*/
 module dffann.trainers;
 
 import numeric.numeric;
@@ -29,34 +29,34 @@ version(unittest)
 }
 
 /**
- * A simple interface for trainers so they can be switched around easily or
- * composed into higher level trainers that use trainers.
- */
+* A simple interface for trainers so they can be switched around easily or
+* composed into higher level trainers that use trainers.
+*/
 public interface Trainer
 {
   /**
-   * Perform the training, this is often a resource intensive process as it
-   * involves minimizing an error function.
-   */
+  * Perform the training, this is often a resource intensive process as it
+  * involves minimizing an error function.
+  */
   public void train();
 
   /**
-   * Get the error, this method assumes the train method has already been 
-   * called.
-   */
+  * Get the error, this method assumes the train method has already been 
+  * called.
+  */
   public @property double error();
 
   /**
-   * Get a copy of the network that was trained, again, this method assumes
-   * the train method was already called.
-   */
+  * Get a copy of the network that was trained, again, this method assumes
+  * the train method was already called.
+  */
   public @property FeedForwardNetwork net();
 }
 
 
 /**
- * Common functionality for Linear and BFGS trainers. Others may be added later.
- */
+* Common functionality for Linear and BFGS trainers. Others may be added later.
+*/
 private abstract class AbstractTrainer: Trainer
 {
   alias iData = immutable(Data);
@@ -66,11 +66,11 @@ private abstract class AbstractTrainer: Trainer
   protected iData _tData;
 
   /**
-   * Params:
-   * inNet        = A network that will serve as a template, it's not trained
-   *                in place.
-   * trainingData = The data used to train the network.
-   */
+  * Params:
+  * inNet        = A network that will serve as a template, it's not trained
+  *                in place.
+  * trainingData = The data used to train the network.
+  */
   public this(FeedForwardNetwork inNet, iData trainingData)
   {
     assert( inNet.numInputs  == trainingData.nInputs  );
@@ -81,45 +81,45 @@ private abstract class AbstractTrainer: Trainer
   }
 
   /**
-   * See_Also:
-   * Trainer.train
-   */
+  * See_Also:
+  * Trainer.train
+  */
   override public abstract void train();
 
-   /**
-   * See_Also:
-   * Trainer.error
-   */
+  /**
+  * See_Also:
+  * Trainer.error
+  */
   override @property double error(){ return this._error; }
 
   /**
-   * See_Also:
-   * Trainer.net
-   */
+  * See_Also:
+  * Trainer.net
+  */
   override @property FeedForwardNetwork net() { return this._net.dup; }
 }
 
 /**
- * Only trains linear networks.
- */
+* Only trains linear networks.
+*/
 public class LinearTrainer: AbstractTrainer
 {
   
   /**
-   * Params:
-   * inNet        = A network that will serve as a template, it's not trained
-   *                in place.
-   * trainingData = The data used to train the network.
-   */
+  * Params:
+  * inNet        = A network that will serve as a template, it's not trained
+  *                in place.
+  * trainingData = The data used to train the network.
+  */
   public this(FeedForwardNetwork inNet, iData trainingData)
   {
     super(inNet, trainingData);
   }
 
   /**
-   * See_Also:
-   * Trainer.train
-   */
+  * See_Also:
+  * Trainer.train
+  */
   override public void train()
   {
 
@@ -219,24 +219,24 @@ unittest
 }
 
 /**
- * BFGS Minization trainer.
- *
- * Params:
- * erf       = The specific error function type to use.
- * para      = ParallelStrategy.parallel if you want to use the parallel 
- *             (concurrent) code in the evaluation of the error function.
- * batchMode = BatchStrategy.minibatch if you want to use mini-batches, or a 
- *             subset of the data for each iteration. Otherwise the default is
- *             BatchStrategy.batch to use the whole data set.
- * randomize = RandomStrategy.inOrder if you want to go through all the points
- *             in a data set in order. This is ignored (defaults to inOrder)
- *             UNLESS mini-batches are used. Then the extra effort is worth it 
- *             to default to using a random strategy to prevent odd cycles in 
- *             the data.
- * 
- * TODO - consider adding contract checks to ensure error function types and
- *        output activation functions are properly matched.
- */
+* BFGS Minimization trainer.
+*
+* Params:
+* erf       = The specific error function type to use.
+* para      = ParallelStrategy.parallel if you want to use the parallel 
+*             (concurrent) code in the evaluation of the error function.
+* batchMode = BatchStrategy.mini-batch if you want to use mini-batches, or a 
+*             subset of the data for each iteration. Otherwise the default is
+*             BatchStrategy.batch to use the whole data set.
+* randomize = RandomStrategy.inOrder if you want to go through all the points
+*             in a data set in order. This is ignored (defaults to inOrder)
+*             UNLESS mini-batches are used. Then the extra effort is worth it 
+*             to default to using a random strategy to prevent odd cycles in 
+*             the data.
+* 
+* TODO - consider adding contract checks to ensure error function types and
+*        output activation functions are properly matched.
+*/
 public class BFGSTrainer(EFType erf,
                          ParallelStrategy para   = ParallelStrategy.parallel,
                          BatchStrategy batchMode = BatchStrategy.batch, 
@@ -266,28 +266,28 @@ public class BFGSTrainer(EFType erf,
   }
 
   /**
-   * A regulizer to use while training. May be null, defaults to null.
-   *
-   * See_Also: dffan.errorfunctions.Regulizer
-   */
-  public Regulizer regulizer = null;
+  * A regularizer to use while training. May be null, defaults to null.
+  *
+  * See_Also: dffan.errorfunctions.Regularizer
+  */
+  public Regularizer regularizer = null;
 
   /**
-   * Params:
-   * inNet        = A network that will serve as a template, it's not trained
-   *                in place.
-   * trainingData = The data used to train the network.
-   *
-   */
+  * Params:
+  * inNet        = A network that will serve as a template, it's not trained
+  *                in place.
+  * trainingData = The data used to train the network.
+  *
+  */
   public this(FeedForwardNetwork inNet, iData trainingData) 
   {
     super(inNet, trainingData);
   }
 
   /**
-   * See_Also:
-   * Trainer.train
-   */
+  * See_Also:
+  * Trainer.train
+  */
   override public void train()
   {
     version(unittest)
@@ -297,7 +297,7 @@ public class BFGSTrainer(EFType erf,
 
     // Make an error function
     alias ErrFunType = ErrorFunction!(erf, para, batchMode, random);
-    auto ef = new ErrFunType(_net, _tData, regulizer);
+    auto ef = new ErrFunType(_net, _tData, regularizer);
     
 
     static if(useMinibatches) 
@@ -308,7 +308,7 @@ public class BFGSTrainer(EFType erf,
       // Keep this around to evaluate the total error after the minimization,
       // which only uses mini-batches.
       alias TotalErrFun = ErrorFunction!(erf, para, BatchStrategy.batch);
-      auto totalErrFun = new TotalErrFun(_net, _tData, regulizer);
+      auto totalErrFun = new TotalErrFun(_net, _tData, regularizer);
     }
 
     // Try several times

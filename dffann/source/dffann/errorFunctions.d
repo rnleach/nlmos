@@ -76,7 +76,7 @@ class ErrorFunction(EFType eft,
   enum randomize  = random    == RandomStrategy.random;
 
   private FeedForwardNetwork net;
-  private Regulizer reg;
+  private Regularizer reg;
   private immutable size_t numParms;
   private iData data;
   private double error = double.max;
@@ -113,7 +113,8 @@ class ErrorFunction(EFType eft,
   * reg   = The Regularizer to apply to the network. This can be null if no
   *         regularization is desired.
   */
-  public this(const FeedForwardNetwork inNet, iData data, Regulizer reg = null)
+  public this(const FeedForwardNetwork inNet, iData data, 
+    Regularizer reg = null)
   {
     this.net = inNet.dup;
     this.reg = reg;
@@ -455,7 +456,7 @@ unittest
 * An abstract class for Regularizers. It includes methods for manipulating the
 * hyper-parameters so the training process itself can be optimized.
 */
-abstract class Regulizer: Func
+abstract class Regularizer: Func
 {
   protected double errorTerm = double.max;
   protected double[] gradientTerm = null;
@@ -498,7 +499,7 @@ abstract class Regulizer: Func
 * Penalizes large weights by adding a term proportional to the sum-of-squares 
 * of the weights.
 */
-class WeightDecayRegulizer: Regulizer
+class WeightDecayRegularizer: Regularizer
 {
   private double nu;
 
@@ -560,7 +561,7 @@ unittest
   slprn.parameters = wts;
 
   // Create a regularizer and evaluate it.
-  WeightDecayRegulizer wdr = new WeightDecayRegulizer(0.1);
+  WeightDecayRegularizer wdr = new WeightDecayRegularizer(0.1);
   wdr.evaluate(slprn.parameters, true);
 
   assert(approxEqual(wdr.value, 0.55));
@@ -575,7 +576,7 @@ unittest
 * Similar to weight decay Regularization, except when weights are much less
 * than nuRef they are driven to zero, and are thus effectively eliminated.
 */
-class WeightEliminationRegulizer: Regulizer
+class WeightEliminationRegularizer: Regularizer
 {
   private double nu;
   private double nuRef;
@@ -645,7 +646,7 @@ unittest
   slprn.parameters = wts;
 
   // Create a regularizer and evaluate it.
-  WeightEliminationRegulizer wer = new WeightEliminationRegulizer(0.1, 1.0);
+  WeightEliminationRegularizer wer = new WeightEliminationRegularizer(0.1, 1.0);
   wer.evaluate(slprn.parameters, true);
 
   assert(approxEqual(wer.value, 0.0410271), format("%s",wer.value));
@@ -660,7 +661,7 @@ unittest
 
 unittest
 {
-  mixin(announceTest("WeightDecayRegulizer in error function."));
+  mixin(announceTest("WeightDecayRegularizer in error function."));
 
   // Make a data set
   auto d1 = new immutable(Data)(numIn, numOut, fakeData);
@@ -675,7 +676,7 @@ unittest
 
   alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare);
 
-  auto wdr = new WeightDecayRegulizer(0.01);
+  auto wdr = new WeightDecayRegularizer(0.01);
   ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1, wdr);
   ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1, wdr);
 
