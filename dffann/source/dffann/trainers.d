@@ -13,6 +13,7 @@ import numeric.func;
 import numeric.matrix;
 import numeric.minimize;
 
+import dffann.dffann;
 import dffann.data;
 import dffann.feedforwardnetwork;
 import dffann.errorfunctions;

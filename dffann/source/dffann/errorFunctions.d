@@ -16,6 +16,7 @@ import std.range;
 import numeric.numeric;
 import numeric.func;
 
+import dffann.dffann;
 import dffann.data;
 import dffann.feedforwardnetwork;
 import dffann.strategy;
