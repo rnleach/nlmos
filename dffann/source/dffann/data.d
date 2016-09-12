@@ -18,6 +18,7 @@ import std.stdio;
 import std.string;
 
 import numeric.numeric;
+import dffann.dffann;
 
 version(unittest)
 {
