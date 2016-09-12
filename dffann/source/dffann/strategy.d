@@ -1,13 +1,13 @@
 /**
- * Some enum types representing different strategies in error function 
- * evaluation and trainer strategies. These are to make template arguments
- * more clear and easily understandable.
- */
+* Some enum types representing different strategies in error function 
+* evaluation and trainer strategies. These are to make template arguments
+* more clear and easily understandable.
+*/
 module dffann.strategy;
 
 /**
- * Constants to delineate serial or parallelized versions of functions.
- */
+* Constants to delineate serial or parallelized versions of functions.
+*/
 enum ParallelStrategy 
 {
   serial,     /// Do not parallelize.
@@ -15,8 +15,8 @@ enum ParallelStrategy
 }
 
 /**
- * Use mini-batches or evaluate all the data at once.
- */
+* Use mini-batches or evaluate all the data at once.
+*/
 enum BatchStrategy
 {
   batch,      /// Do all of the data at once when training.
@@ -24,12 +24,12 @@ enum BatchStrategy
 }
 
 /**
- * Randomize the order data points are drawn from a data-set. This is only
- * beneficial when using mini-batches to prevent odd cycles from establishing in
- * the training.
- *
- * This option is usually ignored unless a minibatch strategy is employed.
- */
+* Randomize the order data points are drawn from a data-set. This is only
+* beneficial when using mini-batches to prevent odd cycles from establishing in
+* the training.
+*
+* This option is usually ignored unless a mini-batch strategy is employed.
+*/
 enum RandomStrategy
 {
   random,     /// Randomize the order samples are drawn.

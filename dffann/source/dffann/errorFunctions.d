@@ -3,13 +3,13 @@
 * Version: 1.0.0
 * Date: February 7, 2015
 *
-* This module contains error functions AND regulizers. Regulizers are treated
-* as an addition to the error function.
+* This module contains error functions AND regularizers. Regularizers are 
+* treated as an addition to the error function.
 *
 */
 module dffann.errorfunctions;
 
-import std.array;
+//import std.array;
 import std.math;
 import std.range;
 
@@ -54,7 +54,7 @@ enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
 *             (concurrent) code in the evaluate method. You may want to use 
 *             ParallelStrategy.serial if you plan to parallelize at a higher 
 *             level construct.
-* batchMode = BatchStrategy.minibatch if you want to use mini-batches, or a 
+* batchMode = BatchStrategy.mini-batch if you want to use mini-batches, or a 
 *             subset of the data for each iteration. Otherwise the default is
 *             BatchStrategy.batch to use the whole data set.
 * randomize = RandomStrategy.inOrder if you want to go through all the points
@@ -71,9 +71,9 @@ class ErrorFunction(EFType eft,
 {
   alias iData = immutable(Data);
 
-  enum par = para == ParallelStrategy.parallel;
+  enum par        = para      == ParallelStrategy.parallel;
   enum useBatches = batchMode == BatchStrategy.minibatch;
-  enum randomize = random == RandomStrategy.random;
+  enum randomize  = random    == RandomStrategy.random;
 
   private FeedForwardNetwork net;
   private Regulizer reg;
@@ -86,14 +86,14 @@ class ErrorFunction(EFType eft,
   static if(useBatches)
   {
     /**
-     * Set and use the batch size when useBatches = true
-     */
+    * Set and use the batch size when useBatches = true
+    */
     public uint batchSize = 10;
 
     /*
       Choose the range type if doing batches, a randomized order is better to
-      avoid cycles developing during training. If using an infinite range it 
-      needs to be persistent between calls to evaluate.
+      avoid cycles developing during training. Also, if using an infinite range 
+      it needs to be persistent between calls to evaluate.
      */
     static if(randomize)
     {
@@ -107,13 +107,13 @@ class ErrorFunction(EFType eft,
 
 
   /**
-   * Params:
-   * inNet = The network for which the error will be evaluated.
-   * data  = The range set on which the error will be evaluated.
-   * reg   = The Regulizer to apply to the network. This can be null if no
-   *         regularization is desired.
-   */
-  public this(FeedForwardNetwork inNet, iData data, Regulizer reg = null)
+  * Params:
+  * inNet = The network for which the error will be evaluated.
+  * data  = The range set on which the error will be evaluated.
+  * reg   = The Regularizer to apply to the network. This can be null if no
+  *         regularization is desired.
+  */
+  public this(const FeedForwardNetwork inNet, iData data, Regulizer reg = null)
   {
     this.net = inNet.dup;
     this.reg = reg;
@@ -135,19 +135,19 @@ class ErrorFunction(EFType eft,
   }
 
   /**
-   * Evaluate the error of the network with the given inputs as the weights and
-   * and biases provided.
-   *
-   * Params:
-   * inputs   = The values to set as weights in the network.
-   * evalGrad = true if you will need to retrieve the gradient with respect to
-   *            the provided weights.
-   */
+  * Evaluate the error of the network with the given inputs as the weights and
+  * and biases provided.
+  *
+  * Params:
+  * inputs   = The values to set as weights in the network.
+  * evalGrad = true if you will need to retrieve the gradient with respect to
+  *            the provided weights.
+  */
   public final override void evaluate(in double[] inputs, bool evalGrad = true)
   {
 
     // Copy in the parameters to the network
-    net.parameters = inputs.dup;
+    net.parameters = inputs;
     
     // Keep track of the count so you can average the error later
     size_t count = 0;
@@ -319,15 +319,15 @@ class ErrorFunction(EFType eft,
   }
   
   /**
-   * Returns: The value of the error as calculated by the last call to 
-   *          evaluate.
-   */
+  * Returns: The value of the error as calculated by the last call to 
+  *          evaluate.
+  */
   public final override @property double value(){ return error; }
   
   /**
-   * Returns: The value of the gradient as calculated by the last call to
-   *          evaluate.
-   */
+  * Returns: The value of the gradient as calculated by the last call to
+  *          evaluate.
+  */
   public final override @property double[] gradient(){ return grad.dup; }
 }
 
@@ -345,7 +345,6 @@ version(unittest)
   // Number of inputs and outputs
   enum numIn = 4;
   enum numOut = 2;
-
 }
 
 unittest
@@ -453,62 +452,62 @@ unittest
 }
 
 /**
- * An abstract class for Regulizers. It includes methods for manipulating the
- * hyper-parameters so the training process itself can be optimized.
- */
+* An abstract class for Regularizers. It includes methods for manipulating the
+* hyper-parameters so the training process itself can be optimized.
+*/
 abstract class Regulizer: Func
 {
   protected double errorTerm = double.max;
   protected double[] gradientTerm = null;
 
   /**
-   * Returns: The hyper-parameters packed into an array.
-   */
+  * Returns: The hyper-parameters packed into an array.
+  */
   public abstract @property const(double[]) hyperParameters() const;
 
   /**
-   * Set the value of the hyper-parameters.
-   */
+  * Set the value of the hyper-parameters.
+  */
   public abstract @property void hyperParameters(in double[] hParms);
 
   /**
-   * Returns: The value of the error as calculated by the last call to evaluate,
-   *          which is required by the Func interface.
-   */
+  * Returns: The value of the error as calculated by the last call to evaluate,
+  *          which is required by the Func interface.
+  */
   public final override @property double value() pure
   {
     return errorTerm;
   }
 
   /**
-   * Returns: The value of the error gradient as calculated by the last call to
-   *          evaluate, which is required by the Func interface.
-   */
+  * Returns: The value of the error gradient as calculated by the last call to
+  *          evaluate, which is required by the Func interface.
+  */
   public final override @property double[] gradient() pure
   {
     return gradientTerm;
   }
 
   /**
-   * Required method by Func interface, will be implemented in sub-classes.
-   */
+  * Required method by Func interface, will be implemented in sub-classes.
+  */
   public abstract void evaluate(in double[] inputs, bool grad=true) pure;
 }
 
 /**
- * Penalizes large weights by adding a term proportional to the sum-of-squares 
- * of the weights.
- */
+* Penalizes large weights by adding a term proportional to the sum-of-squares 
+* of the weights.
+*/
 class WeightDecayRegulizer: Regulizer
 {
   private double nu;
 
   /**
-   * Params:
-   * nuParm = the proportionality value. Should be between 0 and 1 in most
-   * use cases, since all the errors are averaged over the number of points and
-   * and the regularizations are are averaged over the number of weights.
-   */
+  * Params:
+  * nuParm = the proportionality value. Should be between 0 and 1 in most
+  * use cases, since all the errors are averaged over the number of points and
+  * and the regularizations are averaged over the number of weights.
+  */
   public this(double nuParm)
   {
     this.nu = nuParm;
@@ -538,9 +537,10 @@ class WeightDecayRegulizer: Regulizer
 
   public override @property const(double[]) hyperParameters() const
   {
-    double[] toRet = new double[1];
-    toRet[0] = nu;
-    return toRet;
+    return [nu];
+    //double[] toRet = new double[1];
+    //toRet[0] = nu;
+    //return toRet;
   }
 
   public override @property void hyperParameters(in double[] hParms)
@@ -549,18 +549,17 @@ class WeightDecayRegulizer: Regulizer
     this.nu = hParms[0];
   }
 }
-/+
-///
+
 unittest
 {
-  // WeightDecayRegularizer
+  mixin(announceTest("WeightDecayRegularizer"));
 
   // Build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  // Create a regulizer and evaluate it.
+  // Create a regularizer and evaluate it.
   WeightDecayRegulizer wdr = new WeightDecayRegulizer(0.1);
   wdr.evaluate(slprn.parameters, true);
 
@@ -571,24 +570,24 @@ unittest
   // Test the hyper-parameters
   assert(wdr.hyperParameters == [0.1]);
 }
-+/
+
 /**
- * Similar to weight decay Regularization, except when weights are much less
- * than nuRef they are driven to zero, and are thus effectively eliminated.
- */
+* Similar to weight decay Regularization, except when weights are much less
+* than nuRef they are driven to zero, and are thus effectively eliminated.
+*/
 class WeightEliminationRegulizer: Regulizer
 {
   private double nu;
   private double nuRef;
 
   /** 
-   * Params:
-   * nuParm    = Proportionality parameter, same as in weight decay regulizer.
-   * nuRefParm = A reference value to set the 'ideal' scale for the weights. The
-   *             value of this parameter should be of order unity, loosely.
-   *             If it is too much more or less it can cause instability in the
-   *             training process.
-   */
+  * Params:
+  * nuParm    = Proportionality parameter, same as in weight decay regularizer.
+  * nuRefParm = A reference value to set the 'ideal' scale for the weights. The
+  *             value of this parameter should be of order unity, loosely.
+  *             If it is too much more or less it can cause instability in the
+  *             training process.
+  */
   public this(double nuParm, double nuRefParm)
   {
     this.nu = nuParm;
@@ -617,15 +616,15 @@ class WeightEliminationRegulizer: Regulizer
       }
     }
     errorTerm *= pnu / 2.0 / inputs.length;
-
   }
 
   public override @property const(double[]) hyperParameters() const
   {
-    double[] toRet = new double[2];
-    toRet[0] = nu;
-    toRet[1] = nuRef;
-    return toRet;
+    return [nu, nuRef];
+    //double[] toRet = new double[2];
+    //toRet[0] = nu;
+    //toRet[1] = nuRef;
+    //return toRet;
   }
 
   public override @property void hyperParameters(in double[] hParms)
@@ -635,18 +634,17 @@ class WeightEliminationRegulizer: Regulizer
     this.nuRef = hParms[1];
   }
 }
-/+
-///
+
 unittest
 {
-  // WeightEliminationRegularizer
+  mixin(announceTest("WeightEliminationRegularizer"));
 
   // Build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  // Create a regulizer and evaluate it.
+  // Create a regularizer and evaluate it.
   WeightEliminationRegulizer wer = new WeightEliminationRegulizer(0.1, 1.0);
   wer.evaluate(slprn.parameters, true);
 
@@ -662,10 +660,10 @@ unittest
 
 unittest
 {
-  mixin(announceTest("WeightDecayRegulizer"));
+  mixin(announceTest("WeightDecayRegulizer in error function."));
 
   // Make a data set
-  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
+  auto d1 = new immutable(Data)(numIn, numOut, fakeData);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
@@ -696,4 +694,3 @@ unittest
   assert(ef_S.grad is null, format("%s",ef_S.grad));
   assert(ef_P.grad is null, format("%s",ef_P.grad));
 }
-+/

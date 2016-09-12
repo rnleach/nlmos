@@ -7,6 +7,7 @@
 module dffann.data;
 
 import std.conv;
+import std.exception;
 import std.file;
 import std.math;
 import std.parallelism;
