@@ -1,14 +1,11 @@
 /**
- * Utilities for loading, saving, and passing data around.
- *
- * Author: Ryan Leach
- * 
- */
+* Utilities for loading, saving, and passing data around.
+*
+* Author: Ryan Leach
+* 
+*/
 module dffann.data;
 
-import std.algorithm;
-import std.array;
-import std.container;
 import std.conv;
 import std.exception;
 import std.file;
@@ -20,41 +17,42 @@ import std.regex;
 import std.stdio;
 import std.string;
 
+import numeric.numeric;
+
 version(unittest)
 {
   import dffann.testutilities.testdata;
 }
 
 /*------------------------------------------------------------------------------
- *                             DataPoint struct
- *----------------------------------------------------------------------------*/
+*                             DataPoint struct
+*-----------------------------------------------------------------------------*/
 /**
- * This struct is the most basic form of a data point.
- * 
- * Authors: Ryan Leach
- * Date: February 27, 2016
- * Version: 2.0
- * See_Also: Data
- *
- * History:
- *    V1.0 Initial implementation.
- *    V2.0 No longer a template, instead of holding data, holds a view into a
- *         Data object via slices.
- *
- */
+* This struct is the most basic form of a data point.
+* 
+* Authors: Ryan Leach
+* Date: February 27, 2016
+* Version: 2.0
+* See_Also: Data
+*
+* History:
+*    V1.0 Initial implementation.
+*    V2.0 No longer a template, instead of holding data, holds a view into a
+*         Data object via slices.
+*
+*/
 public struct DataPoint
 {
-
   /// Inputs and targets view.
   public double[] inputs;
   /// ditto
   public double[] targets;
 
   /**
-   * Params:
-   * inpts = array of input values.
-   * trgts = array of target values.
-   */
+  * Params:
+  * inpts = array of input values.
+  * trgts = array of target values.
+  */
   this(double[] inpts, double[] trgts = [])
   {
     inputs = inpts;
@@ -76,8 +74,8 @@ public struct DataPoint
   }
 
   /**
-   * Returns: A string representation of the DataPoint.
-   */
+  * Returns: A string representation of the DataPoint.
+  */
   @property string stringRep() const
   {
     string toRet = "";
@@ -93,14 +91,15 @@ public struct DataPoint
 
 version(unittest)
 {
-  // Some values to keep around for testing DataPoint objects.
   enum vals  = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
   double[] inpts = vals[0 .. 5];
   double[] trgts = vals[5 .. $];
 }
-///
+
 unittest
 {
+  mixin(announceTest("DataPoint constructor"));
+
   const DataPoint dp = DataPoint(inpts, trgts);
   assert( dp.inputs == vals[0 .. 5] );
 
@@ -109,9 +108,10 @@ unittest
   assert( dp2.inputs == vals );
 }
 
-///
 unittest
 {
+  mixin(announceTest("DataPoint toString"));
+
   const DataPoint dp = DataPoint(vals);
 
   assert(dp.stringRep == "1.000000000000000,2.000000000000000," ~ 
@@ -121,19 +121,18 @@ unittest
 }
 
 /*******************************************************************************
- * A collection of DataPoint objects with some other added functionality 
- * related to creating various Ranges and Normalizations.
- * 
- * Authors: Ryan Leach
- * Date: January 21, 2015
- * See_Also: DataPoint
- * Version: 2.0
- *
- * History:
- *    V1.0 Initial implementation.
- *    V2.0 No longer a template. Moved normalization out into it's own class.
- *
- * 
+* A collection of DataPoint objects with some other added functionality 
+* related to creating various Ranges and Normalizations.
+* 
+* Authors: Ryan Leach
+* Date: January 21, 2015
+* See_Also: DataPoint
+* Version: 2.0
+*
+* History:
+*    V1.0 Initial implementation.
+*    V2.0 No longer a template. Moved normalization out into it's own class.
+*
 *******************************************************************************/
 public class Data
 {
@@ -144,30 +143,23 @@ public class Data
   private const uint numVals;
 
   /**
-   * Factory method to create immutable versions of data.
-   */
-  public static immutable(Data) createImmutableData(uint nInputs,
-    uint nTgts, in double[][] data)
-  {
-    return cast(immutable) new Data(nInputs, nTgts, data);
-  }
-
-  /**
-   * Basic constructor.
-   *
-   * Params: 
-   * nInputs = The number of values in a point that are inputs. This class 
-   *           assumes the inputs are first, followed by the targets in an
-   *           array.
-   * nTgts   = The number of values in a point that are targets. This class
-   *           assumes those are the last points in an array.
-   * data    = A 2-d array with rows representing a data point and columns, e.g. 
-   *           1000 rows by 5 columns is 1000 5-dimensional data points. If
-   *           there are 3 inputs and 2 targets, then the targets are the last
-   *           two values in each point.
-   *
-   */
-  public this(uint nInputs, uint nTgts, in double[][] data)
+  * Basic constructor. This constructor copies the data from the array, so it is
+  * not very space efficient for large data sets, but it is safe for immutable
+  * data.
+  *
+  * Params: 
+  * nInputs = The number of values in a point that are inputs. This class 
+  *           assumes the inputs are first, followed by the targets in an
+  *           array.
+  * nTgts   = The number of values in a point that are targets. This class
+  *           assumes those are the last points in an array.
+  * data    = A 2-d array with rows representing a data point and columns, e.g. 
+  *           1000 rows by 5 columns is 1000 5-dimensional data points. If
+  *           there are 3 inputs and 2 targets, then the targets are the last
+  *           two values in each point.
+  *
+  */
+  public this(in uint nInputs, in uint nTgts, in double[][] data)
   {
     this.numInputs  = nInputs;
     this.numTargets = nTgts;
@@ -188,30 +180,104 @@ public class Data
     
     for(size_t i = 0; i < data.length; ++i)
     {
-      size_t start = i * this.numVals;
+      const size_t start = i * this.numVals;
       assert( data[i].length == this.numVals );
       this.data_[start .. (start + this.numVals)] = data[i][];
     }
   }
+  /// ditto
+  public this(in uint nInputs, in uint nTgts, in double[][] data) immutable
+  {
+    this.numInputs  = nInputs;
+    this.numTargets = nTgts;
+    this.numVals    = nInputs + nTgts;
+
+    // Check lengths
+    enforce(data.length > 1, 
+      "Initialization Error, no points in supplied array.");
+    
+    enforce(this.numVals  <= data[0].length,
+      "Initialization Error, sizes do not match.");
+    
+    // Set up the local data storage and copy values
+    //
+    // list has scope only in this constructor, so when it exits there is no 
+    // other reference to the newly copied data, except the immutable ones!
+    auto temp = new double[](data.length * numVals);
+    
+    for(size_t i = 0; i < data.length; ++i)
+    {
+      const size_t start = i * this.numVals;
+      assert( data[i].length == this.numVals );
+      temp[start .. (start + this.numVals)] = data[i][];
+    }
+    this.data_ = cast(immutable) temp;
+  }
 
   /**
-   * Get information about the sizes of data associated with this Data object.
-   */
+  * This constructor just stores a reference to the array data. It was made 
+  * private because using it depends on detailed knowledge of the layout of 
+  * of the data_ private member. It is intended to be used with helper functions
+  * for loading from files. Since it does not make a copy, it is expected to be
+  * more space and time efficient.
+  *
+  * The immutable versions below uses a cast to produce immutable data, and so
+  * are very dangerous. Care should be taken to make sure that no other 
+  * references to the data argument exist. It also takes a reference to the 
+  * data argument so it can destroy that reference by setting it to null. It 
+  * should be obvious why these constructors are private.
+  */
+  private this(in uint nInputs, in uint nTgts, double[] data)
+  {
+    this.numInputs  = nInputs;
+    this.numTargets = nTgts;
+    this.numVals    = nInputs + nTgts;
+    this.data_      = data;
+  }
+  /// ditto
+  private this(in uint nInputs, in uint nTgts, ref double[] data) immutable
+  {
+    this.numInputs  = nInputs;
+    this.numTargets = nTgts;
+    this.numVals    = nInputs + nTgts;
+    this.data_      = cast(immutable double[])data;
+
+    // null data to destroy this reference to the data. Not bullet proof, but a
+    // step in the right direction to getting rid of non-immutable references to
+    // the underlying data.
+    data = null;
+  }
+  
+  /**
+  * Copy constructor for immutable data. This also copies the data so it can 
+  * guarantee that it holds the only reference to the immutable data. No casts
+  * here.
+  */
+  public this(const Data src) immutable
+  {
+    this.numInputs  = src.numInputs;
+    this.numTargets = src.numTargets;
+    this.numVals    = src.numVals;
+    this.data_      = src.data_.idup;
+  }
+
+  /**
+  * Get information about the sizes of data associated with this Data object.
+  */
   @property final size_t nPoints() const 
   {
     return this.data_.length / this.numVals;
   }
 
   /// ditto
-  @property final size_t nInputs() const {return this.numInputs;}
+  @property final size_t nInputs() const { return this.numInputs; }
   
   /// ditto
-  @property final size_t nTargets() const {return this.numTargets;}
-
+  @property final size_t nTargets() const { return this.numTargets; }
 
   /**
-   * Returns: a range that iterates over the points in this collection.
-   */
+  * Returns: a range that iterates over the points in this collection.
+  */
   @property final auto simpleRange() const
   {
     return DataRange!(typeof(this))(this);
@@ -223,26 +289,26 @@ public class Data
   }
 
   /**
-   * Returns: a range that iterates over the points in this collection in
-   *          the same order everytime.
-   */
+  * Returns: a range that iterates over the points in this collection in
+  *          the same order every time.
+  */
   @property final auto infiniteRange() const
   {
     return InfiniteDataRange!(typeof(this))(this);
   }
 
   /**
-   * Returns: a range that iterates over the points in this collection at
-   *          random. It is an infinite range.
-   */
+  * Returns: a range that iterates over the points in this collection at
+  *          random. It is an infinite range.
+  */
   @property final auto randomRange() const
   {
     return RandomDataRange!(typeof(this))(this);
   }
 
   /**
-   * Returns: The DataPoint object at the given position in this collection.
-   */
+  * Returns: The DataPoint object at the given position in this collection.
+  */
   public final auto opIndex(size_t index)
   {
     const size_t start = index * numVals;
@@ -250,7 +316,7 @@ public class Data
     const size_t brk = start + numInputs;
     return DataPoint(data_[start .. brk], data_[brk .. end]);
   }
-
+  /// ditto
   public final auto opIndex(size_t index) const
   {
     const size_t start = index * numVals;
@@ -258,7 +324,6 @@ public class Data
     const size_t brk = start + numInputs;
     return const DataPoint(data_[start .. brk], data_[brk .. end]);
   }
-
   /// ditto
   public final auto opIndex(size_t index) immutable
   {
@@ -269,15 +334,15 @@ public class Data
   }
 
   /// Override of $ operator
-  public final size_t opDollar(size_t pos)() const
+  public final size_t opDollar(size_t pos)() const 
   {
     return this.data_.length;
   }
 }
 
 /*==============================================================================
- *                     Unit tests for data class
- *============================================================================*/
+*                     Unit tests for data class
+*=============================================================================*/
 version(unittest)
 {
   
@@ -297,6 +362,8 @@ version(unittest)
 
 unittest
 { 
+  mixin(announceTest("Constructors"));
+
   Data d = new Data(5, 2, testData);
   
   // Check the number of points
@@ -310,37 +377,18 @@ unittest
   }
 }
 
-unittest
-{
-  // Short-hand for dealing with immutable data
-  alias iData = immutable(Data);
-  
-  iData d = Data.createImmutableData(5, 2, testData);
-  
-  // Check the number of points
-  assert(d.nPoints == 10);
-
-  foreach( i; 0 .. testData.length)
-  {
-    foreach( j; 0 .. d[i].inputs.length)
-    {
-      assert( d[i].inputs[j] == testData[i][j]);
-    }
-  }
-}
-
 /*==============================================================================
- *                         Helper Functions for Data class.
- *============================================================================*/
+*                         Helper Functions for Data class.
+*=============================================================================*/
 /**
- * Load data from a file and create a Data object.
- *
- * Params:
- * nInputs    = number of inputs.
- * nTgts      = number of targets.
- * filename   = Path to the data to load.
- */
-public Data loadDataFromCSVFile (uint nInputs, uint nTgts, const string fname)
+* Load data from a file and create a Data object.
+*
+* Params:
+* nInputs    = number of inputs.
+* nTgts      = number of targets.
+* filename   = Path to the data to load.
+*/
+public Data loadDataFromCSVFile(in uint nInputs, in uint nTgts, in string fname)
 { 
   const size_t numVals = nInputs + nTgts;
 
@@ -349,11 +397,10 @@ public Data loadDataFromCSVFile (uint nInputs, uint nTgts, const string fname)
   scope(exit){ f.close; }
 
   // Read the file line by line
-  auto app = appender!(double[][])();
+  auto app = appender!(double[])();
   auto sepRegEx = ctRegex!r",";
   foreach(char[] line; f.byLine)
   {
-    
     // Split the line on commas
     char[][] tokens = split(line,sepRegEx);
     
@@ -374,9 +421,11 @@ public Data loadDataFromCSVFile (uint nInputs, uint nTgts, const string fname)
   // Return the new Data instance
   return new Data(nInputs, nTgts, app.data);
 }
-///
+
 unittest
 {
+  mixin(announceTest("loadDataFromCSVFile"));
+
   makeRandomCSVFile(100, 22,"TestData.csv");
   scope(exit) std.file.remove("TestData.csv");
 
@@ -387,24 +436,25 @@ unittest
   assert( d.nInputs  ==  21 );
   assert( d.nTargets ==   1 );
 }
+
 /** 
- * Save data in a pre-determined format so that it  can be loaded quickly. 
- * 
- * Params: 
- * pData    = The data object to save.
- * filename = The path to save the data.
- */
+* Save data in a pre-determined format so that it  can be loaded quickly. 
+* 
+* Params: 
+* pData    = The data object to save.
+* filename = The path to save the data.
+*/
 public void saveData(const Data pData, const string filename)
 {
   /*
-   * File format:
-   * Data
-   * nPoints = val
-   * nInputs = val
-   * nTargets = val
-   * data =
-   * inputVal,inputVal,inputVal,inputVal,.....targetVal,targetVal,...
-   */
+  * File format:
+  * Data
+  * nPoints = val
+  * nInputs = val
+  * nTargets = val
+  * data =
+  * inputVal,inputVal,inputVal,inputVal,.....targetVal,targetVal,...
+  */
 
   // Open the file
   File fl = File(filename, "w");
@@ -425,16 +475,15 @@ public void saveData(const Data pData, const string filename)
 }
 
 /** 
- * Load data that was saved via saveData.
- * 
- * Params: 
- * filename = The path to the file to load.
- * 
- * Returns: A Data object.
- */
-public Data loadData(const string filename)
+* Load data that was saved via saveData.
+* 
+* Params: 
+* filename = The path to the file to load.
+* 
+* Returns: A Data object.
+*/
+public auto loadData(string opt = "immutable")(const string filename)
 {
-
   // See comments in saveData for file and header formats.
 
   // Open the file, read in the contents
@@ -465,26 +514,35 @@ public Data loadData(const string filename)
   enforce(dataLines.length >= nmPoints,
     "Malformed data file, not enough input points.");
 
-  double[][] tmp = new double[][](nmPoints,numVals);
+  double[] tmp = new double[](nmPoints * numVals);
   
   foreach(i; 0 ..nmPoints)
   {
-
     tokens = split(dataLines[i], regex(","));
 
     enforce(tokens.length >= numVals,
       "Malformed data file, not enought points on line.");
 
-    foreach(j; 0 .. numVals)
-      tmp[i][j] = to!double(strip(tokens[j]));
+    const start = i * numVals;
+    foreach(j; start .. (start + numVals))
+      tmp[j] = to!double(strip(tokens[j - start]));
 
   }
 
-  return new Data( nmInputs, nmTargets, tmp);
+  static if(opt == "immutable")
+  {
+    return new immutable(Data)( nmInputs, nmTargets, tmp);
+  }
+  else static if(opt == "mutable")
+  {
+    return new Data( nmInputs, nmTargets, tmp);
+  }
+  else static assert(0, "Invalid template arguement parameter.");
 }
 
 unittest
 {
+  mixin(announceTest("loadData"));
 
   enum string testFileName = "TestData.csv";
   enum string testSaveName = "TestSaveData.csv"; 
@@ -510,48 +568,63 @@ unittest
   }
 }
 /*==============================================================================
- *                                   DataRange
- *============================================================================*/
-
+*                                   DataRange
+*=============================================================================*/
 /**
- * ForwardRange for iterating over a Data object.
- */
+* RandomAccessRange with length and slicing for iterating over a Data object.
+*/
 public struct DataRange(DataType)
 {
-
   private size_t start_;
   private size_t end_;
   private DataType dataObject_;
 
   /**
-   * Params: 
-   * d = The Data object you wish to iterate over.
-   */
+  * Params: 
+  * d = The Data object you wish to iterate over.
+  */
   this(DataType d)
   {
     this.start_ = 0;
     this.end_ = d.nPoints;
     this.dataObject_ = d;
   }
+
+  /// Copy constructor
+  this(DataRange!DataType src)
+  {
+    this.start_ = src.start_;
+    this.end_ = src.end_;
+    this.dataObject_ = src.dataObject_;
+  }
+
+  void opAssign(DataRange!DataType rhs)
+  {
+    enforce(rhs.dataObject_ is this.dataObject_, 
+      "Cannot assign slices between different data sources.");
+    
+    this.start_ = rhs.start_;
+    this.end_ = rhs.end_;
+  }
   
   /// Properties/methods to make this a RandomAccessRange.
-  @property bool empty(){ return start_ >= end_; }
+  @property bool empty() { return start_ >= end_; }
 
   /// ditto
-  @property auto ref front(){ return this.dataObject_[start_]; }
+  @property auto ref front() { return this.dataObject_[start_]; }
 
   /// ditto
-  void popFront(){ ++start_; }
+  void popFront() { ++start_; }
 
   /// ditto
-  @property auto ref back(){ return this.dataObject_[end_ - 1]; }
+  @property auto ref back() { return this.dataObject_[end_ - 1]; }
 
   /// ditto
-  void popBack(){ --end_; }
+  void popBack() { --end_; }
 
   /// ditto
   // Since this is a struct, return copies all values! Easy.
-  @property auto save(){ return this; }
+  @property auto save() { return this; }
 
   auto ref opIndex(size_t index)
   {
@@ -561,17 +634,33 @@ public struct DataRange(DataType)
   /// ditto
   @property size_t length(){return end_ - start_;}
 
-  /+
-  // Never have been able to get this to work with the hasSlicing! test.
-  /// ditto
+  /**
+  * This is nice to have, but only works for assignment if the range you are
+  * assigning to has the same underlying data object. This condition is checked
+  * for with std.exception.enforce.
+  *
+  * Examples:
+  * ------------
+  * auto d1 = new immutable(Data)(5,2, src1);
+  * auto d2 = new immutable(Data)(5,2, src2);
+  *
+  * auto r1 = d1.simpleRange;  // Initialization, not assignment
+  * auto r2 = d2.simpleRange;  // Initialization, not assignment
+  * auto r3 = r1;              // OK, initialization, not assignment
+  * r1 = r1[2 .. $];           // OK, underlying data is the same, d1.
+  * r3 = r1[3 .. $];           // OK, underlying data is the same, d1.
+  * r2 = r2[1 .. $];           // OK, underlying data is the same, d2.
+  * r2 = r1[2 .. $];           // ERROR, underlying data is different, d2 !is d1
+  * ------------
+  */
   typeof(this) opSlice(size_t start, size_t end)
   {
     assert(start <= end, "Range Error, start must be less than end.");
     assert(start >= 0, "No negative indicies allowed!");
-    assert( this.start_ + end < this.end_, "Out of range!" );
+    assert( this.start_ + end <= this.end_, "Out of range!" );
 
     // Create a copy
-    auto temp = this.save;
+    auto temp = DataRange!DataType(this.dataObject_);
 
     // Update the next
     temp.start_  = start_ + start;
@@ -582,22 +671,23 @@ public struct DataRange(DataType)
 
     return temp;
   }
-  +/
 
   /// ditto
   @property size_t opDollar(){ return this.length; }
 }
-static assert( isInputRange!(DataRange!(immutable Data)) );
-static assert( isForwardRange!(DataRange!(immutable Data)) );
+static assert( isInputRange!(DataRange!(immutable Data))         );
+static assert( isForwardRange!(DataRange!(immutable Data))       );
 static assert( isBidirectionalRange!(DataRange!(immutable Data)) );
-static assert( isRandomAccessRange!(DataRange!(immutable Data)) );
-static assert( hasLength!(DataRange!(immutable Data)) );
+static assert( isRandomAccessRange!(DataRange!(immutable Data))  );
+static assert( hasLength!(DataRange!(immutable Data))            );
+static assert( hasSlicing!(DataRange!(immutable Data))           ); 
 
-///
 unittest
 {
+  mixin(announceTest("DataRange"));
+
   // Create a data set to test on.
-  auto d = Data.createImmutableData(5, 2, testData);
+  auto d = new immutable(Data)(5, 2, testData);
 
   alias DR = DataRange!(typeof(d));
 
@@ -626,25 +716,24 @@ unittest
 }
 
 /**
- * Infinite ForwardRange for iterating a data set in a random order.
- */
+* Infinite ForwardRange for iterating a data set in a random order.
+*/
 public struct RandomDataRange(DataType)
 {
   private DataType dataObject_;
   private const size_t nPoints_;
 
-
   /**
-   * Params: 
-   * d = The Data object you wish to iterate over.
-   */
+  * Params: 
+  * d = The Data object you wish to iterate over.
+  */
   this(DataType d)
   {
     dataObject_ = d;
     nPoints_ = d.nPoints;
   }
   
-  /// Properties/methods to make this a ForwardRange with slicing.
+  /// Properties/methods to make this an infinite ForwardRange.
   public enum bool empty = false;
 
   /// ditto
@@ -663,11 +752,12 @@ public struct RandomDataRange(DataType)
 static assert( isForwardRange!(RandomDataRange!(immutable Data)) );
 static assert( isInfinite!(RandomDataRange!(immutable Data)) );
 
-///
 unittest
 {
+  mixin(announceTest("RandomDataRange"));
+
   // Create a data set to test on.
-  auto d = Data.createImmutableData(5, 2, testData);
+  auto d = new immutable(Data)(5, 2, testData);
 
   alias DR = RandomDataRange!(typeof(d));
 
@@ -680,9 +770,9 @@ unittest
 }
 
 /**
- * Infinite ForwardRange for iterating a data set over and over in the same 
- * order.
- */
+* Infinite ForwardRange for iterating a data set over and over in the same 
+* order.
+*/
 public struct InfiniteDataRange(DataType)
 {
   private size_t next_;
@@ -690,9 +780,9 @@ public struct InfiniteDataRange(DataType)
   private DataType dataObject_;
 
   /**
-   * Params: 
-   * d = The Data object you wish to iterate over.
-   */
+  * Params: 
+  * d = The Data object you wish to iterate over.
+  */
   this(DataType d)
   {
     this.next_ = 0;
@@ -719,9 +809,11 @@ public struct InfiniteDataRange(DataType)
 }
 static assert( isForwardRange!(InfiniteDataRange!(immutable Data)) );
 static assert( isInfinite!(InfiniteDataRange!(immutable Data)) );
-///
+
 unittest
 {
+  mixin(announceTest("InfiniteDataRange"));
+
   // Create a data set to test on.
   Data d = new Data(5, 2, testData);
 
@@ -740,18 +832,18 @@ unittest
 }
 
 /*==============================================================================
- *                                Normalizations
- *============================================================================*/
+*                                Normalizations
+*=============================================================================*/
 
 /**
- * A normalization is used to force data to have certain statistical properties,
- * such as a standard deviation of 1 and a mean of 0. 
- * 
- * Sometimes data is binary, e.g. with values 0 or 1, or possibly -1 or 1, in 
- * which case you do not want to normalize it. Binary data may also be mixed 
- * with non-binary data. This is handled at the constructor level when loading
- * the data with the use of filters to determine if a column is binary.
- */
+* A normalization is used to force data to have certain statistical properties,
+* such as a standard deviation of 1 and a mean of 0. 
+* 
+* Sometimes data is binary, e.g. with values 0 or 1, or possibly -1 or 1, in 
+* which case you do not want to normalize it. Binary data may also be mixed 
+* with non-binary data. This is handled at the constructor level when loading
+* the data with the use of filters to determine if a column is binary.
+*/
 struct Normalization
 {
 
@@ -773,8 +865,8 @@ struct Normalization
   }
 
   /**
-   * Normalizes the Data dt in place.
-   */
+  * Normalizes the Data dt in place.
+  */
   public void normalizeInPlace(Data dt)
   {
     assert( dt.numVals == shift.length );
@@ -794,8 +886,8 @@ struct Normalization
   }
 
   /**
-   *  Un-normalize a single point with nTgtVals number of target values.
-   */
+  *  Un-normalize a single point with nTgtVals number of target values.
+  */
   public void unNormalizeTarget(double[] tgt)
   {
     tgt[] = tgt[] * scale[($ - tgt.length) .. $] + shift[($ - tgt.length) .. $];
@@ -822,9 +914,11 @@ version(unittest)
   double[] scalePar = new double[](shiftPar.length);
   double scaleVal = 0.302765035409750;
 }
-///
+
 unittest
 {
+  mixin(announceTest("Normalization."));
+
   Data d = new Data(5, 2, testData);
   scalePar[] = scaleVal;
 
@@ -860,9 +954,9 @@ unittest
 }
 
 /**
- * TODO
- */
-Normalization calcNormalization(Data dt, bool[] binaryFilter)
+* Calculate a normalization given the data set.
+*/
+Normalization calcNormalization(const Data dt, const bool[] binaryFilter)
 {
   assert( binaryFilter.length == dt.numVals );
 
@@ -873,7 +967,8 @@ Normalization calcNormalization(Data dt, bool[] binaryFilter)
   /*==========================================================================
     Nested struct to hold results of summing over a batch
   ==========================================================================*/
-  struct BatchResults {
+  struct BatchResults 
+  {
     public double[] batchSum;
     public double[] batchSumSquares;
 
@@ -895,7 +990,8 @@ Normalization calcNormalization(Data dt, bool[] binaryFilter)
     smSq[] = 0.0;
 
     // Calculate the sum and sumsq
-    foreach(d; chunk){
+    foreach(d; chunk)
+    {
       sm[0 .. nInputs] += d.inputs[];
       sm[nInputs .. numVals] += d.targets[];
       smSq[0 .. nInputs] += d.inputs[] * d.inputs[];
@@ -953,9 +1049,11 @@ Normalization calcNormalization(Data dt, bool[] binaryFilter)
   // All done, now return.
   return Normalization(shift, scale);
 }
-///
+
 unittest
 {
+  mixin(announceTest("calcNormalization"));
+
   // None of these values are binary, so all flags are false
   bool[] flags = [false, false, false, false, false, false, false]; 
 
@@ -992,25 +1090,25 @@ unittest
 }
 
 /**
- * Save a normalization to a file so it can be loaded back in later.
- * Useful for associating with a trained network, send the normalizations
- * along with the network file, otherwise the network is useless.
- * 
- * TODO - When phobos library settles down, save these as XML instead.
- *
- * Params: 
- * norm = the normalization to save
- * path = path to the file to save.
- */
+* Save a normalization to a file so it can be loaded back in later.
+* Useful for associating with a trained network, send the normalizations
+* along with the network file, otherwise the network is useless.
+* 
+* TODO - When phobos library settles down, save these as XML instead.
+*
+* Params: 
+* norm = the normalization to save
+* path = path to the file to save.
+*/
 void saveNormalization(const Normalization norm, const string path)
 {
   /*
-   * File format:
-   * Normalization
-   * nVals = val                      // length of arrays shift and scale
-   * shift = val,val,val,val,val,...
-   * scale = val,val,val,val,val,...
-   */
+  * File format:
+  * Normalization
+  * nVals = val                      // length of arrays shift and scale
+  * shift = val,val,val,val,val,...
+  * scale = val,val,val,val,val,...
+  */
 
   assert(norm.scale.length == norm.shift.length);
   
@@ -1040,13 +1138,13 @@ void saveNormalization(const Normalization norm, const string path)
 }
 
 /**
- * Load a normalization from the file system.
- *
- * TODO - When phobos library settles down, use XML instead.
- * 
- * Parms: 
- * fileName = path to the file to be loaded.
- */
+* Load a normalization from the file system.
+*
+* TODO - When phobos library settles down, use XML instead.
+* 
+* Parms: 
+* fileName = path to the file to be loaded.
+*/
 Normalization loadNormalization(const string fileName)
 {
   // See file description in saveNormalization
@@ -1079,9 +1177,11 @@ Normalization loadNormalization(const string fileName)
 
   return Normalization(tmpShift, tmpScale);
 }
-///
+
 unittest
 {
+  mixin(announceTest("saveNormalization - loadNormalization"));
+
   scalePar[] = scaleVal;
 
   Normalization norm = Normalization(shiftPar, scalePar);

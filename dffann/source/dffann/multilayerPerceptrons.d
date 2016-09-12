@@ -1,19 +1,18 @@
 /**
- * Collection of linear networks. 
- *
- * Author: Ryan Leach
- */
+* Collection of nonlinear feed forward networks. 
+*
+* Author: Ryan Leach
+*/
 module dffann.multilayerperceptrons;
 
 import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
 import numeric.random: gasdev;
+import numeric.numeric;
 
 import std.array;
 import std.conv;
-import std.datetime;
-import std.exception;
 import std.math;
 import std.regex;
 import std.string;
@@ -21,37 +20,37 @@ import std.string;
 version(unittest) import dffann.data;
 
 /**
- * Multilayer Perceptron.
- *
- * Params:
- * HAF = hidden activation function.
- * OAF = output activation function.
- *
- * See_Also: dffann.activationfunctions
- */
+* Multilayer Perceptron.
+*
+* Params:
+* HAF = hidden activation function.
+* OAF = output activation function.
+*
+* See_Also: dffann.activationfunctions
+*/
 public class MultiLayerPerceptronNetwork(HAF, OAF) : FeedForwardNetwork 
 if(isAF!HAF && isOAF!OAF)
 {
   /*
-   * Consider rewriting this class to use a flat, single array layout for the
-   * weights and biases, then they could be passed around as ranges instead of
-   * constantly copied around.
-   *
-   * Indicies:
-   * l - layers. l=0 is the input layer for nodes, and the weights/biases
-   *     coming FROM that layer
-   * o - output. Index the output nodes, or the next layer up in the hidden
-   *             nodes. 
-   * i - input. Index the input nodes, or the next layer down in the hidden
-   *            nodes.
-   *            
-   * nodes[l][i] have W[l][o][i] and B[l][o] going to nodes[l + 1][o]
-   */
+  * Consider rewriting this class to use a flat, single array layout for the
+  * weights and biases, then they could be passed around as ranges instead of
+  * constantly copied around.
+  *
+  * Indexes:
+  * l - layers. l=0 is the input layer for nodes, and the weights/biases
+  *     coming FROM that layer
+  * o - output. Index the output nodes, or the next layer up in the hidden
+  *             nodes. 
+  * i - input. Index the input nodes, or the next layer down in the hidden
+  *            nodes.
+  *            
+  * nodes[l][i] have W[l][o][i] and B[l][o] going to nodes[l + 1][o]
+  */
 
-  private double[][][] W;
-  private double[][] B;
-  private double[][] nodes;
-  private double[][] activations;
+  private double[][][] W;           // Weights
+  private double[][] B;             // Biases
+  private double[][] nodes;         // Node values after activation function
+  private double[][] activations;   // Node values before activation function
 
   private immutable uint nInputs;
   private immutable uint nOutputs;
@@ -63,7 +62,7 @@ if(isAF!HAF && isOAF!OAF)
   /* These are kept around so the memory for these arrays need not be 
      reallocated with every call to methods that use them, e.g. backProp.
 
-     This can be a time saver in the case of methods called frequently during
+     This should be a time saver in the case of methods called frequently during
      training, like backProp.
    */
   private double[] backPropResults = null;
@@ -74,12 +73,12 @@ if(isAF!HAF && isOAF!OAF)
   private double[][] deltaNodes = null; // Used in backProp
 
   /**
-   * Params:
-   * numNodes = description of the structure of the network. numNodes[0] is the
-   *            number of input nodes. numNodes[$-1] is the number of output
-   *            nodes. Everything in between is the number of hidden nodes in
-   *            each hidden layer.
-   */
+  * Params:
+  * numNodes = description of the structure of the network. numNodes[0] is the
+  *            number of input nodes. numNodes[$-1] is the number of output
+  *            nodes. Everything in between is the number of hidden nodes in
+  *            each hidden layer.
+  */
   public this(in uint[] numNodes)
   {
 
@@ -87,13 +86,13 @@ if(isAF!HAF && isOAF!OAF)
     {
       enforce(numNodes[$ - 1] == 1,"Only 1 output allowed for 2-class linear " ~
         "classification network. This error was generated to ensure the " ~
-        "proper functioning of backpropagation.");
+        "proper functioning of back-propagation.");
     }
     static if(is(OAF == SoftmaxAF))
     {
       enforce(numNodes[$ - 1] > 1,"More than 1 output required for general linear " ~
         "classification network. This error was generated to ensure the " ~
-        "proper functioning of backpropagation.");
+        "proper functioning of back-propagation.");
     }
     else
     {
@@ -147,7 +146,11 @@ if(isAF!HAF && isOAF!OAF)
     this.setRandom();
   }
 
-  private this(in uint[] numNodes, in double[][][] weights, in double[][] biases)
+  /**
+  * Private constructor with parameters that depend on internal representation.
+  */
+  private this(in uint[] numNodes, in double[][][] weights, 
+    in double[][] biases)
   {
 
     this.nNodes = numNodes.idup;
@@ -193,6 +196,10 @@ if(isAF!HAF && isOAF!OAF)
     }
   }
 
+  /**
+  * Constructor for deserializing the string generated by stringForm method
+  * below. 
+  */
   package this(in string str)
   {
     /*
@@ -287,26 +294,26 @@ if(isAF!HAF && isOAF!OAF)
   }
 
   /**
-   * Get the error derivative with respect to the weights via backpropagation.
-   *
-   * Perform backpropagation based on the values set in the network by the
-   * last call to eval and return the error function gradient implied by the 
-   * provided target values. Assumes that the output activation function and 
-   * error function for training are properly matched.
-   *
-   * It turns out for all the network types, the back-propagation formula
-   * is exactly the same when matched with the proper error function, regardless
-   * of output activation function, the only differences relate to the hidden
-   * activation function.
-   * 
-   * Params:
-   * targets = the values the outputs should have been evaluated to on the last 
-   *           call to eval.
-   *
-   * Returns: the gradient of the error function with respect to the parameters,
-   *          or weights. This array is parallel to the array returned by
-   *          the parameters property.
-   */
+  * Get the error derivative with respect to the weights via back-propagation.
+  *
+  * Perform back-propagation based on the values set in the network by the
+  * last call to eval and return the error function gradient implied by the 
+  * provided target values. Assumes that the output activation function and 
+  * error function for training are properly matched.
+  *
+  * It turns out for all the network types, the back-propagation formula
+  * is exactly the same when matched with the proper error function, regardless
+  * of output activation function, the only differences relate to the hidden
+  * activation function.
+  * 
+  * Params:
+  * targets = the values the outputs should have been evaluated to on the last 
+  *           call to eval.
+  *
+  * Returns: the gradient of the error function with respect to the parameters,
+  *          or weights. This array is parallel to the array returned by
+  *          the parameters property.
+  */
   override ref const(double[]) backProp(in double[] targets)
   {
     assert(targets.length == nOutputs, 
@@ -383,16 +390,16 @@ if(isAF!HAF && isOAF!OAF)
   }
 
   /**
-   * Evaluate the network.
-   *
-   * Given the inputs, evaluate the network, storing the information needed
-   * to later calculate a derivative using backProp.
-   * 
-   * Params:
-   * inputs = the inputs to be evaluated.
-   *
-   * Returns: the network outputs.
-   */
+  * Evaluate the network.
+  *
+  * Given the inputs, evaluate the network, storing the information needed
+  * to later calculate a derivative using backProp.
+  * 
+  * Params:
+  * inputs = the inputs to be evaluated.
+  *
+  * Returns: the network outputs.
+  */
   override ref const(double[]) eval(in double[] inputs)
   {
     assert(inputs.length == this.nodes[0].length);
@@ -404,7 +411,7 @@ if(isAF!HAF && isOAF!OAF)
        nodes[0] = inputs
 
        This method should be called a lot, so not saving a copy might be worth 
-       the efficiency increase. Espiecially when dealing with very large 
+       the efficiency increase. Especially when dealing with very large 
        networks.
 
        The downside of this is that the inputs array may be modified after
@@ -416,9 +423,8 @@ if(isAF!HAF && isOAF!OAF)
 
        ANSWER: Yes, I need to copy. Because I "cannot implicitly convert 
        expression (inputs) of type const(double[]) to double[]" according to the
-       compiler. The only other options would be to force some sort of 
-       const-ness on nodes, but then I couldn't change them in the hidden 
-       layers.
+       compiler. The only other options would be to force some sort of const on 
+       nodes, but then I couldn't change them in the hidden layers.
     */
     nodes[0][] = inputs[];
 
@@ -456,9 +462,9 @@ if(isAF!HAF && isOAF!OAF)
   }
 
   /**
-   * Returns: A copy of this network.
-   */
-  override MultiLayerPerceptronNetwork!(HAF, OAF) dup()
+  * Returns: A copy of this network.
+  */
+  override MultiLayerPerceptronNetwork!(HAF, OAF) dup() const
   {
     // Check constructor code to ensure it is a copying constructor.
     return new 
@@ -467,10 +473,11 @@ if(isAF!HAF && isOAF!OAF)
   
   
   /**
-   * Make a private version of this to use for flattening the gradients
-   * to return for the backProp method.
-   */
-  private void flattenParms(double[][][] wgts, double[][] biases, ref double[] storage)
+  * Make a private version of this to use for flattening the gradients
+  * to return for the backProp method.
+  */
+  private void flattenParms(double[][][] wgts, double[][] biases, 
+    ref double[] storage)
   {
     // Initialize if necessary
     if(storage is null)
@@ -493,21 +500,19 @@ if(isAF!HAF && isOAF!OAF)
   }
 
   /**
-   * Params:
-   * parms = the new parameters, or weights, to use in the network,
-   *         typically called in a trainer.
-   *
-   * Returns: the weights of the network organized as a 1-d array.
-   */
+  * Params:
+  * parms = the new parameters, or weights, to use in the network,
+  *         typically called in a trainer.
+  *
+  * Returns: the weights of the network organized as a 1-d array.
+  */
   override @property ref const(double[]) parameters()
   {
     flattenParms(W, B, flatParms);
     return flatParms;
   }
 
-  /**
-   * ditto
-   */
+  /// ditto
   override @property void parameters(const (double[]) parms)
   {
     assert(parms.length == numParameters, 
@@ -528,12 +533,12 @@ if(isAF!HAF && isOAF!OAF)
   }
 
   /**
-   * Used by regularizations, which often should not affect the bias
-   * weights.
-   * 
-   * Returns: the weights of the network with those corresponding to biases set 
-   *          to zero.
-   */
+  * Used by regularizations, which often should not affect the bias
+  * weights.
+  * 
+  * Returns: the weights of the network with those corresponding to biases set 
+  *          to zero.
+  */
   override @property ref const(double[]) nonBiasParameters()
   {
     // Initialize arrays if needed
@@ -559,8 +564,8 @@ if(isAF!HAF && isOAF!OAF)
   }
 
   /**
-   * Initialize the network weights to random values.
-   */
+  * Initialize the network weights to random values.
+  */
   override void setRandom()
   {
 
@@ -581,26 +586,16 @@ if(isAF!HAF && isOAF!OAF)
     }
   }
 
-  /**
-   * The number of inputs for the network.
-   */
-  @property uint numInputs()
-  {
-    return nInputs;
-  }
+  /// The number of inputs for the network.
+  @property uint numInputs() { return nInputs; }
+
+  /// The number of outputs for the network.
+  @property uint numOutputs() { return nOutputs; }
 
   /**
-   * The number of outputs for the network.
-   */
-  @property uint numOutputs()
-  {
-    return nOutputs;
-  }
-
-  /**
-   * Returns: The weights, biases, and configuration of the network as
-   *          a string that can be saved to a file.
-   */
+  * Returns: The weights, biases, and configuration of the network as
+  *          a string that can be saved to a file.
+  */
   @property string stringForm()
   {
     /*
@@ -635,29 +630,29 @@ if(isAF!HAF && isOAF!OAF)
   }
 }
 
-/**
- * MLP tanh Regression Network.
- */
+/// MLP tanh Regression Network.
 alias MLPRegNet = MultiLayerPerceptronNetwork!(TanhAF, LinearAF);
 
 /**
- * MLP tanh Classification Network. 
- *
- * 2 classes only, 1 output only, 0-1 coding to tell the difference between
- * classes.
- */
+* MLP tanh Classification Network. 
+*
+* 2 classes only, 1 output only, 0-1 coding to tell the difference between
+* classes.
+*/
 alias MLP2ClsNet = MultiLayerPerceptronNetwork!(TanhAF, SigmoidAF);
 
 /**
- * MLP tanh Classification Network.
- * 
- * Any number of classes, but must have at least 2 outputs. Uses 1 of N coding
- * on ouput nodes.
- */
+* MLP tanh Classification Network.
+* 
+* Any number of classes, but must have at least 2 outputs. Uses 1 of N coding
+* on output nodes.
+*/
 alias MLPClsNet = MultiLayerPerceptronNetwork!(TanhAF, SoftmaxAF);
 
 unittest
 {
+  mixin(announceTest("MLP2ClsNet"));
+
   // MLP2ClsNet eval(double)
 
   // Make a fake data set XOR
@@ -672,7 +667,7 @@ unittest
   enum uint[] numNodes = [numIn, 2, numOut];
   
   // Make a data set
-  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
+  auto d1 = new immutable(Data)(numIn, numOut, fakeData);
 
 
   // Now, build a network.
@@ -692,7 +687,7 @@ unittest
 
 unittest
 {
-  // MLPRegNet stringForm and this(string)
+  mixin(announceTest("MLPRegNet stringForm and this(string)"));
   
   // Number of nodes per layer
   enum uint[] numNodes = [2,5,6,2];
@@ -712,7 +707,7 @@ unittest
 
 unittest
 {
-  // MLP2ClsNet stringForm and this(string)
+  mixin(announceTest("MLP2ClsNet stringForm and this(string)"));
   
   // Number of nodes per layer
   enum uint[] numNodes = [4,5,6,1];
@@ -732,7 +727,7 @@ unittest
 
 unittest
 {
-  // MLPClsNet stringForm and this(string)
+  mixin(announceTest("MLPClsNet stringForm and this(string)"));
   
   // Number of nodes per layer
   enum uint[] numNodes = [4,5,6,3];

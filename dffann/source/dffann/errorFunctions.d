@@ -1,22 +1,24 @@
 /**
- * Author: Ryan Leach
- * Version: 1.0.0
- * Date: February 7, 2015
- *
- * This module contains error functions AND regulizers. Regulizers are treated
- * as an addition to the error function.
- *
- */
+* Author: Ryan Leach
+* Version: 1.0.0
+* Date: February 7, 2015
+*
+* This module contains error functions AND regularizers. Regularizers are 
+* treated as an addition to the error function.
+*
+*/
 module dffann.errorfunctions;
 
-import std.array;
+//import std.array;
 import std.math;
 import std.range;
 
+import numeric.numeric;
 import numeric.func;
 
 import dffann.data;
 import dffann.feedforwardnetwork;
+import dffann.strategy;
 
 version(unitttest)
 {
@@ -25,76 +27,128 @@ version(unitttest)
 }
 
 /**
- * Different types of error functions are used to parameterize the error 
- * function class.
- *
- * ChiSquare is the standard sum of square errors averaged over the number
- * of data points in a sample.
- *
- * CrossEntropy is the average per point cross entropy error for multiple 
- * classes in 1-of-N encoding for classification problems.
- *
- * CrossEntropy2C is the average per point cross entropy error for 0-1 encoding
- * of 2 class classification problems where the network can only have a single
- * output.
- */
+* Different types of error functions are used to parameterize the error 
+* function class.
+*
+* ChiSquare is the standard sum of square errors averaged over the number
+* of data points in a sample.
+*
+* CrossEntropy is the average per point cross entropy error for multiple 
+* classes in 1-of-N encoding for classification problems.
+*
+* CrossEntropy2C is the average per point cross entropy error for 0-1 encoding
+* of 2 class classification problems where the network can only have a single
+* output.
+*/
 enum EFType {ChiSquare, CrossEntropy, CrossEntropy2C}
 
 /**
- * A class for computing the value and gradient of an error function for 
- * a feed forward network with a given set of weights. This class implements 
- * the numeric.func.Func interface so it can be used with the function 
- * minimization tools in the numeric package during training.
- *
- * Params:
- * errFuncType = The specific error function to calculate.
- * DR          = An instantiation of a DataRange template as a type.
- * par         = true if you want to use the parallel (concurrent) code in the
- *               evaluate method. You may want to use false if you plan to 
- *               parallelize at a higher level construct.
- *
- */
-class ErrorFunction(EFType errFuncType, bool par=true): Func 
+* A class for computing the value and gradient of an error function for 
+* a feed forward network with a given set of weights. This class implements 
+* the numeric.func.Func interface so it can be used with the function 
+* minimization tools in the numeric package during training.
+*
+* Params:
+* eft       = The specific error function to calculate.
+* para      = ParallelStrategy.parallel if you want to use the parallel 
+*             (concurrent) code in the evaluate method. You may want to use 
+*             ParallelStrategy.serial if you plan to parallelize at a higher 
+*             level construct.
+* batchMode = BatchStrategy.mini-batch if you want to use mini-batches, or a 
+*             subset of the data for each iteration. Otherwise the default is
+*             BatchStrategy.batch to use the whole data set.
+* randomize = RandomStrategy.inOrder if you want to go through all the points
+*             in a data set in order. This is ignored (defaults to inOrder)
+*             UNLESS mini-batches are used. Then the extra effort is worth it 
+*             to default use a random strategy to prevent odd cycles in the 
+*             data.
+*
+*/
+class ErrorFunction(EFType eft, 
+                    ParallelStrategy para    = ParallelStrategy.parallel,
+                    BatchStrategy batchMode  = BatchStrategy.batch, 
+                    RandomStrategy random    = RandomStrategy.random): Func 
 {
   alias iData = immutable(Data);
 
+  enum par        = para      == ParallelStrategy.parallel;
+  enum useBatches = batchMode == BatchStrategy.minibatch;
+  enum randomize  = random    == RandomStrategy.random;
+
   private FeedForwardNetwork net;
-  private Regulizer reg;
+  private Regularizer reg;
   private immutable size_t numParms;
   private iData data;
   private double error = double.max;
   private double[] grad = null;
 
+  
+  static if(useBatches)
+  {
+    /**
+    * Set and use the batch size when useBatches = true
+    */
+    public uint batchSize = 10;
+
+    /*
+      Choose the range type if doing batches, a randomized order is better to
+      avoid cycles developing during training. Also, if using an infinite range 
+      it needs to be persistent between calls to evaluate.
+     */
+    static if(randomize)
+    {
+      private typeof(data.randomRange) infRange;
+    }
+    else
+    {
+      private typeof(data.infiniteRange) infRange;
+    }
+  }
+
+
   /**
-   * Params:
-   * inNet = The network for which the error will be evaluated.
-   * data  = The range set on which the error will be evaluated.
-   * reg   = The Regulizer to apply to the network. This can be null if no
-   *         regularization is desired.
-   */
-  public this(FeedForwardNetwork inNet, iData data, Regulizer reg = null)
+  * Params:
+  * inNet = The network for which the error will be evaluated.
+  * data  = The range set on which the error will be evaluated.
+  * reg   = The Regularizer to apply to the network. This can be null if no
+  *         regularization is desired.
+  */
+  public this(const FeedForwardNetwork inNet, iData data, 
+    Regularizer reg = null)
   {
     this.net = inNet.dup;
     this.reg = reg;
     this.data = data;
 
     this.numParms = net.parameters.length;
+
+    static if(useBatches) 
+    {
+      static if(randomize)
+      {
+        this.infRange = data.randomRange;
+      }
+      else
+      {
+        this.infRange = data.infiniteRange;
+      }
+    }
   }
 
   /**
-   * Evaluate the error of the network with the given inputs as the weights and
-   * and biases provided.
-   *
-   * Params:
-   * inputs   = The values to set as weights in the network.
-   * evalGrad = true if you will need to retrieve the gradient with respect to
-   *            the provided weights.
-   */
+  * Evaluate the error of the network with the given inputs as the weights and
+  * and biases provided.
+  *
+  * Params:
+  * inputs   = The values to set as weights in the network.
+  * evalGrad = true if you will need to retrieve the gradient with respect to
+  *            the provided weights.
+  */
   public final override void evaluate(in double[] inputs, bool evalGrad = true)
   {
 
     // Copy in the parameters to the network
-    net.parameters = inputs.dup;
+    net.parameters = inputs;
     
     // Keep track of the count so you can average the error later
     size_t count = 0;
@@ -112,7 +166,8 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
     /*==========================================================================
       Nested structure to hold the results of an error calculation over a range.
     ==========================================================================*/
-    struct results {
+    struct results 
+    {
       public size_t r_count;
       public double r_error;
       public double[] r_grad;
@@ -129,7 +184,7 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
     /*==========================================================================
       Nested function to calculate the error over a range.
     ==========================================================================*/
-    results doErrorChunk(DR)(DR dr, FeedForwardNetwork nt)
+    results doErrorChunk(DR)(DR dr, in FeedForwardNetwork net)
     {
       // Set up return variables
       size_t d_count = 0;
@@ -141,13 +196,16 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
         d_grad[] = 0.0;
       }
 
+      // Copy in the network
+      FeedForwardNetwork nt = net.dup;
+
       foreach(dp; dr)
       {
         // Evaluate the network at the given points
         const(double[]) y = nt.eval(dp.inputs);
 
         // Calculate the error for the given point.
-        static if(errFuncType == EFType.ChiSquare)
+        static if(eft == EFType.ChiSquare)
         {
           double err = 0.0;
           foreach(i; 0 .. y.length)
@@ -158,13 +216,13 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
           d_error += 0.5 * err;
         }
 
-        else static if(errFuncType == EFType.CrossEntropy2C)
+        else static if(eft == EFType.CrossEntropy2C)
         {
           d_error -= dp.targets[0] * log(y[0]) + 
                                         (1.0 - dp.targets[0]) * log(1.0 - y[0]);
         }
 
-        else static if(errFuncType == EFType.CrossEntropy)
+        else static if(eft == EFType.CrossEntropy)
         {
           foreach(i; 0 .. y.length)
             d_error -= dp.targets[i] * log(y[i]);
@@ -183,7 +241,7 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
         // Increment the count
         ++d_count;
       }
-
+      
       return results(d_count, d_error, d_grad);
     }
 
@@ -191,20 +249,35 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
     {
       import std.parallelism : totalCPUs, parallel;
 
+      // Set up the range for iterating over the data
+      static if(!useBatches)
+      {
+        auto myRange = this.data.simpleRange;
+      }
+      else
+      {
+        auto myRange = take(infRange, batchSize);
+      }
+
       // How many threads to use?
       size_t numThreads = totalCPUs - 1;
       if(numThreads < 1) numThreads = 1;
+      // This check may seem ridiculous, but it was necessary for a probably
+      // over simple unittest I made.
+      if(myRange.length < numThreads) numThreads = myRange.length;
 
-      results[] reses = new results[numThreads];
+      // A place to save the results
+      results[] reses = new results[](numThreads);
+      
+      // Break up the range into smaller ranges to be spread out
+      auto drs = evenChunks(myRange, numThreads);
 
-      auto drs = evenChunks(data.simpleRange, numThreads);
-
+      // Do the loop
       alias Rng = typeof(drs.front);
       Rng[] dra = array(drs);
-
       foreach(i, ref res; parallel(reses))
       {
-        res = doErrorChunk(dra[i], net.dup);
+        res = doErrorChunk(dra[i], net);
       }
 
       foreach(i, res; reses)
@@ -217,7 +290,16 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
     
     else // Serial Code
     {
-      results res = doErrorChunk(data.simpleRange, net);
+      static if(!useBatches)
+      {
+        auto myRange = this.data.simpleRange;
+      }
+      else
+      {
+        auto myRange = take(infRange, batchSize);
+      }
+
+      results res = doErrorChunk(myRange, net);
 
       count = res.r_count;
       error = res.r_error;
@@ -227,7 +309,6 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
     // Average the error and the gradient.
     error /= count;
     if(evalGrad) grad[] /= count;
-
 
     // Add in the regularization error
     if(reg)
@@ -239,15 +320,15 @@ class ErrorFunction(EFType errFuncType, bool par=true): Func
   }
   
   /**
-   * Returns: The value of the error as calculated by the last call to 
-   *          evaluate.
-   */
+  * Returns: The value of the error as calculated by the last call to 
+  *          evaluate.
+  */
   public final override @property double value(){ return error; }
   
   /**
-   * Returns: The value of the gradient as calculated by the last call to
-   *          evaluate.
-   */
+  * Returns: The value of the gradient as calculated by the last call to
+  *          evaluate.
+  */
   public final override @property double[] gradient(){ return grad.dup; }
 }
 
@@ -265,103 +346,169 @@ version(unittest)
   // Number of inputs and outputs
   enum numIn = 4;
   enum numOut = 2;
-
 }
 
-///
 unittest
 {
-  // ChiSquareEF
+  mixin(announceTest("ChiSquare"));
 
   // Make a data set
-  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
+  auto d1 = new immutable(Data)(numIn, numOut, fakeData);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, false);
-  alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare);
+  alias ChiSquareEF_P  = ErrorFunction!(EFType.ChiSquare);
 
-  ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1);
-  ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1);
+  alias ChiSquareEF_PC = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.parallel, 
+                                        BatchStrategy.minibatch, 
+                                        RandomStrategy.inOrder);
+  
+  alias ChiSquareEF_S  = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.serial);
+
+  alias ChiSquareEF_SC = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.serial, 
+                                        BatchStrategy.minibatch, 
+                                        RandomStrategy.inOrder);
+
+  ChiSquareEF_S ef_S  = new ChiSquareEF_S(slprn, d1);
+  ChiSquareEF_P ef_P  = new ChiSquareEF_P(slprn, d1);
+  ChiSquareEF_SC ef_SC = new ChiSquareEF_SC(slprn, d1);
+  ChiSquareEF_PC ef_PC = new ChiSquareEF_PC(slprn, d1);
+  ef_SC.batchSize = ef_PC.batchSize = 2;
 
   // Test without regularization - evaluate the gradient
   ef_S.evaluate(slprn.parameters);
   ef_P.evaluate(slprn.parameters);
+  ef_SC.evaluate(slprn.parameters);
+  ef_PC.evaluate(slprn.parameters);
 
   assert(approxEqual(ef_S.value, ef_P.value));
   assert(approxEqual(ef_S.grad, ef_P.grad));
-  assert(ef_S.grad !is null);
-  assert(ef_P.grad !is null);
+  assert(approxEqual(ef_SC.value, ef_PC.value));
+  assert(approxEqual(ef_SC.grad, ef_PC.grad));
+  assert(ef_S.grad  !is null);
+  assert(ef_P.grad  !is null);
+  assert(ef_SC.grad !is null);
+  assert(ef_PC.grad !is null);
 
   // Test without regularization - do not evaluate the gradient
   ef_S.evaluate(slprn.parameters, false);
   ef_P.evaluate(slprn.parameters, false);
+  ef_SC.evaluate(slprn.parameters, false);
+  ef_PC.evaluate(slprn.parameters, false);
 
   assert(approxEqual(ef_S.value, ef_P.value));
+  assert(approxEqual(ef_SC.value, ef_PC.value));
   assert(ef_S.grad is null, format("%s",ef_S.grad));
   assert(ef_P.grad is null, format("%s",ef_P.grad));
+  assert(ef_SC.grad is null, format("%s",ef_SC.grad));
+  assert(ef_PC.grad is null, format("%s",ef_PC.grad));
+
+  // Try again, this time with an error function that is not zero!
+  const double[] wts2 = [-1.0, 2.0, -3.0, 4.0, -5.0, 5.0, -4.0, 3.0, -2.0, 1.0];
+  slprn.parameters = wts2;
+
+  alias ChiSquareEF_PCR = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.parallel, 
+                                        BatchStrategy.minibatch, 
+                                        RandomStrategy.random);
+
+  alias ChiSquareEF_SCR = ErrorFunction!(EFType.ChiSquare, 
+                                        ParallelStrategy.serial, 
+                                        BatchStrategy.minibatch, 
+                                        RandomStrategy.random);
+
+  ChiSquareEF_SCR ef_SCR = new ChiSquareEF_SCR(slprn, d1);
+  ChiSquareEF_PCR ef_PCR = new ChiSquareEF_PCR(slprn, d1);
+  ef_SCR.batchSize = ef_PCR.batchSize = ef_SC.batchSize = ef_PC.batchSize;
+
+  // Test without regularization - evaluate the gradient
+  ef_S.evaluate(   slprn.parameters );
+  ef_P.evaluate(   slprn.parameters );
+  ef_SC.evaluate(  slprn.parameters );
+  ef_PC.evaluate(  slprn.parameters );
+  ef_SCR.evaluate( slprn.parameters );
+  ef_PCR.evaluate( slprn.parameters );
+
+  assert( approxEqual( ef_S.value,  ef_P.value  ));
+  assert( approxEqual( ef_S.grad,   ef_P.grad   ));
+  assert( approxEqual( ef_SC.value, ef_PC.value ));
+  assert( approxEqual( ef_SC.grad,  ef_PC.grad  ));
+
+  // Test without regularization - do not evaluate the gradient
+  ef_S.evaluate(   slprn.parameters, false );
+  ef_P.evaluate(   slprn.parameters, false );
+  ef_SC.evaluate(  slprn.parameters, false );
+  ef_PC.evaluate(  slprn.parameters, false );
+  ef_SCR.evaluate( slprn.parameters, false );
+  ef_PCR.evaluate( slprn.parameters, false );
+
+  assert( approxEqual( ef_S.value,  ef_P.value  ));
+  assert( approxEqual( ef_SC.value, ef_PC.value ));
 }
 
 /**
- * An abstract class for Regulizers. It includes methods for manipulating the
- * hyper-parameters so the training process itself can be optimized.
- */
-abstract class Regulizer: Func
+* An abstract class for Regularizers. It includes methods for manipulating the
+* hyper-parameters so the training process itself can be optimized.
+*/
+abstract class Regularizer: Func
 {
   protected double errorTerm = double.max;
   protected double[] gradientTerm = null;
 
   /**
-   * Returns: The hyper-parameters packed into an array.
-   */
+  * Returns: The hyper-parameters packed into an array.
+  */
   public abstract @property const(double[]) hyperParameters() const;
 
   /**
-   * Set the value of the hyper-parameters.
-   */
+  * Set the value of the hyper-parameters.
+  */
   public abstract @property void hyperParameters(in double[] hParms);
 
   /**
-   * Returns: The value of the error as calculated by the last call to evaluate,
-   *          which is required by the Func interface.
-   */
+  * Returns: The value of the error as calculated by the last call to evaluate,
+  *          which is required by the Func interface.
+  */
   public final override @property double value() pure
   {
     return errorTerm;
   }
 
   /**
-   * Returns: The value of the error gradient as calculated by the last call to
-   *          evaluate, which is required by the Func interface.
-   */
+  * Returns: The value of the error gradient as calculated by the last call to
+  *          evaluate, which is required by the Func interface.
+  */
   public final override @property double[] gradient() pure
   {
     return gradientTerm;
   }
 
   /**
-   * Required method by Func interface, will be implemented in sub-classes.
-   */
+  * Required method by Func interface, will be implemented in sub-classes.
+  */
   public abstract void evaluate(in double[] inputs, bool grad=true) pure;
 }
 
 /**
- * Penalizes large weights by adding a term proportional to the sum-of-squares 
- * of the weights.
- */
-class WeightDecayRegulizer: Regulizer
+* Penalizes large weights by adding a term proportional to the sum-of-squares 
+* of the weights.
+*/
+class WeightDecayRegularizer: Regularizer
 {
   private double nu;
 
   /**
-   * Params:
-   * nuParm = the proportionality value. Should be between 0 and 1 in most
-   * use cases, since all the errors are averaged over the number of points and
-   * and the regularizations are are averaged over the number of weights.
-   */
+  * Params:
+  * nuParm = the proportionality value. Should be between 0 and 1 in most
+  * use cases, since all the errors are averaged over the number of points and
+  * and the regularizations are averaged over the number of weights.
+  */
   public this(double nuParm)
   {
     this.nu = nuParm;
@@ -391,9 +538,10 @@ class WeightDecayRegulizer: Regulizer
 
   public override @property const(double[]) hyperParameters() const
   {
-    double[] toRet = new double[1];
-    toRet[0] = nu;
-    return toRet;
+    return [nu];
+    //double[] toRet = new double[1];
+    //toRet[0] = nu;
+    //return toRet;
   }
 
   public override @property void hyperParameters(in double[] hParms)
@@ -403,18 +551,17 @@ class WeightDecayRegulizer: Regulizer
   }
 }
 
-///
 unittest
 {
-  // WeightDecayRegularizer
+  mixin(announceTest("WeightDecayRegularizer"));
 
   // Build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  // Create a regulizer and evaluate it.
-  WeightDecayRegulizer wdr = new WeightDecayRegulizer(0.1);
+  // Create a regularizer and evaluate it.
+  WeightDecayRegularizer wdr = new WeightDecayRegularizer(0.1);
   wdr.evaluate(slprn.parameters, true);
 
   assert(approxEqual(wdr.value, 0.55));
@@ -426,22 +573,22 @@ unittest
 }
 
 /**
- * Similar to weight decay Regularization, except when weights are much less
- * than nuRef they are driven to zero, and are thus effectively eliminated.
- */
-class WeightEliminationRegulizer: Regulizer
+* Similar to weight decay Regularization, except when weights are much less
+* than nuRef they are driven to zero, and are thus effectively eliminated.
+*/
+class WeightEliminationRegularizer: Regularizer
 {
   private double nu;
   private double nuRef;
 
   /** 
-   * Params:
-   * nuParm    = Proportionality parameter, same as in weight decay regulizer.
-   * nuRefParm = A reference value to set the 'ideal' scale for the weights. The
-   *             value of this parameter should be of order unity, loosely.
-   *             If it is too much more or less it can cause instability in the
-   *             training process.
-   */
+  * Params:
+  * nuParm    = Proportionality parameter, same as in weight decay regularizer.
+  * nuRefParm = A reference value to set the 'ideal' scale for the weights. The
+  *             value of this parameter should be of order unity, loosely.
+  *             If it is too much more or less it can cause instability in the
+  *             training process.
+  */
   public this(double nuParm, double nuRefParm)
   {
     this.nu = nuParm;
@@ -470,15 +617,15 @@ class WeightEliminationRegulizer: Regulizer
       }
     }
     errorTerm *= pnu / 2.0 / inputs.length;
-
   }
 
   public override @property const(double[]) hyperParameters() const
   {
-    double[] toRet = new double[2];
-    toRet[0] = nu;
-    toRet[1] = nuRef;
-    return toRet;
+    return [nu, nuRef];
+    //double[] toRet = new double[2];
+    //toRet[0] = nu;
+    //toRet[1] = nuRef;
+    //return toRet;
   }
 
   public override @property void hyperParameters(in double[] hParms)
@@ -489,18 +636,17 @@ class WeightEliminationRegulizer: Regulizer
   }
 }
 
-///
 unittest
 {
-  // WeightEliminationRegularizer
+  mixin(announceTest("WeightEliminationRegularizer"));
 
   // Build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  // Create a regulizer and evaluate it.
-  WeightEliminationRegulizer wer = new WeightEliminationRegulizer(0.1, 1.0);
+  // Create a regularizer and evaluate it.
+  WeightEliminationRegularizer wer = new WeightEliminationRegularizer(0.1, 1.0);
   wer.evaluate(slprn.parameters, true);
 
   assert(approxEqual(wer.value, 0.0410271), format("%s",wer.value));
@@ -513,23 +659,24 @@ unittest
   assert(wer.hyperParameters == [0.1, 1.0]);
 }
 
-///
 unittest
 {
-  // ErrorFunction with Regulizer
+  mixin(announceTest("WeightDecayRegularizer in error function."));
 
   // Make a data set
-  auto d1 = Data.createImmutableData(numIn, numOut, fakeData);
+  auto d1 = new immutable(Data)(numIn, numOut, fakeData);
 
   // Now, build a network.
   const double[] wts = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 2.0, 1.0];
   LinRegNet slprn = new LinRegNet(numIn,numOut);
   slprn.parameters = wts;
 
-  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, false);
+  alias ChiSquareEF_S = ErrorFunction!(EFType.ChiSquare, 
+                                       ParallelStrategy.serial);
+
   alias ChiSquareEF_P = ErrorFunction!(EFType.ChiSquare);
 
-  auto wdr = new WeightDecayRegulizer(0.01);
+  auto wdr = new WeightDecayRegularizer(0.01);
   ChiSquareEF_S ef_S = new ChiSquareEF_S(slprn, d1, wdr);
   ChiSquareEF_P ef_P = new ChiSquareEF_P(slprn, d1, wdr);
 
