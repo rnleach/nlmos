@@ -2172,8 +2172,8 @@ version(prof)
     version(par) { prefix ~= "Parallel_"; }
     else{ prefix ~= "Serial_"; }
 
-    enum iter = 500;               // Number of times to do it while timing.
-    auto sizes = LogRange(1,001);  // Matrix sizes to use
+    enum iter = 500;                  // Number of times to do it while timing.
+    auto sizes = LogRange(1, 1_000);  // Matrix sizes to use
 
     // Temporarily store results here before saving.
     TickDuration[size_t] results;
@@ -2202,12 +2202,12 @@ version(prof)
       return "
         foreach(sz; " ~ matSizeVar ~ ")
         {
-          writef(\"Timing " ~ msg ~ ": %d.  \",sz); 
+          writef(\"Timing " ~ msg ~ ": %4d.  \",sz); 
           stdout.flush();
           " ~ setup ~ "
-          results[sz] = benchmark!(" ~ func ~ ")(iter)[0];
+          results[sz] = benchmark!(" ~ func ~ ")(" ~ iterations ~ ")[0];
 
-          writeln(results[sz].usecs);
+          writefln(\"%12.6f\", cast(double)results[sz].usecs/1000000.0);
         }
         SaveData(results, prefix ~ \"" ~ fname ~ "\");
         results = null;
@@ -2219,8 +2219,8 @@ version(prof)
     */
     mixin(makeProfileBlock(
       "allocation of matrixOf",
-      "",
-      "{Matrix M = Matrix.matrixOf(10.0, sz, sz);}",
+      "Matrix M;",
+      "{M = Matrix.matrixOf(10.0, sz, sz); enforce(M[0,0] > 0.0);}",
       "Allocation.csv"
       ));
     
@@ -2310,7 +2310,7 @@ version(prof)
       i = min;
     }
 
-    @property bool empty() { return i >= max; }
+    @property bool empty() { return i > max; }
 
     @property size_t front() { return i; }
 
