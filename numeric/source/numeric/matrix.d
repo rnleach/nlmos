@@ -109,23 +109,21 @@ public struct Matrix
     cols = c;
     numVals = r * c;
 
-    m = localAlloc_.makeArray!double(numVals);
-    m[] = initVal;
+    m = localAlloc_.makeArray!double(numVals, cast()initVal);
   }
 
   /// Copy constructor
   this(in Matrix orig)
   {
-    // Copy reference to allocator, must cast away const
-    localAlloc_ = cast() orig.localAlloc_;
+    // Use the latest and greatest in allocators
+    localAlloc_ = classAlloc;
 
     rows = orig.rows;
     cols = orig.cols;
     numVals = orig.numVals;
 
     // Duplicate array data, this is a deep copy
-    m = localAlloc_.makeArray!double(numVals);
-    m[] = orig.m[];
+    m = localAlloc_.makeArray!double(orig.m);
   }
 
   unittest
@@ -164,11 +162,12 @@ public struct Matrix
   /// Postblit constructor.
   this(this) 
   {
+    // Update to the current default allocator
+    localAlloc_ = classAlloc;
+
     // rows and cols were moved for us, now we have to allocate new memory and
     // copy all the values to them
-    auto temp = localAlloc_.makeArray!double(m.length);
-    temp[] = m[];
-    m = temp;
+    m = localAlloc_.makeArray!double(m);
   }
 
   ~this() 
@@ -2218,8 +2217,8 @@ version(prof)
     version(par) { prefix ~= "Parallel_"; }
     else{ prefix ~= "Serial_"; }
 
-    enum iter = 10;                  // Number of times to do it while timing.
-    auto sizes = LogRange(1, 200);  // Matrix sizes to use
+    enum iter = 500;                  // Number of times to do it while timing.
+    auto sizes = LogRange(1, 1_000);  // Matrix sizes to use
 
     // Allocators to test
     IAllocator[string] allocators;
@@ -2254,21 +2253,13 @@ version(prof)
       return "
         foreach(allocator; allocators.keys)
         {
-          writefln(\"%s\", allocator);
           foreach(sz; " ~ matSizeVar ~ ")
           {
             writef(\"Timing " ~ msg ~ ": %4d with %s\",sz, allocator); 
             stdout.flush();
-            writefln(\"results: %s\", results);
             Matrix.classAlloc = allocators[allocator];
             " ~ setup ~ "
-            writefln(\"HERE1\");stdout.flush();
-            auto tmpp = benchmark!(" ~ func ~ ")(" ~ iterations ~ ");
-            writefln(\"HERE2 %s %d %d\", tmpp, tmpp[0].usecs, sz);stdout.flush();
-            results[sz] = tmpp[0];
-            writefln(\"HERE3\");stdout.flush();
-            
-
+            results[sz] = benchmark!(" ~ func ~ ")(" ~ iterations ~ ")[0];
             writefln(\"%12.6f\", cast(double)results[sz].usecs/1000000.0);
             stdout.flush();
           }
@@ -2284,7 +2275,7 @@ version(prof)
     mixin(makeProfileBlock(
       "allocation of matrixOf",
       "Matrix M;",
-      "{writef(\"IN 1..\");stdout.flush();M = Matrix.matrixOf(5.0, sz);writefln(\"OUT 1\");stdout.flush();}",
+      "{M = Matrix.matrixOf(5.0, sz);}",
       "Allocation.csv"
       ));
     
