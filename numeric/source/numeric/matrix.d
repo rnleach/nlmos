@@ -171,7 +171,12 @@ public struct Matrix
     m = temp;
   }
 
-  ~this() { localAlloc_.dispose(m); }
+  ~this() 
+  { 
+    //writef("In destructor with m = %s...", m);stdout.flush();
+    if(m) localAlloc_.dispose(m); 
+    //writefln("Exiting destructor with m = %s", m);stdout.flush();
+  }
 
   unittest
   {
@@ -1760,7 +1765,7 @@ struct SVDDecomp
   /**
   * Destructor required to free memory.
   */
-  ~this(){ localAlloc_.dispose(this.w); }
+  ~this(){ if(w) localAlloc_.dispose(w); }
 
   private void decompose()
   {
@@ -2202,16 +2207,25 @@ version(prof)
   import std.datetime;
   import std.stdio;
   import std.string;
+  import std.experimental.allocator;
+  import std.experimental.allocator.building_blocks;
 
-  void main(){
+  void main()
+  {
 
     // Set up a file name dependent on compiler and version options
     string prefix = std.compiler.name ~ "_";
     version(par) { prefix ~= "Parallel_"; }
     else{ prefix ~= "Serial_"; }
 
-    enum iter = 500;                  // Number of times to do it while timing.
-    auto sizes = LogRange(1, 1_000);  // Matrix sizes to use
+    enum iter = 10;                  // Number of times to do it while timing.
+    auto sizes = LogRange(1, 200);  // Matrix sizes to use
+
+    // Allocators to test
+    IAllocator[string] allocators;
+    allocators["GC"] = processAllocator;
+    auto ft = FreeTree!(GCAllocator)();
+    allocators["FreeTree"] = allocatorObject(&ft);
 
     // Temporarily store results here before saving.
     TickDuration[size_t] results;
@@ -2238,17 +2252,29 @@ version(prof)
                             string matSizeVar = "sizes",
                             string iterations = "iter"){
       return "
-        foreach(sz; " ~ matSizeVar ~ ")
+        foreach(allocator; allocators.keys)
         {
-          writef(\"Timing " ~ msg ~ ": %4d.  \",sz); 
-          stdout.flush();
-          " ~ setup ~ "
-          results[sz] = benchmark!(" ~ func ~ ")(" ~ iterations ~ ")[0];
+          writefln(\"%s\", allocator);
+          foreach(sz; " ~ matSizeVar ~ ")
+          {
+            writef(\"Timing " ~ msg ~ ": %4d with %s\",sz, allocator); 
+            stdout.flush();
+            writefln(\"results: %s\", results);
+            Matrix.classAlloc = allocators[allocator];
+            " ~ setup ~ "
+            writefln(\"HERE1\");stdout.flush();
+            auto tmpp = benchmark!(" ~ func ~ ")(" ~ iterations ~ ");
+            writefln(\"HERE2 %s %d %d\", tmpp, tmpp[0].usecs, sz);stdout.flush();
+            results[sz] = tmpp[0];
+            writefln(\"HERE3\");stdout.flush();
+            
 
-          writefln(\"%12.6f\", cast(double)results[sz].usecs/1000000.0);
+            writefln(\"%12.6f\", cast(double)results[sz].usecs/1000000.0);
+            stdout.flush();
+          }
+          SaveData(results, prefix ~ allocator ~ \"_" ~ fname ~ "\");
+          results.clear();
         }
-        SaveData(results, prefix ~ \"" ~ fname ~ "\");
-        results = null;
       ";
     }
 
@@ -2258,7 +2284,7 @@ version(prof)
     mixin(makeProfileBlock(
       "allocation of matrixOf",
       "Matrix M;",
-      "{M = Matrix.matrixOf(10.0, sz, sz); enforce(M[0,0] > 0.0);}",
+      "{writef(\"IN 1..\");stdout.flush();M = Matrix.matrixOf(5.0, sz);writefln(\"OUT 1\");stdout.flush();}",
       "Allocation.csv"
       ));
     
