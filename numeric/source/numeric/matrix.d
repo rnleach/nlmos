@@ -12,6 +12,8 @@ import std.math;
 import std.random;
 import std.string: format;
 
+import std.experimental.allocator: IAllocator, processAllocator, makeArray, dispose;
+
 import numeric.numeric;
 
 version(par)
@@ -24,6 +26,16 @@ version(par)
 */
 public struct Matrix
 {
+  /**
+  * The current memory allocator, which can be changed. Instances keep a 
+  * reference to the allocator they were created with, so this can be changed
+  * a anytime without affecting already created objects. Any new matrices will
+  * be allocated classAlloc.
+  */
+  public static IAllocator classAlloc;
+
+  // Remember how my array was allocated. 
+  private IAllocator localAlloc_;
 
   /*
   * Store the matrix internally in a singly allocated chunk of memory.
@@ -35,6 +47,9 @@ public struct Matrix
   private size_t numVals;  // numVals = rows * cols is used a lot, so cache it!
   package double[] m;
 
+  // Initialize static allocator variable at runtime.
+  static this() { classAlloc = processAllocator; }
+
   /*============================================================================
   *                Memory management, constructors, destructor, etc.
   *===========================================================================*/
@@ -45,11 +60,13 @@ public struct Matrix
   */
   this(in size_t r, in size_t c)
   {
+    localAlloc_ = classAlloc;
+
     rows = r;
     cols = c;
     numVals = rows * cols;
 
-    m = new double[numVals];
+    m = localAlloc_.makeArray!double(numVals);
   }
 
   /// ditto
@@ -58,6 +75,8 @@ public struct Matrix
   /// Initialize from an array
   this(in double[][] arr)
   {
+    localAlloc_ = classAlloc;
+
     // Get the dimensions
     const size_t r = arr.length;
     const size_t c = arr[0].length;
@@ -70,8 +89,8 @@ public struct Matrix
     cols = c;
     numVals = rows * cols;
 
-    // Allocate memory on the GC heap
-    m = uninitializedArray!(double[])(numVals);
+    // Allocate memory on the heap (most likely, may be on stack....)
+    m = localAlloc_.makeArray!double(numVals);
 
     // Copy in values
     foreach(i; 0 .. r)
@@ -84,23 +103,29 @@ public struct Matrix
   /// Initialize with a specific value
   this(in size_t r, in size_t c, in double initVal)
   {
+    localAlloc_ = classAlloc;
+
     rows = r;
     cols = c;
     numVals = r * c;
 
-    m = uninitializedArray!(double[])(numVals);
+    m = localAlloc_.makeArray!double(numVals);
     m[] = initVal;
   }
 
   /// Copy constructor
   this(in Matrix orig)
   {
+    // Copy reference to allocator, must cast away const
+    localAlloc_ = cast() orig.localAlloc_;
+
     rows = orig.rows;
     cols = orig.cols;
     numVals = orig.numVals;
 
     // Duplicate array data, this is a deep copy
-    m = orig.m.dup;
+    m = localAlloc_.makeArray!double(numVals);
+    m[] = orig.m[];
   }
 
   unittest
@@ -139,10 +164,14 @@ public struct Matrix
   /// Postblit constructor.
   this(this) 
   {
-    // rows and cols was moved for us, now we have to allocate new memory and
+    // rows and cols were moved for us, now we have to allocate new memory and
     // copy all the values to them
-    m = m.dup;
+    auto temp = localAlloc_.makeArray!double(m.length);
+    temp[] = m[];
+    m = temp;
   }
+
+  ~this() { localAlloc_.dispose(m); }
 
   unittest
   {
@@ -1001,7 +1030,6 @@ public struct Matrix
     assert(O[0,1] == 3.0);
     assert(O[1,0] == 2.0);
     assert(O[1,1] == 4.0);
-
   }
 
   /**
@@ -1068,7 +1096,6 @@ public struct Matrix
 */
 package struct TransposeView
 {
-
   // Store a reference to the source matrix.
   const Matrix *src = null;
   
@@ -1682,8 +1709,7 @@ package struct TransposeView
   /*============================================================================
   *                     Just give me a Matrix already
   *===========================================================================*/
-  @property Matrix matrix() const {return src.T;}
-  
+  @property Matrix matrix() const { return src.T; }
 }
 
 /*==============================================================================
@@ -1694,6 +1720,8 @@ package struct TransposeView
 */
 struct SVDDecomp
 {
+  // Work with a custom allocator potentially, use whatever matrix is using
+  private IAllocator localAlloc_;
 
   private Matrix u;
   private size_t m;  // Rows of original Matirx
@@ -1710,11 +1738,13 @@ struct SVDDecomp
   */
   this(in Matrix a)
   {
+    localAlloc_ = Matrix.classAlloc;
+
     this.u = a.dup;      // Copy in via postblit
     m = a.rows;
     n = a.cols;
 
-    this.w = new double[n];
+    this.w = localAlloc_.makeArray!double(n);
     this.v = Matrix.zeros(n);
 
     cond = double.nan;  // Calculate this later if needed.
@@ -1727,10 +1757,15 @@ struct SVDDecomp
   */
   this(in TransposeView aT) { this(aT.matrix); }
 
+  /**
+  * Destructor required to free memory.
+  */
+  ~this(){ localAlloc_.dispose(this.w); }
+
   private void decompose()
   {
-
-    double[] rv1 = new double[](this.n);
+    double[] rv1 = localAlloc_.makeArray!double(this.n);
+    scope(exit) localAlloc_.dispose(rv1);
     size_t l;
 
     double g = 0.0;
@@ -1984,8 +2019,10 @@ struct SVDDecomp
   /**
   * Returns: The condition of the matrix.
   */
-  @property double condition(){
-    if(isNaN(this.cond)){
+  @property double condition()
+  {
+    if(isNaN(this.cond))
+    {
       this.cond = this.w[0] / this.w[$ - 1];
     }
 
@@ -2158,6 +2195,8 @@ unittest
 *=============================================================================*/
 version(prof)
 {
+  // TODO update to test allocators
+
   import std.algorithm;
   static import std.compiler;
   import std.datetime;
