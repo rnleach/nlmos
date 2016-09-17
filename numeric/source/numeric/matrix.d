@@ -2201,7 +2201,6 @@ version(prof)
   static import std.compiler;
   import std.datetime;
   import std.stdio;
-  import std.stream;
   import std.string;
 
   void main(){
@@ -2370,8 +2369,7 @@ version(prof)
   void SaveData(in TickDuration[size_t] data, in string filename)
   {
     // Open the file
-    Stream fl = new BufferedFile(filename, FileMode.OutNew);
-    scope(exit) fl.close();
+    auto fl = File(filename, "w");
 
     // Column Headers
     fl.writefln("Sz,Time");
