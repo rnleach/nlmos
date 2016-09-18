@@ -1,12 +1,12 @@
 /**
- * Author: Ryan Leach
- * Version: 1.0.0
- * Date: June 6, 2015
- *
- * This module contains utilities for automatically generating test data or
- * example data, mainly for use in testing (not necessarily unittesting).
- *
- */
+* Author: Ryan Leach
+* Version: 1.0.0
+* Date: June 6, 2015
+*
+* This module contains utilities for automatically generating test data or
+* example data, mainly for use in testing (not necessarily unittesting).
+*
+*/
 module dffann.testutilities.testdata;
 
 import std.algorithm.iteration;
@@ -21,29 +21,29 @@ import std.stdio;
 import numeric.random: gasdev;
 
 /**
- * Custom Exception for the test suite. If you're doing anything other than a 
- * unitttest this might be useful.
- */
+* Custom Exception for the test suite. If you're doing anything other than a 
+* unitttest this might be useful.
+*/
 public class TestUtilityException: Exception
 {
   /**
-   * Construct
-   */
+  * Construct
+  */
   this(string message){ super(message); }
 }
 
 /**
- * Make an array filled with random numbers.
- *
- * Params:
- * numPoints   = The number of rows in the array, simulating the number of 
- *               points in a training data set.
- * binaryFlags = An array whose values correspond to the columns of the 
- *               array. If a value is true, then the random values in that
- *               column will always be zero or 1.
- *
- * Returns: An array filled with random values.
- */
+* Make an array filled with random numbers.
+*
+* Params:
+* numPoints   = The number of rows in the array, simulating the number of 
+*               points in a training data set.
+* binaryFlags = An array whose values correspond to the columns of the 
+*               array. If a value is true, then the random values in that
+*               column will always be 0 or 1.
+*
+* Returns: An array filled with random values.
+*/
 public double[][] makeRandomArray(in size_t numPoints, in uint numVals)
 {
 
@@ -61,21 +61,21 @@ public double[][] makeRandomArray(in size_t numPoints, in uint numVals)
 }
 
 /**
- * Make a test data set for training a linear network with a linear 
- * relationship.
- *
- * Params:
- * numPoints  = The number of data points to make, or the number of rows.
- * numInputs  = The first numInputs columns will represent independent values.
- * numOutputs = The last numOutputs columns are the dependent values calculated
- *              from the inputs.
- * noiseStd   = Each computed output will be multiplied by 1.0 plus a random
- *              number. This value is the standard deviation of that gaussian
- *              noise. So to add 5 percent error, this value should be 0.05.
- *
- * Returns: An array of data that can be used to train a linear network. The
- *          values will not be normalized. 
- */
+* Make a test data set for training a linear network with a linear 
+* relationship.
+*
+* Params:
+* numPoints  = The number of data points to make, or the number of rows.
+* numInputs  = The first numInputs columns will represent independent values.
+* numOutputs = The last numOutputs columns are the dependent values calculated
+*              from the inputs.
+* noiseStd   = Each computed output will be multiplied by 1.0 plus a random
+*              number. This value is the standard deviation of that gaussian
+*              noise. So to add 5 percent error, this value should be 0.05.
+*
+* Returns: An array of data that can be used to train a linear network. The
+*          values will not be normalized. 
+*/
 public double[][] makeLinearRegressionData(in size_t numPoints, 
                                            in size_t numInputs, 
                                            in size_t numOutputs, 
@@ -128,21 +128,21 @@ public double[][] makeLinearRegressionData(in size_t numPoints,
 }
 
 /**
- * Make a test data set for training a regression network with a nonlinear 
- * relationship.
- *
- * Params:
- * numPoints  = The number of data points to make, or the number of rows.
- * numInputs  = The first numInputs columns will represent independent values.
- * numOutputs = The last numOutputs columns are the dependent values calculated
- *              from the inputs.
- * noiseStd   = Each computed output will be multiplied by 1.0 plus a random
- *              number. This value is the standard deviation of that gaussian
- *              noise. So to add 5 percent error, this value should be 0.05.
- *
- * Returns: An array of data that can be used to train a nonlinear network. The
- *          values will not be normalized. 
- */
+* Make a test data set for training a regression network with a nonlinear 
+* relationship.
+*
+* Params:
+* numPoints  = The number of data points to make, or the number of rows.
+* numInputs  = The first numInputs columns will represent independent values.
+* numOutputs = The last numOutputs columns are the dependent values calculated
+*              from the inputs.
+* noiseStd   = Each computed output will be multiplied by 1.0 plus a random
+*              number. This value is the standard deviation of that gaussian
+*              noise. So to add 5 percent error, this value should be 0.05.
+*
+* Returns: An array of data that can be used to train a nonlinear network. The
+*          values will not be normalized. 
+*/
 public double[][] makeNonlinearRegressionData(in size_t numPoints,
                                               in size_t numInputs,
                                               in size_t numOutputs,
@@ -195,15 +195,15 @@ public double[][] makeNonlinearRegressionData(in size_t numPoints,
 }
 
 /**
- * Make a file with random values seperated by commas.
- *
- * Params:
- * numPoints   = The number of points to put in the file (lines in the file)
- * binaryFlags = An array whose values correspond to the columns of the 
- *               array. If a value is true, then the random values in that
- *               column will always be zero or 1.
- * fileName    = The name of the file to create.
- */
+* Make a file with random values seperated by commas.
+*
+* Params:
+* numPoints   = The number of points to put in the file (lines in the file)
+* binaryFlags = An array whose values correspond to the columns of the 
+*               array. If a value is true, then the random values in that
+*               column will always be zero or 1.
+* fileName    = The name of the file to create.
+*/
 public void makeRandomCSVFile(in size_t numPoints, in uint numVals, 
   in string fileName)
 {
@@ -220,21 +220,21 @@ public void makeRandomCSVFile(in size_t numPoints, in uint numVals,
 }
 
 /**
- * Make a test data set for training a classification network with a linear 
- * relationship.
- *
- * Params:
- * numPoints  = The number of data points to make, or the number of rows.
- * numInputs  = The first numInputs columns will represent independent values.
- * numOutputs = The last numOutputs columns are the dependent values calculated
- *              from the inputs.
- * noiseStd   = Each computed output will be multiplied by 1.0 plus a random
- *              number. This value is the standard deviation of that gaussian
- *              noise. So to add 5 percent error, this value should be 0.05.
- *
- * Returns: An array of data that can be used to train a linear network. The
- *          values will not be normalized. 
- */
+* Make a test data set for training a classification network with a linear 
+* relationship.
+*
+* Params:
+* numPoints  = The number of data points to make, or the number of rows.
+* numInputs  = The first numInputs columns will represent independent values.
+* numOutputs = The last numOutputs columns are the dependent values calculated
+*              from the inputs.
+* noiseStd   = Each computed output will be multiplied by 1.0 plus a random
+*              number. This value is the standard deviation of that gaussian
+*              noise. So to add 5 percent error, this value should be 0.05.
+*
+* Returns: An array of data that can be used to train a linear network. The
+*          values will not be normalized. 
+*/
 public double[][] makeLinearClassificationData(in size_t numPoints,
                                                 in size_t numInputs,
                                                 in size_t numOutputs,

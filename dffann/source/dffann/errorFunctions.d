@@ -540,9 +540,6 @@ class WeightDecayRegularizer: Regularizer
   public override @property const(double[]) hyperParameters() const
   {
     return [nu];
-    //double[] toRet = new double[1];
-    //toRet[0] = nu;
-    //return toRet;
   }
 
   public override @property void hyperParameters(in double[] hParms)

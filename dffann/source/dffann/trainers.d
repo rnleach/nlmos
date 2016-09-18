@@ -54,7 +54,6 @@ public interface Trainer
   public @property FeedForwardNetwork net();
 }
 
-
 /**
 * Common functionality for Linear and BFGS trainers. Others may be added later.
 */
@@ -314,9 +313,10 @@ public class BFGSTrainer(EFType erf,
 
     // Try several times
     double[] bestParms = _net.parameters.dup;
+    double[] parms = _net.parameters.dup;
     foreach(uint trie; 0 .. maxTries)
     {
-      double[] parms = _net.parameters.dup;
+      parms[] = _net.parameters[];
       //version(unittest) writefln("try %d and parms: %s", trie, parms);
 
       try
@@ -361,7 +361,7 @@ public class BFGSTrainer(EFType erf,
         _error = finalTryError;
 
         // Remember the best parameters so far.
-        bestParms = parms.dup;
+        bestParms[] = parms[];
       }
 
       // Set random parameters and try again.
