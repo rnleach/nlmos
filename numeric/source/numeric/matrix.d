@@ -2130,9 +2130,9 @@ unittest
 *                        Utilities for this file
 *=============================================================================*/
 /**
- * Simple, quick range to replace the slice operator 0 .. NUM in foreach
- * loops used with parallel.
- */
+* Simple, quick range to replace the slice operator 0 .. NUM in foreach
+* loops used with parallel.
+*/
 private struct CountRange
 {
 
@@ -2199,8 +2199,6 @@ unittest
 *=============================================================================*/
 version(prof)
 {
-  // TODO update to test allocators
-
   import std.algorithm;
   static import std.compiler;
   import std.datetime;
@@ -2211,7 +2209,6 @@ version(prof)
 
   void main()
   {
-
     // Set up a file name dependent on compiler and version options
     string prefix = std.compiler.name ~ "_";
     version(par) { prefix ~= "Parallel_"; }
@@ -2346,7 +2343,6 @@ version(prof)
       "CompositionT2.csv"
       ));
   }
-
 
   /**
   * Create a range of integers like 1,2,3,...,9,10,20,30,....90,100,200...

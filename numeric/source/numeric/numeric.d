@@ -91,8 +91,8 @@ public class NaNException: Exception
 }
 
 /**
- * Signal the failure of an algorithm due to encountering Infinity.
- */
+* Signal the failure of an algorithm due to encountering Infinity.
+*/
 public class InfinityException: Exception
 {
   /// Message about cause of exception.
