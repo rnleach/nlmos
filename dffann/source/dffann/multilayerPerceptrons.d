@@ -629,7 +629,7 @@ if(isAF!HAF && isOAF!OAF)
 }
 
 /// MLP tanh Regression Network.
-alias MLPRegNet = MultiLayerPerceptronNetwork!(TanhAF, LinearAF);
+alias MLPTanhRegNet = MultiLayerPerceptronNetwork!(TanhAF, LinearAF);
 
 /**
 * MLP tanh Classification Network. 
@@ -637,7 +637,7 @@ alias MLPRegNet = MultiLayerPerceptronNetwork!(TanhAF, LinearAF);
 * 2 classes only, 1 output only, 0-1 coding to tell the difference between
 * classes.
 */
-alias MLP2ClsNet = MultiLayerPerceptronNetwork!(TanhAF, SigmoidAF);
+alias MLPTanh2ClsNet = MultiLayerPerceptronNetwork!(TanhAF, SigmoidAF);
 
 /**
 * MLP tanh Classification Network.
@@ -645,13 +645,41 @@ alias MLP2ClsNet = MultiLayerPerceptronNetwork!(TanhAF, SigmoidAF);
 * Any number of classes, but must have at least 2 outputs. Uses 1 of N coding
 * on output nodes.
 */
-alias MLPClsNet = MultiLayerPerceptronNetwork!(TanhAF, SoftmaxAF);
+alias MLPTanhClsNet = MultiLayerPerceptronNetwork!(TanhAF, SoftmaxAF);
+
+/// Other MLP networks with different acctivation functions.
+alias MLPSigRegNet = MultiLayerPerceptronNetwork!(SigmoidAF, LinearAF);
+/// ditto
+alias MLPSig2ClsNet = MultiLayerPerceptronNetwork!(SigmoidAF, SigmoidAF);
+/// ditto
+alias MLPSigClsNet = MultiLayerPerceptronNetwork!(SigmoidAF, SoftmaxAF);
+
+/// ditto
+alias MLPATanRegNet = MultiLayerPerceptronNetwork!(ArctanAF, LinearAF);
+/// ditto
+alias MLPATan2ClsNet = MultiLayerPerceptronNetwork!(ArctanAF, SigmoidAF);
+/// ditto
+alias MLPATanClsNet = MultiLayerPerceptronNetwork!(ArctanAF, SoftmaxAF);
+
+/// ditto
+alias MLPSpRegNet = MultiLayerPerceptronNetwork!(SoftPlusAF, LinearAF);
+/// ditto
+alias MLPSp2ClsNet = MultiLayerPerceptronNetwork!(SoftPlusAF, SigmoidAF);
+/// ditto
+alias MLPSpClsNet = MultiLayerPerceptronNetwork!(SoftPlusAF, SoftmaxAF);
+
+/// ditto
+alias MLPRlRegNet = MultiLayerPerceptronNetwork!(RectifiedLinearAF, LinearAF);
+/// ditto
+alias MLPRl2ClsNet = MultiLayerPerceptronNetwork!(RectifiedLinearAF, SigmoidAF);
+/// ditto
+alias MLPRlClsNet = MultiLayerPerceptronNetwork!(RectifiedLinearAF, SoftmaxAF);
 
 unittest
 {
-  mixin(announceTest("MLP2ClsNet"));
+  mixin(announceTest("MLPTanh2ClsNet"));
 
-  // MLP2ClsNet eval(double)
+  // MLPTanh2ClsNet eval(double)
 
   // Make a fake data set XOR
   double[][] fakeData = [[ 0.0, 0.0, 0.0],
@@ -673,7 +701,7 @@ unittest
                         -1000.0,  1000.0, -500.0, 
                          1000.0,  1000.0, 500.0];
 
-  MLP2ClsNet slprn = new MLP2ClsNet(numNodes);
+  MLPTanh2ClsNet slprn = new MLPTanh2ClsNet(numNodes);
   slprn.parameters = wts;
 
   // Now, lets test some numbers
@@ -685,14 +713,14 @@ unittest
 
 unittest
 {
-  mixin(announceTest("MLPRegNet stringForm and this(string)"));
+  mixin(announceTest("MLPTanhRegNet stringForm and this(string)"));
   
   // Number of nodes per layer
   enum uint[] numNodes = [2,5,6,2];
 
   // Now, build a network.
-  MLPRegNet slpcn = new MLPRegNet(numNodes);
-  MLPRegNet loaded = new MLPRegNet(slpcn.stringForm);
+  MLPTanhRegNet slpcn = new MLPTanhRegNet(numNodes);
+  MLPTanhRegNet loaded = new MLPTanhRegNet(slpcn.stringForm);
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);
@@ -705,14 +733,14 @@ unittest
 
 unittest
 {
-  mixin(announceTest("MLP2ClsNet stringForm and this(string)"));
+  mixin(announceTest("MLPTanh2ClsNet stringForm and this(string)"));
   
   // Number of nodes per layer
   enum uint[] numNodes = [4,5,6,1];
 
   // Now, build a network.
-  MLP2ClsNet slpcn = new MLP2ClsNet(numNodes);
-  MLP2ClsNet loaded = new MLP2ClsNet(slpcn.stringForm);
+  MLPTanh2ClsNet slpcn = new MLPTanh2ClsNet(numNodes);
+  MLPTanh2ClsNet loaded = new MLPTanh2ClsNet(slpcn.stringForm);
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);
@@ -725,14 +753,14 @@ unittest
 
 unittest
 {
-  mixin(announceTest("MLPClsNet stringForm and this(string)"));
+  mixin(announceTest("MLPTanhClsNet stringForm and this(string)"));
   
   // Number of nodes per layer
   enum uint[] numNodes = [4,5,6,3];
 
   // Now, build a network.
-  MLPClsNet slpcn = new MLPClsNet(numNodes);
-  MLPClsNet loaded = new MLPClsNet(slpcn.stringForm);
+  MLPTanhClsNet slpcn = new MLPTanhClsNet(numNodes);
+  MLPTanhClsNet loaded = new MLPTanhClsNet(slpcn.stringForm);
 
   // Test that they are indeed the same.
   assert(slpcn.numParameters == loaded.numParameters);

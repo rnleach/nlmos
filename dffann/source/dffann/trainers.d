@@ -396,7 +396,7 @@ unittest
   // This is a tough network to train, exhibits some pathological behavior by
   // trying to explode the weights to large values. Also has lots of local 
   // minima, so try lots of times.
-  auto net = new MLP2ClsNet(numNodes);
+  auto net = new MLPTanh2ClsNet(numNodes);
 
   auto bfgs_t = new BFGSTrainer!(EFType.CrossEntropy2C,  
                                  ParallelStrategy.serial)(net, d1);
