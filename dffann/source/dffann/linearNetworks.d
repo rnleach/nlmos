@@ -126,7 +126,7 @@ if(isOAF!OAF)
 
     enforce(strip(header[0]) == "FeedForwardNetwork", 
       "Not a FeedForwardNetwork.");
-    enforce(strip(header[1]) == "LinearNetwork!" ~ OAF.stringof, 
+    enforce(strip(header[1]) == typeof(this).stringof, 
       "Not a LinearNetwork!" ~ OAF.stringof);
 
     this.nInputs = to!uint(header[2][10 .. $]);
@@ -403,7 +403,7 @@ if(isOAF!OAF)
     */
     // Add headers
     string toRet = "FeedForwardNetwork\n";
-    toRet ~= "LinearNetwork!" ~ OAF.stringof ~ "\n";
+    toRet ~= typeof(this).stringof ~ "\n";
     toRet ~= format("nInputs = %d\nnOutputs = %d\n", nInputs, nOutputs);
     // Save parameters
     toRet ~= "parameters = ";

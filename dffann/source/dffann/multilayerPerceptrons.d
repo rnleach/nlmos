@@ -225,10 +225,9 @@ if(isAF!HAF && isOAF!OAF)
 
     enforce(strip(header[0]) == "FeedForwardNetwork", 
       "Not a FeedForwardNetwork.");
-    enforce(strip(header[1]) == "MultiLayerPerceptronNetwork!(" ~ HAF.stringof ~ 
-      "," ~ OAF.stringof ~ ")", 
+    enforce(strip(header[1]) == typeof(this).stringof, 
         "Not a MultiLayerPerceptronNetwork!(" ~ HAF.stringof ~ 
-        "," ~ OAF.stringof ~ ")" ~ OAF.stringof);
+        "," ~ OAF.stringof ~ ")");
 
     this.nInputs = to!uint(header[2][10 .. $]);
     this.nOutputs = to!uint(header[3][11 .. $]);
@@ -614,8 +613,7 @@ if(isAF!HAF && isOAF!OAF)
      */
     // Add headers
     string toRet = "FeedForwardNetwork\n";
-    toRet ~= "MultiLayerPerceptronNetwork!(" ~ HAF.stringof ~ 
-      "," ~ OAF.stringof ~ ")\n";
+    toRet ~= typeof(this).stringof ~"\n";
     toRet ~= format("nInputs = %d\nnOutputs = %d\nnLayers = %d\n", 
       nInputs, nOutputs, nLayers);
     toRet ~= "nNodes = ";
