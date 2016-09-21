@@ -17,8 +17,8 @@ import std.regex;
 import std.stdio;
 import std.string;
 
-import numeric.numeric;
-import dffann.dffann;
+import numeric;
+import dffann;
 
 version(unittest)
 {

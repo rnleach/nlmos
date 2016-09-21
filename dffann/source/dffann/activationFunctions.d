@@ -17,7 +17,7 @@
 */
 module dffann.activationfunctions;
 
-import numeric.numeric;
+import numeric;
 
 import std.array;
 import std.math;

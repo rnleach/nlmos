@@ -12,9 +12,10 @@ import std.math;
 import std.random;
 import std.string: format;
 
-import std.experimental.allocator: IAllocator, processAllocator, makeArray, dispose;
+import std.experimental.allocator: 
+    IAllocator, processAllocator, makeArray, dispose;
 
-import numeric.numeric;
+import numeric;
 
 version(par)
 {

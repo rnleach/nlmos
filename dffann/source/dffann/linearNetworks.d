@@ -8,8 +8,8 @@ module dffann.linearnetworks;
 import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
+import numeric;
 import numeric.random: gasdev;
-import numeric.numeric;
 
 import std.conv;
 import std.math;

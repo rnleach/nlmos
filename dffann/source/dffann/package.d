@@ -1,4 +1,4 @@
-module dffann.dffann;
+module dffann;
 
 import std.compiler;
 import std.conv;

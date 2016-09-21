@@ -5,7 +5,7 @@
 */
 module numeric.func;
 
-import numeric.numeric;
+import numeric;
 
 version(unittest)
 {

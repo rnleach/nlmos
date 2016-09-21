@@ -9,7 +9,7 @@ import dffann.activationfunctions;
 import dffann.feedforwardnetwork;
 
 import numeric.random: gasdev;
-import numeric.numeric;
+import numeric;
 
 import std.array;
 import std.conv;

@@ -8,7 +8,7 @@
 */
 module numeric.minimize;
 
-import numeric.numeric;
+import numeric;
 import numeric.func;
 import numeric.matrix;
 

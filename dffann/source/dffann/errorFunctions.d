@@ -13,10 +13,10 @@ module dffann.errorfunctions;
 import std.math;
 import std.range;
 
-import numeric.numeric;
+import numeric;
 import numeric.func;
 
-import dffann.dffann;
+import dffann;
 import dffann.data;
 import dffann.feedforwardnetwork;
 import dffann.strategy;
