@@ -1,8 +1,8 @@
 {
 	"name": "dffann",
-	"description": "Feed-Forward Artifical Neural Networks (in D)",
-	"copyright": "Copyright © 2014, Ryan Leach",
-	"authors": ["Ryan"],
+	"description": "Feed-Forward Artifical Neural Networks",
+	"copyright": "Copyright © 2016, Ryan Leach",
+	"authors": ["Ryan Leach"],
   "version": "1.0.0",
 	"dependencies": 
     {
