@@ -8,12 +8,12 @@
 */
 module dffann.trainers;
 
-import numeric.numeric;
+import numeric;
 import numeric.func;
 import numeric.matrix;
 import numeric.minimize;
 
-import dffann.dffann;
+import dffann;
 import dffann.data;
 import dffann.feedforwardnetwork;
 import dffann.errorfunctions;
@@ -53,7 +53,6 @@ public interface Trainer
   */
   public @property FeedForwardNetwork net();
 }
-
 
 /**
 * Common functionality for Linear and BFGS trainers. Others may be added later.
@@ -314,9 +313,10 @@ public class BFGSTrainer(EFType erf,
 
     // Try several times
     double[] bestParms = _net.parameters.dup;
+    double[] parms = _net.parameters.dup;
     foreach(uint trie; 0 .. maxTries)
     {
-      double[] parms = _net.parameters.dup;
+      parms[] = _net.parameters[];
       //version(unittest) writefln("try %d and parms: %s", trie, parms);
 
       try
@@ -361,7 +361,7 @@ public class BFGSTrainer(EFType erf,
         _error = finalTryError;
 
         // Remember the best parameters so far.
-        bestParms = parms.dup;
+        bestParms[] = parms[];
       }
 
       // Set random parameters and try again.
@@ -396,7 +396,7 @@ unittest
   // This is a tough network to train, exhibits some pathological behavior by
   // trying to explode the weights to large values. Also has lots of local 
   // minima, so try lots of times.
-  auto net = new MLP2ClsNet(numNodes);
+  auto net = new MLPTanh2ClsNet(numNodes);
 
   auto bfgs_t = new BFGSTrainer!(EFType.CrossEntropy2C,  
                                  ParallelStrategy.serial)(net, d1);

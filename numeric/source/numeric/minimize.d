@@ -8,11 +8,12 @@
 */
 module numeric.minimize;
 
-import numeric.numeric;
+import numeric;
 import numeric.func;
 import numeric.matrix;
 
 import std.algorithm;
+import std.experimental.allocator;
 import std.math;
 import std.string;
 
@@ -384,22 +385,18 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
   
   // unpack the brackets
   const double ax = brackets.ax;
-  //double fa = brackets.fa;
   const double bx = brackets.bx;
   const double fb = brackets.fb;
   const double cx = brackets.cx;
-  //double fc = brackets.fc;
   
   double a = (ax < cx ? ax : cx);
   double b = (ax > cx ? ax : cx);
   
   double x, fx, w, fw, v, fv;
-  double[] gx;// gw, gv;
+  double[] gx;
   x  = w  = v  = bx;
   fx = fw = fv = fb;
   gx = null;
-  //gv = 
-  //gw = null;
   
   double xmin, fxmin;
   double[] gmin, gu;
@@ -457,18 +454,16 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
       if(u >= x) a = x; else b = x;
       v = w; w = x; x = u;
       fv = fw; fw = fx; fx = fu;
-      //gv = gw; 
-      //gw = gx; 
       gx = gu;
     }
     else{
       if(u < x) a = u; else b = u;
       if(fu <= fw || w == x){
-        v = w; fv = fw; //gv = gw;
-        w = u; fw = fu; //gw = gu;
+        v = w; fv = fw;
+        w = u; fw = fu;
       }
       else if(fu <= fv || v == x || v== w){
-        v = u; fv = fu; //gv = gu;
+        v = u; fv = fu;
       }
     }
   }
@@ -578,7 +573,8 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
   
   // Use a break statement in one of the many stopping criteria checks.
   size_t iter = 0;
-  while(true){
+  while(true)
+  {
     
     ++iter;
     

@@ -12,7 +12,10 @@ import std.math;
 import std.random;
 import std.string: format;
 
-import numeric.numeric;
+import std.experimental.allocator: 
+    IAllocator, processAllocator, makeArray, dispose;
+
+import numeric;
 
 version(par)
 {
@@ -24,6 +27,16 @@ version(par)
 */
 public struct Matrix
 {
+  /**
+  * The current memory allocator, which can be changed. Instances keep a 
+  * reference to the allocator they were created with, so this can be changed
+  * a anytime without affecting already created objects. Any new matrices will
+  * be allocated classAlloc.
+  */
+  public static IAllocator classAlloc;
+
+  // Remember how my array was allocated. 
+  private IAllocator localAlloc_;
 
   /*
   * Store the matrix internally in a singly allocated chunk of memory.
@@ -35,6 +48,9 @@ public struct Matrix
   private size_t numVals;  // numVals = rows * cols is used a lot, so cache it!
   package double[] m;
 
+  // Initialize static allocator variable at runtime.
+  static this() { classAlloc = processAllocator; }
+
   /*============================================================================
   *                Memory management, constructors, destructor, etc.
   *===========================================================================*/
@@ -45,11 +61,13 @@ public struct Matrix
   */
   this(in size_t r, in size_t c)
   {
+    localAlloc_ = classAlloc;
+
     rows = r;
     cols = c;
     numVals = rows * cols;
 
-    m = new double[numVals];
+    m = localAlloc_.makeArray!double(numVals);
   }
 
   /// ditto
@@ -58,6 +76,8 @@ public struct Matrix
   /// Initialize from an array
   this(in double[][] arr)
   {
+    localAlloc_ = classAlloc;
+
     // Get the dimensions
     const size_t r = arr.length;
     const size_t c = arr[0].length;
@@ -70,8 +90,8 @@ public struct Matrix
     cols = c;
     numVals = rows * cols;
 
-    // Allocate memory on the GC heap
-    m = uninitializedArray!(double[])(numVals);
+    // Allocate memory on the heap (most likely, may be on stack....)
+    m = localAlloc_.makeArray!double(numVals);
 
     // Copy in values
     foreach(i; 0 .. r)
@@ -84,23 +104,27 @@ public struct Matrix
   /// Initialize with a specific value
   this(in size_t r, in size_t c, in double initVal)
   {
+    localAlloc_ = classAlloc;
+
     rows = r;
     cols = c;
     numVals = r * c;
 
-    m = uninitializedArray!(double[])(numVals);
-    m[] = initVal;
+    m = localAlloc_.makeArray!double(numVals, cast()initVal);
   }
 
   /// Copy constructor
   this(in Matrix orig)
   {
+    // Use the latest and greatest in allocators
+    localAlloc_ = classAlloc;
+
     rows = orig.rows;
     cols = orig.cols;
     numVals = orig.numVals;
 
     // Duplicate array data, this is a deep copy
-    m = orig.m.dup;
+    m = localAlloc_.makeArray!double(orig.m);
   }
 
   unittest
@@ -139,9 +163,19 @@ public struct Matrix
   /// Postblit constructor.
   this(this) 
   {
-    // rows and cols was moved for us, now we have to allocate new memory and
+    // Update to the current default allocator
+    localAlloc_ = classAlloc;
+
+    // rows and cols were moved for us, now we have to allocate new memory and
     // copy all the values to them
-    m = m.dup;
+    m = localAlloc_.makeArray!double(m);
+  }
+
+  ~this() 
+  { 
+    //writef("In destructor with m = %s...", m);stdout.flush();
+    if(m) localAlloc_.dispose(m); 
+    //writefln("Exiting destructor with m = %s", m);stdout.flush();
   }
 
   unittest
@@ -1001,7 +1035,6 @@ public struct Matrix
     assert(O[0,1] == 3.0);
     assert(O[1,0] == 2.0);
     assert(O[1,1] == 4.0);
-
   }
 
   /**
@@ -1068,7 +1101,6 @@ public struct Matrix
 */
 package struct TransposeView
 {
-
   // Store a reference to the source matrix.
   const Matrix *src = null;
   
@@ -1682,8 +1714,7 @@ package struct TransposeView
   /*============================================================================
   *                     Just give me a Matrix already
   *===========================================================================*/
-  @property Matrix matrix() const {return src.T;}
-  
+  @property Matrix matrix() const { return src.T; }
 }
 
 /*==============================================================================
@@ -1694,6 +1725,8 @@ package struct TransposeView
 */
 struct SVDDecomp
 {
+  // Work with a custom allocator potentially, use whatever matrix is using
+  private IAllocator localAlloc_;
 
   private Matrix u;
   private size_t m;  // Rows of original Matirx
@@ -1710,11 +1743,13 @@ struct SVDDecomp
   */
   this(in Matrix a)
   {
+    localAlloc_ = Matrix.classAlloc;
+
     this.u = a.dup;      // Copy in via postblit
     m = a.rows;
     n = a.cols;
 
-    this.w = new double[n];
+    this.w = localAlloc_.makeArray!double(n);
     this.v = Matrix.zeros(n);
 
     cond = double.nan;  // Calculate this later if needed.
@@ -1727,10 +1762,15 @@ struct SVDDecomp
   */
   this(in TransposeView aT) { this(aT.matrix); }
 
+  /**
+  * Destructor required to free memory.
+  */
+  ~this(){ if(w) localAlloc_.dispose(w); }
+
   private void decompose()
   {
-
-    double[] rv1 = new double[](this.n);
+    double[] rv1 = localAlloc_.makeArray!double(this.n);
+    scope(exit) localAlloc_.dispose(rv1);
     size_t l;
 
     double g = 0.0;
@@ -1984,8 +2024,10 @@ struct SVDDecomp
   /**
   * Returns: The condition of the matrix.
   */
-  @property double condition(){
-    if(isNaN(this.cond)){
+  @property double condition()
+  {
+    if(isNaN(this.cond))
+    {
       this.cond = this.w[0] / this.w[$ - 1];
     }
 
@@ -2089,9 +2131,9 @@ unittest
 *                        Utilities for this file
 *=============================================================================*/
 /**
- * Simple, quick range to replace the slice operator 0 .. NUM in foreach
- * loops used with parallel.
- */
+* Simple, quick range to replace the slice operator 0 .. NUM in foreach
+* loops used with parallel.
+*/
 private struct CountRange
 {
 
@@ -2162,11 +2204,12 @@ version(prof)
   static import std.compiler;
   import std.datetime;
   import std.stdio;
-  import std.stream;
   import std.string;
+  import std.experimental.allocator;
+  import std.experimental.allocator.building_blocks;
 
-  void main(){
-
+  void main()
+  {
     // Set up a file name dependent on compiler and version options
     string prefix = std.compiler.name ~ "_";
     version(par) { prefix ~= "Parallel_"; }
@@ -2174,6 +2217,12 @@ version(prof)
 
     enum iter = 500;                  // Number of times to do it while timing.
     auto sizes = LogRange(1, 1_000);  // Matrix sizes to use
+
+    // Allocators to test
+    IAllocator[string] allocators;
+    allocators["GC"] = processAllocator;
+    auto ft = FreeTree!(GCAllocator)();
+    allocators["FreeTree"] = allocatorObject(&ft);
 
     // Temporarily store results here before saving.
     TickDuration[size_t] results;
@@ -2200,17 +2249,21 @@ version(prof)
                             string matSizeVar = "sizes",
                             string iterations = "iter"){
       return "
-        foreach(sz; " ~ matSizeVar ~ ")
+        foreach(allocator; allocators.keys)
         {
-          writef(\"Timing " ~ msg ~ ": %4d.  \",sz); 
-          stdout.flush();
-          " ~ setup ~ "
-          results[sz] = benchmark!(" ~ func ~ ")(" ~ iterations ~ ")[0];
-
-          writefln(\"%12.6f\", cast(double)results[sz].usecs/1000000.0);
+          foreach(sz; " ~ matSizeVar ~ ")
+          {
+            writef(\"Timing " ~ msg ~ ": %4d with %s\",sz, allocator); 
+            stdout.flush();
+            Matrix.classAlloc = allocators[allocator];
+            " ~ setup ~ "
+            results[sz] = benchmark!(" ~ func ~ ")(" ~ iterations ~ ")[0];
+            writefln(\"%12.6f\", cast(double)results[sz].usecs/1000000.0);
+            stdout.flush();
+          }
+          SaveData(results, prefix ~ allocator ~ \"_" ~ fname ~ "\");
+          results.clear();
         }
-        SaveData(results, prefix ~ \"" ~ fname ~ "\");
-        results = null;
       ";
     }
 
@@ -2220,7 +2273,7 @@ version(prof)
     mixin(makeProfileBlock(
       "allocation of matrixOf",
       "Matrix M;",
-      "{M = Matrix.matrixOf(10.0, sz, sz); enforce(M[0,0] > 0.0);}",
+      "{M = Matrix.matrixOf(5.0, sz);}",
       "Allocation.csv"
       ));
     
@@ -2292,7 +2345,6 @@ version(prof)
       ));
   }
 
-
   /**
   * Create a range of integers like 1,2,3,...,9,10,20,30,....90,100,200...
   */
@@ -2331,8 +2383,7 @@ version(prof)
   void SaveData(in TickDuration[size_t] data, in string filename)
   {
     // Open the file
-    Stream fl = new BufferedFile(filename, FileMode.OutNew);
-    scope(exit) fl.close();
+    auto fl = File(filename, "w");
 
     // Column Headers
     fl.writefln("Sz,Time");

@@ -17,8 +17,8 @@ import std.regex;
 import std.stdio;
 import std.string;
 
-import numeric.numeric;
-import dffann.dffann;
+import numeric;
+import dffann;
 
 version(unittest)
 {
@@ -220,13 +220,14 @@ public class Data
   * private because using it depends on detailed knowledge of the layout of 
   * of the data_ private member. It is intended to be used with helper functions
   * for loading from files. Since it does not make a copy, it is expected to be
-  * more space and time efficient.
+  * more space and time efficient, which is important because some of the data
+  * sets are expected to be very large.
   *
   * The immutable versions below uses a cast to produce immutable data, and so
   * are very dangerous. Care should be taken to make sure that no other 
   * references to the data argument exist. It also takes a reference to the 
-  * data argument so it can destroy that reference by setting it to null. It 
-  * should be obvious why these constructors are private.
+  * data argument so it can destroy that reference by setting it to null, whihc
+  * is a start, but still no gaurantee.
   */
   private this(in uint nInputs, in uint nTgts, double[] data)
   {
@@ -245,7 +246,8 @@ public class Data
 
     // null data to destroy this reference to the data. Not bullet proof, but a
     // step in the right direction to getting rid of non-immutable references to
-    // the underlying data.
+    // the underlying data. Of course it might be a suprise to a user of the 
+    // constructor....
     data = null;
   }
   
@@ -395,7 +397,6 @@ public Data loadDataFromCSVFile(in uint nInputs, in uint nTgts, in string fname)
 
   // Open the file
   File f = File(fname, "r");
-  scope(exit){ f.close; }
 
   // Read the file line by line
   auto app = appender!(double[])();
@@ -419,7 +420,7 @@ public Data loadDataFromCSVFile(in uint nInputs, in uint nTgts, in string fname)
     app.put(lineValues);
   }
   
-  // Return the new Data instance
+  // Return the new Data instance - uses private constructor.
   return new Data(nInputs, nTgts, app.data);
 }
 
@@ -459,7 +460,6 @@ public void saveData(const Data pData, const string filename)
 
   // Open the file
   File fl = File(filename, "w");
-  scope(exit) { fl.close; }
 
   // Put a header to identify it as NormalizedData
   fl.writefln("Data");
@@ -484,6 +484,7 @@ public void saveData(const Data pData, const string filename)
 * Returns: A Data object.
 */
 public auto loadData(string opt = "immutable")(const string filename)
+  if( opt == "immutable" || opt == "mutable")
 {
   // See comments in saveData for file and header formats.
 
@@ -893,7 +894,6 @@ struct Normalization
   {
     tgt[] = tgt[] * scale[($ - tgt.length) .. $] + shift[($ - tgt.length) .. $];
   }
-
 }
 
 version(unittest)

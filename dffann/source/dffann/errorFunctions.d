@@ -13,10 +13,10 @@ module dffann.errorfunctions;
 import std.math;
 import std.range;
 
-import numeric.numeric;
+import numeric;
 import numeric.func;
 
-import dffann.dffann;
+import dffann;
 import dffann.data;
 import dffann.feedforwardnetwork;
 import dffann.strategy;
@@ -540,9 +540,6 @@ class WeightDecayRegularizer: Regularizer
   public override @property const(double[]) hyperParameters() const
   {
     return [nu];
-    //double[] toRet = new double[1];
-    //toRet[0] = nu;
-    //return toRet;
   }
 
   public override @property void hyperParameters(in double[] hParms)

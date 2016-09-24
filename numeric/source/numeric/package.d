@@ -22,7 +22,7 @@
 * Version: 1.0.0
 * Date: January 15, 2015
 */
-module numeric.numeric;
+module numeric;
 
 import std.exception;
 
@@ -91,8 +91,8 @@ public class NaNException: Exception
 }
 
 /**
- * Signal the failure of an algorithm due to encountering Infinity.
- */
+* Signal the failure of an algorithm due to encountering Infinity.
+*/
 public class InfinityException: Exception
 {
   /// Message about cause of exception.

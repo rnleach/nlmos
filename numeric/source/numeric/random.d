@@ -20,7 +20,7 @@
 */
 module numeric.random;
 
-import numeric.numeric;
+import numeric;
 
 import std.math;
 import std.random;
