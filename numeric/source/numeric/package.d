@@ -19,8 +19,14 @@
 * including some exceptions.
 *
 * Author: Ryan Leach
-* Version: 1.0.0
-* Date: January 15, 2015
+* Version: 1.1.0
+* Date: September 24, 2016
+*
+* History:
+* v1.0.0 used my own implentation for the matrix backend.
+*
+* v1.1.0 uses ndslice as the backend of matrices, and also incorporates 
+*        allocators.
 */
 module numeric;
 

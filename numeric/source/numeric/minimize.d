@@ -3,8 +3,14 @@
 *
 * This module contains routines for minimizing functions as defined in func.d.
 *
-* Version: 1.0.0
-* Date: January 23, 2015
+* Version: 1.1.0
+* Date: September 24, 2016
+* History:
+* v1.0.0 Initial version.
+*
+* v1.1.0 Includes allocators in the matrix module, which impacts some of the 
+*        minimization routines. Using default allocator gave a good speed up.
+*        This module still does not directly use allocators.
 */
 module numeric.minimize;
 
@@ -585,7 +591,7 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
     Matrix d = G * g;
     
     // Get the starting point weights and direction as arrays
-    double[] dA = d.m;
+    double[] dA = d.m_;
     
     // Bracket the minimum
     BracketResults brackets = bracketMinimum(wA, dA, f);

@@ -2,6 +2,8 @@
 * Author: Ryan Leach
 * Version: 1.0.0
 * Date: January 23, 2015
+* History:
+* v1.0.0 Initial version.
 */
 module numeric.func;
 

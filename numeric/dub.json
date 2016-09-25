@@ -3,7 +3,7 @@
   "description": "Numerical routines in D.",
   "copyright": "Copyright © 2016, Ryan Leach",
   "authors": ["Ryan Leach"],
-  "version":"1.0.0",
+  "version":"1.1.0",
   "configurations": [
     {
       "name":"lib-release",
