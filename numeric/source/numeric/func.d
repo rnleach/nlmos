@@ -24,7 +24,7 @@ interface Func
   * value and gradient for later retrieval.
   * 
   * Params:
-  * inputs = postition to evaluate at, e.g. inputs = [x,y] for f(x,y).
+  * inputs = position to evaluate at, e.g. inputs = [x,y] for f(x,y).
   */
   public void evaluate(in double[] inputs, bool grad = false);
   

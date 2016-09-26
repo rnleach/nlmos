@@ -23,7 +23,7 @@ import std.string;
 * Given a starting point, a direction, and a scale, return a point shifted
 * by scale times direction from starting point.
 * 
-* Used internally for minimizations of multivariable functions along a line.
+* Used internally for minimizations of multi variable functions along a line.
 * 
 * Returns: start + scale * dir
 */
@@ -54,20 +54,21 @@ unittest
 * operation compared to an array.
 *
 * If there was a failure to bracket, then the position of the minimum value of 
-* the function found during the proces should be returned via parameter ax.
+* the function found during the process should be returned via parameter ax.
 */
 public struct BracketResults
 {
-  /// Abisca points bracketing a minimum and function values at those points.
+  /// Abscissa points bracketing a minimum and function values at those points.
   public double ax, bx, cx;
   /// ditto
   public double fa, fb, fc;
 
   /**
   * Params:
-  * a = abisca value bracketing a minimum from the low side
-  * b = abisca value between the brackets, with function value lower than a and c
-  * c = abisca value bracketing a minimum from the high side
+  * a = abscissa value bracketing a minimum from the low side
+  * b = abscissa value between the brackets, with function value lower than 
+  *     a and c
+  * c = abscissa value bracketing a minimum from the high side
   * fa = function value at a
   * fb = function value at b
   * fc = function value at c
@@ -96,7 +97,8 @@ public struct BracketResults
   /// Create a string of these values.
   public string toString() const
   {
-    return format("BracketResults[found=%s, ax=%f, bx=%f, cx=%f, fa=%f, fb=%f, fc=%f]",
+    return format(
+      "BracketResults[found=%s, ax=%f, bx=%f, cx=%f, fa=%f, fb=%f, fc=%f]",
                   this.bracketFound, ax, bx, cx, fa, fb, fc);
   }
 }
@@ -122,7 +124,7 @@ public struct BracketResults
 * Returns: a BracketResults struct with the minimum along the line bracketed
 *          by the ax and ac members. The middle location bx is included along
 *          the function values at all of those locations. If the routine was
-*          unable to bracket a minimum, all the valuse of the return will be
+*          unable to bracket a minimum, all the values of the return will be
 *          double.nan and this can be checked for with the bracketFound method.
 */
 public BracketResults bracketMinimum(double[] startingPoint, 
@@ -312,7 +314,7 @@ public struct LineMinimizationResults
 {
   /**
   * Assuming the line minimization was done with a starting point sp and
-  * direction dr, alpah is the distance along that direction to get to the 
+  * direction dr, alpha is the distance along that direction to get to the 
   * minimum.
   */
   public double alpha;
@@ -411,7 +413,7 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
     
     if (abs(x - xm) <= (tol2 -0.5 * (b - a))){
       xmin = x;
-      // Possible gx has not been evaluatd, so re-calculating all of these
+      // Possible gx has not been evaluated, so re-calculating all of these
       if(!gx){
         f.evaluate(delta(startingPoint, direction, xmin), true);
         fx = f.value;
@@ -469,7 +471,7 @@ public LineMinimizationResults lineMinimize(double[] startingPoint,
   }
   
   xmin = x;
-  // Possible gx has not been evaluatd, so re-calculating all of these
+  // Possible gx has not been evaluated, so re-calculating all of these
   if(!gx){
     f.evaluate(delta(startingPoint, direction, xmin), true);
     fx = f.value;
@@ -653,7 +655,7 @@ public void bfgsMinimize(Func f, ref double[] startPos, size_t maxIt,
 
       // Get out of here and signal failure!
       throw new FailureToConverge(
-        format("Failure to converge: achieved %g tol after %d iteratons" ~
+        format("Failure to converge: achieved %g tol after %d iterations" ~
                " of %d max, goal was %g.", 
                avgDeltaV, iter, maxIt, minDeltaV),
         iter, avgDeltaV, wA, val);

@@ -401,7 +401,7 @@ public struct Matrix
 
     // No bounds checking, so no assertions for errors. The assert statement
     // in the first line is only present for debugging code, code compiled in
-    // release mode (or optomize) will not have this assertion.
+    // release mode (or optimize) will not have this assertion.
   }
 
   /**
@@ -526,7 +526,7 @@ public struct Matrix
   * A == C; // false
   * A != C; // true
   *
-  * assert(A == B && A != C); // Ok!
+  * assert(A == B && A != C); // OK!
   * ---------
   */
   bool opEquals(in Matrix rhs) const
@@ -553,7 +553,7 @@ public struct Matrix
     assert(M is M);  // Duh
     assert(M !is N); // Check that it is a copy, so at different address
     assert(M == M);  // Duh
-    assert(M == N);  // Now do the reall comparison
+    assert(M == N);  // Now do the real comparison
     assert(M != O);  // Check matrix with same dimensions, but different values.
     assert(M != P);  // Check matrix with different dimensions and same values.
     assert(O != P);  // The rest of these are for good measure.
@@ -788,7 +788,7 @@ public struct Matrix
   *                Multiplication and Division by scalars
   *===========================================================================*/
   /**
-  * Overloaded multiplication and divistion operators for operations with a
+  * Overloaded multiplication and division operators for operations with a
   * Matrix and scalar.
   */
   Matrix opBinary(string op)(in double rhs) const
@@ -900,7 +900,7 @@ public struct Matrix
     if( op == "*")
   {
     // Check to make sure the cols of the left side == rows of right side
-    assert(cols == rhs.rows,"Multiplication dimemsions mismatch.");
+    assert(cols == rhs.rows,"Multiplication dimensions mismatch.");
 
     // Make a new matrix
     Matrix temp = Matrix(rows,rhs.cols, 0.0);
@@ -1139,7 +1139,7 @@ public struct Matrix
 *                            Transpose View
 *============================================================================*/
 /**
-* Provides a view of the matrix with transposed indicies for efficient access
+* Provides a view of the matrix with transposed indexes for efficient access
 * to transposed matrices without copying them. Since this stores a pointer to
 * a struct, it should not be released to a scope beyond the struct. It is only
 * intended to be used to read the values of a Matrix from a transposed
@@ -1161,7 +1161,7 @@ package struct TransposeView
   *                        Index Operators and Limits
   *==========================================================================*/
   /**
-  * Get a value from the Matrix with transposed indicies, overload opIndex
+  * Get a value from the Matrix with transposed indexes, overload opIndex
   *
   * Example uses - double val = m[1,2];
   *
@@ -1359,7 +1359,7 @@ package struct TransposeView
   *                Multiplication and Division by scalars
   *===========================================================================*/
   /**
-  * Overloaded multiplication and divistion operators for operations with a
+  * Overloaded multiplication and division operators for operations with a
   * Matrix and scalar.
   */
   Matrix opBinary(string op)(in double rhs) const
@@ -1400,7 +1400,7 @@ package struct TransposeView
   }
 
   /**
-  * Overloaded multiplication and divistion operators for operations with a
+  * Overloaded multiplication and division operators for operations with a
   * Matrix and scalar. Only allow multiplication from the left, it is
   * undefined what scalar / Matrix is.
   */
@@ -1444,7 +1444,7 @@ package struct TransposeView
     if( op == "*")
   {
     // Check to make sure the 'rows' of the left side == rows of right side
-    assert(src.rows == rhs.rows,"Multiplication dimemsions mismatch.");
+    assert(src.rows == rhs.rows,"Multiplication dimensions mismatch.");
 
     // Make a new matrix
     Matrix temp = Matrix(src.cols,rhs.cols);
@@ -1487,7 +1487,7 @@ package struct TransposeView
     if( op == "*")
   {
     // Check to make sure the 'rows' of the left side == rows of right side
-    assert(src.cols == lhs.cols,"Multiplication dimemsions mismatch.");
+    assert(src.cols == lhs.cols,"Multiplication dimensions mismatch.");
 
     // Make a new matrix
     Matrix temp = Matrix(lhs.rows,src.rows);
@@ -1775,7 +1775,7 @@ struct SVDDecomp
   private IAllocator localAlloc_;
 
   private Matrix u;
-  private size_t m;  // Rows of original Matirx
+  private size_t m;  // Rows of original Matrix
   private size_t n;  // Columns of original Matrix
   private double[] w;
   private Matrix v;
@@ -2369,7 +2369,7 @@ version(prof)
 
     /*
     * Time Some composite operations, to see effect of Transpose, compare with
-    * results of block below to see influence of TransposeView stuct.
+    * results of block below to see influence of TransposeView struct.
     */
     mixin(makeProfileBlock(
       "CompositionT1",

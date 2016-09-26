@@ -8,14 +8,14 @@
 * It is not intended to be a complete library, or anything close. I will add
 * the features and functions that I need as I need them.
 *
-* version par - parrallel exectution instead of serial execution of some 
+* version par - parallel execution instead of serial execution of some 
 *               methods. Serial execution is the default if no version is 
 *               specified.
 *
 * The profile version is handy for comparing potential versions and compilers
 * on any specific system.
 *
-* This module contains sevaral utility methods to be used across the package,
+* This module contains several utility methods to be used across the package,
 * including some exceptions.
 *
 * Author: Ryan Leach
@@ -60,9 +60,9 @@ public class FailureToConverge: Exception
   public size_t iterations;
   /// Tolerance that was not reached.
   public double tolerance;
-  /// Best set of paramters reached so far
+  /// Best set of parameters reached so far
   public double[] bestParms;
-  /// Lowest function value acheived so far
+  /// Lowest function value achieved so far
   public double minSoFar;
 
   public this(string message = "", size_t its = 0, double tol = double.nan,
