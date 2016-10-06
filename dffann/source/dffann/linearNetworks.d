@@ -12,6 +12,7 @@ import numeric;
 import numeric.random: gasdev;
 
 import std.conv;
+import std.exception: enforce;
 import std.math;
 import std.regex;
 import std.string;

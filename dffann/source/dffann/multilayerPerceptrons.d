@@ -16,6 +16,7 @@ import std.conv;
 import std.math;
 import std.regex;
 import std.string;
+import std.exception: enforce;
 
 version(unittest) import dffann.data;
 

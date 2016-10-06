@@ -8,6 +8,7 @@ import dffann.multilayerperceptrons;
 
 import std.compiler;
 import std.conv;
+import std.exception: enforce;
 import std.file;
 import std.stdio;
 import std.string;
