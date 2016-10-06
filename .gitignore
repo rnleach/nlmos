@@ -1,16 +1,27 @@
-numeric/.dub/*
-*dub.selections.json
-dffann/.dub/
-__test__*
-dffann.sublime-workspace
-*.a
-numericD.sublime-workspace
-SyncToy_*.dat
-dffann/dffann.sln
-dffann/dffann.visualdproj
-dffann/numeric.visualdproj
-dffann/source-dffann-data.exe.syntax.cmd
+# Library and object files
+# -----------------------------------------------
 *.lib
+*.a
+*.o
 *.obj
+
+# Unittests executables, and other exectuables
+# -----------------------------------------------
+__test__*
+*.exe
+
+# dub
+# -----------------------------------------------
+.dub/
+dub.selections.json
+
+# IDE, editor workspace
+# -----------------------------------------------
 *.sublime-workspace
+
+# Files used for temporary data or profiling
+# -----------------------------------------------
 *.csv
+*.dat
+*.nrm
+*.lst
