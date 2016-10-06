@@ -25,3 +25,7 @@ dub.selections.json
 *.dat
 *.nrm
 *.lst
+
+# Documentation directory
+# -----------------------------------------------
+doc/
