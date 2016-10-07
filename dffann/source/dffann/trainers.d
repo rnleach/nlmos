@@ -8,6 +8,8 @@
 */
 module dffann.trainers;
 
+import std.math;
+
 import numeric;
 import numeric.func;
 import numeric.matrix;
@@ -21,7 +23,6 @@ import dffann.strategy;
 
 version(unittest)
 {
-  import std.math;
   import std.stdio;
   import std.algorithm;
   import dffann.testutilities.testdata;

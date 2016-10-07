@@ -3,7 +3,7 @@
 *
 * This module contains routines for random numbers. Note that many of these
 * routines were developed for floating point arithmetic, and I'm not sure how
-* well they stand up at double precisiion in a 64 bit envirionment.
+* well they stand up at double precision in a 64 bit environment.
 *
 * Probably better off using the std.random library's uniform generator,
 * however, after inspection of the code in std/random.d, it appears that the
@@ -29,7 +29,7 @@ import std.random;
 * Routine ran0 ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
 * page 279.
 *
-* Params: a seed that must not be altered between succesive calls.
+* Params: a seed that must not be altered between successive calls.
 *
 * Returns: a uniform random deviate.
 */
@@ -58,7 +58,7 @@ double ran0(ref long idum){
 * Routine ran1 ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
 * page 280.
 *
-* Params: a negative integer seed that must not be altered between succesive 
+* Params: a negative integer seed that must not be altered between successive 
 *         calls.
 *
 * Returns: a uniform random deviate between 0.0 and 1.0 exclusive.
@@ -110,10 +110,10 @@ double ran1(ref long idum){
 * Routine gasdev ported from Numerical Recipes in C, Press et al, 2nd ed, 1999,
 * page 289.
 *
-* Params: a negative integer seed that must not be altered between succesive 
+* Params: a negative integer seed that must not be altered between successive 
 *         calls.
 *
-* Returns: a gaussian random deviate of zero mean and unit standard deviation.
+* Returns: a Gaussian random deviate of zero mean and unit standard deviation.
 */
 double gasdev(ref long idum)
 {
@@ -144,10 +144,10 @@ double gasdev(ref long idum)
 * page 289. This override relies on the D phobos standard library random
 * number generator to generate the uniform random deviates.
 *
-* Params: a negative integer seed that must not be altered between succesive 
+* Params: a negative integer seed that must not be altered between successive 
 *         calls.
 *
-* Returns: a gaussian random deviate of zero mean and unit standard deviation.
+* Returns: a Gaussian random deviate of zero mean and unit standard deviation.
 */
 double gasdev()
 {

@@ -12,8 +12,7 @@ import std.math;
 import std.random;
 import std.string: format;
 
-import std.experimental.allocator: 
-    IAllocator, processAllocator, makeArray, dispose;
+import std.experimental.allocator: IAllocator, theAllocator, makeArray, dispose;
 
 import numeric;
 
@@ -38,6 +37,9 @@ public struct Matrix
   // Remember how my array was allocated. 
   private IAllocator localAlloc_;
 
+  // Does this object have sole ownership of the underlying array?
+  private bool ownArray;
+
   /*
   * Store the matrix internally in a singly allocated chunk of memory.
   * Then the postblit constructor will have to manually take care of moving
@@ -49,7 +51,7 @@ public struct Matrix
   package double[] m;
 
   // Initialize static allocator variable at runtime.
-  static this() { classAlloc = processAllocator; }
+  static this() { classAlloc = theAllocator; }
 
   /*============================================================================
   *                Memory management, constructors, destructor, etc.
@@ -59,7 +61,7 @@ public struct Matrix
   *
   * The single variable versions create square Matrices.
   */
-  this(in size_t r, in size_t c)
+  public this(in size_t r, in size_t c)
   {
     localAlloc_ = classAlloc;
 
@@ -68,13 +70,15 @@ public struct Matrix
     numVals = rows * cols;
 
     m = localAlloc_.makeArray!double(numVals);
+
+    ownArray = true;
   }
 
   /// ditto
-  this(in size_t r) { this(r,r); }
+  public this(in size_t r) { this(r,r); }
 
-  /// Initialize from an array
-  this(in double[][] arr)
+  /// Initialize from an array, copy in.
+  public this(in double[][] arr)
   {
     localAlloc_ = classAlloc;
 
@@ -92,6 +96,7 @@ public struct Matrix
 
     // Allocate memory on the heap (most likely, may be on stack....)
     m = localAlloc_.makeArray!double(numVals);
+    ownArray = true;
 
     // Copy in values
     foreach(i; 0 .. r)
@@ -102,7 +107,7 @@ public struct Matrix
   }
 
   /// Initialize with a specific value
-  this(in size_t r, in size_t c, in double initVal)
+  public this(in size_t r, in size_t c, in double initVal)
   {
     localAlloc_ = classAlloc;
 
@@ -111,10 +116,11 @@ public struct Matrix
     numVals = r * c;
 
     m = localAlloc_.makeArray!double(numVals, cast()initVal);
+    ownArray = true;
   }
 
   /// Copy constructor
-  this(in Matrix orig)
+  public this(in Matrix orig)
   {
     // Use the latest and greatest in allocators
     localAlloc_ = classAlloc;
@@ -125,6 +131,7 @@ public struct Matrix
 
     // Duplicate array data, this is a deep copy
     m = localAlloc_.makeArray!double(orig.m);
+    ownArray = true;
   }
 
   unittest
@@ -161,7 +168,7 @@ public struct Matrix
   }
 
   /// Postblit constructor.
-  this(this) 
+  public this(this) 
   {
     // Update to the current default allocator
     localAlloc_ = classAlloc;
@@ -169,12 +176,28 @@ public struct Matrix
     // rows and cols were moved for us, now we have to allocate new memory and
     // copy all the values to them
     m = localAlloc_.makeArray!double(m);
+    ownArray = true;
+  }
+
+  // This matrix is a view into a slice, but does not own it.
+  private this(in size_t r, in size_t c, double[] dataToView)
+  {
+    // Check consistency....
+    assert(dataToView.length == (r * c), "Number of elements don't match.");
+
+    localAlloc_ = classAlloc;
+
+    rows = r;
+    cols = c;
+
+    m = dataToView;
+    ownArray = false;
   }
 
   ~this() 
   { 
     //writef("In destructor with m = %s...", m);stdout.flush();
-    if(m) localAlloc_.dispose(m); 
+    if(ownArray && m) localAlloc_.dispose(m); 
     //writefln("Exiting destructor with m = %s", m);stdout.flush();
   }
 
@@ -238,13 +261,36 @@ public struct Matrix
   /*============================================================================
   *                        Static factory methods
   *===========================================================================*/
+  /// Create a matrix view of a flat array.
+  public static Matrix matrixView(in size_t r, in size_t c, double[] arrToView)
+  {
+    // Check consistency....
+    assert(arrToView.length == (r * c), "Number of elements don't match.");
+
+    return Matrix(r,c,arrToView);
+  }
+
+  unittest
+  {
+    mixin(announceTest("matrixView"));
+
+    double[] arr = [1,2,3,4];
+    auto matrix = matrixView(2,2,arr);
+
+    arr[0] = 5;
+    matrix[1,1] = 6;
+
+    assert(arr == [5,2,3,6]);
+    assert(matrix[0,0] == 5);
+  }
+
   /// Create a matrix initialized to any desired value.
-  static Matrix matrixOf(in double val, in size_t r, in size_t c)
+  public static Matrix matrixOf(in double val, in size_t r, in size_t c)
   {
     return Matrix(r, c, val);
   }
   /// Create a square matrix initialized to any desired value.
-  static Matrix matrixOf(in double val, in size_t dim)
+  public static Matrix matrixOf(in double val, in size_t dim)
   {
     return Matrix(dim, dim, val);
   }
@@ -355,7 +401,7 @@ public struct Matrix
 
     // No bounds checking, so no assertions for errors. The assert statement
     // in the first line is only present for debugging code, code compiled in
-    // release mode (or optomize) will not have this assertion.
+    // release mode (or optimize) will not have this assertion.
   }
 
   /**
@@ -480,7 +526,7 @@ public struct Matrix
   * A == C; // false
   * A != C; // true
   *
-  * assert(A == B && A != C); // Ok!
+  * assert(A == B && A != C); // OK!
   * ---------
   */
   bool opEquals(in Matrix rhs) const
@@ -507,7 +553,7 @@ public struct Matrix
     assert(M is M);  // Duh
     assert(M !is N); // Check that it is a copy, so at different address
     assert(M == M);  // Duh
-    assert(M == N);  // Now do the reall comparison
+    assert(M == N);  // Now do the real comparison
     assert(M != O);  // Check matrix with same dimensions, but different values.
     assert(M != P);  // Check matrix with different dimensions and same values.
     assert(O != P);  // The rest of these are for good measure.
@@ -742,7 +788,7 @@ public struct Matrix
   *                Multiplication and Division by scalars
   *===========================================================================*/
   /**
-  * Overloaded multiplication and divistion operators for operations with a
+  * Overloaded multiplication and division operators for operations with a
   * Matrix and scalar.
   */
   Matrix opBinary(string op)(in double rhs) const
@@ -854,7 +900,7 @@ public struct Matrix
     if( op == "*")
   {
     // Check to make sure the cols of the left side == rows of right side
-    assert(cols == rhs.rows,"Multiplication dimemsions mismatch.");
+    assert(cols == rhs.rows,"Multiplication dimensions mismatch.");
 
     // Make a new matrix
     Matrix temp = Matrix(rows,rhs.cols, 0.0);
@@ -1093,7 +1139,7 @@ public struct Matrix
 *                            Transpose View
 *============================================================================*/
 /**
-* Provides a view of the matrix with transposed indicies for efficient access
+* Provides a view of the matrix with transposed indexes for efficient access
 * to transposed matrices without copying them. Since this stores a pointer to
 * a struct, it should not be released to a scope beyond the struct. It is only
 * intended to be used to read the values of a Matrix from a transposed
@@ -1115,7 +1161,7 @@ package struct TransposeView
   *                        Index Operators and Limits
   *==========================================================================*/
   /**
-  * Get a value from the Matrix with transposed indicies, overload opIndex
+  * Get a value from the Matrix with transposed indexes, overload opIndex
   *
   * Example uses - double val = m[1,2];
   *
@@ -1313,7 +1359,7 @@ package struct TransposeView
   *                Multiplication and Division by scalars
   *===========================================================================*/
   /**
-  * Overloaded multiplication and divistion operators for operations with a
+  * Overloaded multiplication and division operators for operations with a
   * Matrix and scalar.
   */
   Matrix opBinary(string op)(in double rhs) const
@@ -1354,7 +1400,7 @@ package struct TransposeView
   }
 
   /**
-  * Overloaded multiplication and divistion operators for operations with a
+  * Overloaded multiplication and division operators for operations with a
   * Matrix and scalar. Only allow multiplication from the left, it is
   * undefined what scalar / Matrix is.
   */
@@ -1398,7 +1444,7 @@ package struct TransposeView
     if( op == "*")
   {
     // Check to make sure the 'rows' of the left side == rows of right side
-    assert(src.rows == rhs.rows,"Multiplication dimemsions mismatch.");
+    assert(src.rows == rhs.rows,"Multiplication dimensions mismatch.");
 
     // Make a new matrix
     Matrix temp = Matrix(src.cols,rhs.cols);
@@ -1441,7 +1487,7 @@ package struct TransposeView
     if( op == "*")
   {
     // Check to make sure the 'rows' of the left side == rows of right side
-    assert(src.cols == lhs.cols,"Multiplication dimemsions mismatch.");
+    assert(src.cols == lhs.cols,"Multiplication dimensions mismatch.");
 
     // Make a new matrix
     Matrix temp = Matrix(lhs.rows,src.rows);
@@ -1729,7 +1775,7 @@ struct SVDDecomp
   private IAllocator localAlloc_;
 
   private Matrix u;
-  private size_t m;  // Rows of original Matirx
+  private size_t m;  // Rows of original Matrix
   private size_t n;  // Columns of original Matrix
   private double[] w;
   private Matrix v;
@@ -2323,7 +2369,7 @@ version(prof)
 
     /*
     * Time Some composite operations, to see effect of Transpose, compare with
-    * results of block below to see influence of TransposeView stuct.
+    * results of block below to see influence of TransposeView struct.
     */
     mixin(makeProfileBlock(
       "CompositionT1",
