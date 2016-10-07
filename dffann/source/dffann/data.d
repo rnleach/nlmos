@@ -981,22 +981,49 @@ Normalization calcNormalization(const Data dt, const bool[] binaryFilter)
   }
 
   /*==========================================================================
-    Nested function to calculate a batch of stats.
+    Nested function to calculate a batch of stats using Kahan algorithm.
   ==========================================================================*/
   BatchResults sumChunk(DR)(DR chunk)
   {
+    /*
+    This could be much more efficient probably, but we shouldn't do this often.
+    */
     double[] sm = new double[](numVals);
+    double[] smc = new double[](numVals);
     double[] smSq = new double[](numVals);
+    double[] smSqc = new double[](numVals);
     sm[] = 0.0;
+    smc[] = 0.0;
     smSq[] = 0.0;
+    smSqc[] = 0.0;
+
+    double[] yIn = new double[](nInputs);
+    double[] tIn = new double[](nInputs);
+    double[] yT = new double[](nTargets);
+    double[] tT = new double[](nTargets);
 
     // Calculate the sum and sumsq
     foreach(d; chunk)
     {
-      sm[0 .. nInputs] += d.inputs[];
-      sm[nInputs .. numVals] += d.targets[];
-      smSq[0 .. nInputs] += d.inputs[] * d.inputs[];
-      smSq[nInputs .. numVals] += d.targets[] * d.targets[];
+      yIn[] = d.inputs[] - smc[0 .. nInputs];
+      tIn[] = sm[0 .. nInputs] + yIn[];
+      smc[0 .. nInputs] = (tIn[] - sm[0 .. nInputs]) - yIn[];
+      sm[0 .. nInputs] = tIn[];
+
+      yT[] = d.targets[] - smc[nInputs .. numVals];
+      tT[] = sm[nInputs .. numVals] + yT[];
+      smc[nInputs .. numVals] = (tT[] - sm[nInputs .. numVals]) - yT[];
+      sm[nInputs .. numVals] = tT[];
+
+      yIn[] = d.inputs[] * d.inputs[] - smSqc[0 .. nInputs];
+      tIn[] = smSq[0 .. nInputs] + yIn[];
+      smSqc[0 .. nInputs] = (tIn[] - smSq[0 .. nInputs]) - yIn[];
+      smSq[0 .. nInputs] = tIn[];
+
+      yT[] = d.targets[] * d.targets[] - smSqc[nInputs .. numVals];
+      tT[] = smSq[nInputs .. numVals] + yT[];
+      smSqc[nInputs .. numVals] = (tT[] - smSq[nInputs .. numVals]) - yT[];
+      smSq[nInputs .. numVals] = tT[];
     }
 
     return BatchResults(sm, smSq);
@@ -1031,11 +1058,26 @@ Normalization calcNormalization(const Data dt, const bool[] binaryFilter)
   scale[] = 1.0;
   sum[] = 0.0;
   sumsq[] = 0.0;
+  
+  // For Kahan summation
+  double[] sumc = new double[](numVals);
+  double[] sumsqc = new double[](numVals);
+  double[] y = new double[](numVals);
+  double[] t = new double[](numVals);
+  sumc[] = 0.0;
+  sumsqc[] = 0.0;
 
   foreach(res; reses)
   {
-    sum[] += res.batchSum[];
-    sumsq[] += res.batchSumSquares[];
+    y[] = res.batchSum[] - sumc[];
+    t[] = sum[] + y[];
+    sumc[] = (t[] - sum[]) - y[];
+    sum[] = t[];
+
+    y[] = res.batchSumSquares[] - sumsqc[];
+    t[] = sumsq[] + y[];
+    sumsqc[] = (t[] - sumsq[]) - y[];
+    sumsq[] = t[];
   }
   
   // Calculate the mean (shift) and standard deviation (scale)
