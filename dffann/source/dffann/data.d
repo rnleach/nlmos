@@ -400,7 +400,7 @@ public Data loadDataFromCSVFile(in uint nInputs, in uint nTgts, in string fname)
 
   // Read the file line by line
   auto app = appender!(double[])();
-  auto sepRegEx = ctRegex!r",";
+  auto sepRegEx = ctRegex!",";
   foreach(char[] line; f.byLine)
   {
     // Split the line on commas
